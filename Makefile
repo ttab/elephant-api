@@ -1,4 +1,5 @@
-generated_files = repository/service.pb.go \
+proto_file := repository/service.proto
+generated_files := repository/service.pb.go \
 	repository/service.twirp.go \
 	docs/repository-openapi.json
 
@@ -15,7 +16,7 @@ $(generated_files): $(proto_file) Dockerfile Makefile docs
 		docformat-generator:latest \
 		protoc --go_out=. --twirp_out=. \
 		--openapi3_out=./docs --openapi3_opt=application=repository,version=v0.0.0 \
-		repository/service.proto
+		$(proto_file)
 	jq '. | del(.servers)' docs/repository-openapi.json \
 		| sponge docs/repository-openapi.json
 
