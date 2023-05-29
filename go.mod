@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/navigacontentlab/twopdocs v0.2.1
+	github.com/ttab/newsdoc v0.2.0
 	github.com/twitchtv/twirp v8.1.3+incompatible
 	google.golang.org/protobuf v1.30.0
 )
