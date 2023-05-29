@@ -2,7 +2,9 @@ proto_file := repository/service.proto
 generated_files := repository/service.pb.go \
 	repository/service.twirp.go \
 	docs/repository-openapi.json
+newsdoc_dir := $(shell go list -m -f '{{.Dir}}' github.com/ttab/newsdoc)
 
+pwd := $(shell pwd)
 UID := $(shell id -u)
 GID := $(shell id -g)
 
@@ -22,3 +24,11 @@ $(generated_files): $(proto_file) Dockerfile Makefile docs
 
 docs:
 	mkdir docs
+
+bin/newsdoc: go.mod
+	GOBIN=$(pwd)/bin go install github.com/ttab/newsdoc/cmd/newsdoc
+
+repository/conversion.go: bin/newsdoc $(newsdoc_dir)/doc.go
+	./bin/newsdoc rpc-conversion \
+		--source $(newsdoc_dir)/doc.go --package repository \
+		> repository/conversion.go
