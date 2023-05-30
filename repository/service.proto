@@ -23,6 +23,8 @@ service Documents {
   rpc Eventlog(GetEventlogRequest) returns (GetEventlogResponse);
   // GetStatusHistory returns the history of a status for a document.
   rpc GetStatusHistory(GetStatusHistoryRequest) returns (GetStatusHistoryReponse);
+  // GetPermissions returns the permissions you have for the document.
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
 }
 
 service Schemas {
@@ -85,6 +87,16 @@ message GetStatusHistoryRequest {
 
 message GetStatusHistoryReponse {
   repeated Status statuses = 1;
+}
+
+message GetPermissionsRequest {
+  // UUID of the document to get the permissions for.
+  string uuid = 1;
+}
+
+message GetPermissionsResponse {
+  // Permissions that the client has for the document.
+  map<string, bool> permissions = 1;
 }
 
 message GetEventlogRequest {

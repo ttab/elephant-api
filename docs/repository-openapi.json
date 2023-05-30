@@ -469,6 +469,27 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetPermissionsRequest": {
+        "properties": {
+          "uuid": {
+            "description": "UUID of the document to get the permissions for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetPermissionsResponse": {
+        "properties": {
+          "permissions": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Permissions that the client has for the document.",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetReportRequest": {
         "properties": {
           "name": {
@@ -1224,6 +1245,44 @@
           }
         ],
         "summary": "GetMeta",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetPermissions": {
+      "post": {
+        "description": "GetPermissions returns the permissions you have for the document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetPermissionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetPermissionsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetPermissions",
         "tags": [
           "Documents"
         ]
