@@ -484,7 +484,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Permissions that the client has for the document. The map is keyed by the permission the client has and the value is either the client subject, the unit URI if the permission was granted through a unit membership, or \"scope://superuser\" if it was granted through superuser privileges.",
+            "description": "Permissions that the client has for the document. The map is keyed by the permission the client has and the value is either the client subject, the unit URI if the permission was granted through a unit membership, or \"scope://[name]\" if it was granted through elevated privileges.",
             "type": "object"
           }
         },

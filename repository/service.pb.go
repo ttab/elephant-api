@@ -239,7 +239,7 @@ type GetPermissionsResponse struct {
 	// Permissions that the client has for the document. The map is keyed by the
 	// permission the client has and the value is either the client subject, the
 	// unit URI if the permission was granted through a unit membership, or
-	// "scope://superuser" if it was granted through superuser privileges.
+	// "scope://[name]" if it was granted through elevated privileges.
 	Permissions map[string]string `protobuf:"bytes,1,rep,name=permissions,proto3" json:"permissions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
