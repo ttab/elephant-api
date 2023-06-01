@@ -27,6 +27,12 @@ service Documents {
   rpc GetStatusHistory(GetStatusHistoryRequest) returns (GetStatusHistoryReponse);
   // GetPermissions returns the permissions you have for the document.
   rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
+  // Lock attempts to acquire a write lock on a document.
+  rpc Lock(LockRequest) returns (LockResponse);
+  // ExtendLock extends the expiration of an existing lock.
+  rpc ExtendLock(ExtendLockRequest) returns (LockResponse);
+  // Unlock releases a write lock on a document.
+  rpc Unlock(UnlockRequest) returns (UnlockResponse);
 }
 
 service Schemas {
@@ -297,6 +303,8 @@ message UpdateRequest {
   // to be the current one for the update to be performed, or -1 to only perform
   // the update if the document doesn't already exist.
   int64 if_match = 4;
+  // LockToken is used for explicit pessimistic locking.
+  string lockToken = 8;
   // Status updates to perform.
   repeated StatusUpdate status  = 5;
   // ACL is an ACL list controlling access to the document.
@@ -380,6 +388,8 @@ message DeleteDocumentRequest {
   // IfMatch is used for optimistic locks. Set to the version that you require
   // to be the current one for the delete to be performed.
   int64 if_match = 3;
+  // LockToken is used for explicit pessimistic locking.
+  string lockToken = 8;
 }
 
 message DeleteDocumentResponse {}
@@ -406,6 +416,8 @@ message DocumentMeta {
   map<string, Status> heads = 4;
   // ACL is an ACL list controlling access to the document.
   repeated ACLEntry acl = 5;
+  // Document lock, if any
+  Lock lock = 6;
 }
 
 message Status {
@@ -426,6 +438,21 @@ message ACLEntry {
   string uri = 1;
   // Permissions given to the grantee.
   repeated string permissions = 2;
+}
+
+message Lock {
+  // Lock token string
+  string token = 1;
+  // URI of the lock owner
+  string uri = 2;
+  // Created timestamp is the RFC3339 timestamp for when the lock was created.
+  string created = 3;
+  // Expires timestamp is the RFC3339 timestamp for when the lock will expire.
+  string expires = 4;
+  // URI identifying the locking application.
+  string app = 5;
+  // Optional free-form comment.
+  string comment = 6;
 }
 
 message RegisterSchemaRequest {
@@ -514,3 +541,39 @@ message RegisterMetricRequest {
 }
 
 message RegisterMetricResponse {}
+
+message LockRequest {
+  // UUID of the document to lock
+  string uuid = 1;
+  // Lock TTL in milliseconds
+  int32 ttl = 2;
+  // Name of the locking application. Optional.
+  string app = 3;
+  // Free-form comment string. Optional.
+  string comment = 4;
+}
+
+message LockResponse {
+  // Generated lock token in UUID format.
+  string token = 1;
+  // Expires is the RFC3339 timestamp when the lock will expire.
+  string expires = 2;
+}
+
+message ExtendLockRequest {
+  // UUID of the document to extend the lock for.
+  string uuid = 1;
+  // Lock TTL in milliseconds.
+  int32 ttl = 2;
+  // Lock token in UUID format.
+  string token = 3;
+}
+
+message UnlockRequest {
+  // UUID of the document to unlock
+  string uuid = 1;
+  // Lock token in UUID format.
+  string token = 2;
+}
+
+message UnlockResponse {}

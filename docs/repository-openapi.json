@@ -35,6 +35,10 @@
             "description": "IfMatch is used for optimistic locks. Set to the version that you require to be the current one for the delete to be performed.",
             "type": "integer"
           },
+          "lockToken": {
+            "description": "LockToken is used for explicit pessimistic locking.",
+            "type": "string"
+          },
           "meta": {
             "additionalProperties": {
               "type": "string"
@@ -97,6 +101,9 @@
             },
             "description": "Heads are the last statuses.",
             "type": "object"
+          },
+          "lock": {
+            "$ref": "#/components/schemas/elephant.repository.Lock"
           },
           "modified": {
             "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
@@ -192,6 +199,23 @@
           },
           "version": {
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ExtendLockRequest": {
+        "properties": {
+          "token": {
+            "description": "Lock token in UUID format.",
+            "type": "string"
+          },
+          "ttl": {
+            "description": "Lock TTL in milliseconds.",
+            "type": "integer"
+          },
+          "uuid": {
+            "description": "UUID of the document to extend the lock for.",
+            "type": "string"
           }
         },
         "type": "object"
@@ -470,6 +494,69 @@
             "type": "string"
           },
           "originally_created": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.Lock": {
+        "properties": {
+          "app": {
+            "description": "URI identifying the locking application.",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Optional free-form comment.",
+            "type": "string"
+          },
+          "created": {
+            "description": "Created timestamp is the RFC3339 timestamp for when the lock was created.",
+            "type": "string"
+          },
+          "expires": {
+            "description": "Expires timestamp is the RFC3339 timestamp for when the lock will expire.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Lock token string",
+            "type": "string"
+          },
+          "uri": {
+            "description": "URI of the lock owner",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.LockRequest": {
+        "properties": {
+          "app": {
+            "description": "Name of the locking application. Optional.",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Free-form comment string. Optional.",
+            "type": "string"
+          },
+          "ttl": {
+            "description": "Lock TTL in milliseconds",
+            "type": "integer"
+          },
+          "uuid": {
+            "description": "UUID of the document to lock",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.LockResponse": {
+        "properties": {
+          "expires": {
+            "description": "Expires is the RFC3339 timestamp when the lock will expire.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Generated lock token in UUID format.",
             "type": "string"
           }
         },
@@ -772,6 +859,22 @@
         },
         "type": "object"
       },
+      "elephant.repository.UnlockRequest": {
+        "properties": {
+          "token": {
+            "description": "Lock token in UUID format.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the document to unlock",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.UnlockResponse": {
+        "type": "object"
+      },
       "elephant.repository.UpdatePermissionsRequest": {
         "properties": {
           "list": {
@@ -829,6 +932,10 @@
           },
           "import_directive": {
             "$ref": "#/components/schemas/elephant.repository.ImportDirective"
+          },
+          "lockToken": {
+            "description": "LockToken is used for explicit pessimistic locking.",
+            "type": "string"
           },
           "meta": {
             "additionalProperties": {
@@ -1136,6 +1243,44 @@
         ]
       }
     },
+    "/twirp/elephant.repository.Documents/ExtendLock": {
+      "post": {
+        "description": "ExtendLock extends the expiration of an existing lock.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.ExtendLockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.LockResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ExtendLock",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Documents/Get": {
       "post": {
         "description": "Get retrieves a document version.",
@@ -1321,6 +1466,82 @@
           }
         ],
         "summary": "GetStatusHistory",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/Lock": {
+      "post": {
+        "description": "Lock attempts to acquire a write lock on a document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.LockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.LockResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lock",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/Unlock": {
+      "post": {
+        "description": "Unlock releases a write lock on a document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.UnlockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.UnlockResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unlock",
         "tags": [
           "Documents"
         ]
