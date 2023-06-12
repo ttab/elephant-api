@@ -48,8 +48,8 @@ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
-github.com/ttab/newsdoc v0.3.0 h1:8lWbIlxaVoMirtjgTt7pi+91QhOfF+LmP2CmY9OxVUo=
-github.com/ttab/newsdoc v0.3.0/go.mod h1:VQu5cqcIHLryGiN/0ogMVTJy8l76wz6iylPz9F+I7bM=
+github.com/ttab/newsdoc v0.3.3 h1:GrsKog3SnbNvLBLZ2BZgCAlOReHmsUWgJTV/T5Anx8I=
+github.com/ttab/newsdoc v0.3.3/go.mod h1:0Go0GXVJfYSahE2ZUVW13oXNH8ywS4GLkGsw6Os+nvI=
 github.com/twitchtv/twirp v8.1.3+incompatible h1:+F4TdErPgSUbMZMwp13Q/KgDVuI7HJXP61mNV3/7iuU=
 github.com/twitchtv/twirp v8.1.3+incompatible/go.mod h1:RRJoFSAmTEh2weEqWtpPE3vFK5YBhA6bqp2l1kfCC5A=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
