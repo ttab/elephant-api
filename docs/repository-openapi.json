@@ -18,84 +18,6 @@
         },
         "type": "object"
       },
-      "elephant.repository.Block": {
-        "description": "Block is the building block for data embedded in documents. It is used for both content, links and metadata. Blocks have can be nested, but that's nothing to strive for, keep it simple.",
-        "properties": {
-          "content": {
-            "description": "Content is used to embed content blocks.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Block"
-            },
-            "type": "array"
-          },
-          "contenttype": {
-            "description": "ContentType is used to describe the content type of the block/linked entity if it differs from the type of the block.",
-            "type": "string"
-          },
-          "data": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "Data contains block data.",
-            "type": "object"
-          },
-          "id": {
-            "description": "ID is the block ID,",
-            "type": "string"
-          },
-          "links": {
-            "description": "Links are used to link to other resources and documents.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Block"
-            },
-            "type": "array"
-          },
-          "meta": {
-            "description": "Meta is used to embed metadata",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Block"
-            },
-            "type": "array"
-          },
-          "name": {
-            "description": "Name is a name for the block. An alternative to \"rel\" when relationship is a term that doesn't fit.",
-            "type": "string"
-          },
-          "rel": {
-            "description": "Rel describes the relationship to the document/parent entity.",
-            "type": "string"
-          },
-          "role": {
-            "description": "Role is used either as an alternative to rel, or for nuancing the relationship.",
-            "type": "string"
-          },
-          "title": {
-            "description": "Title is the title/headline of the block, typically used in the presentation of the block.",
-            "type": "string"
-          },
-          "type": {
-            "description": "Type is the type of the block",
-            "type": "string"
-          },
-          "uri": {
-            "description": "URI is used to reference another entity in a document.",
-            "type": "string"
-          },
-          "url": {
-            "description": "URL is a browseable URL for the the block.",
-            "type": "string"
-          },
-          "uuid": {
-            "description": "UUID is used to reference another Document in a block.",
-            "type": "string"
-          },
-          "value": {
-            "description": "Value is a value for the block. Useful when we want to store a primitive value.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
       "elephant.repository.CreateStatusRuleRequest": {
         "properties": {
           "rule": {
@@ -112,6 +34,10 @@
           "if_match": {
             "description": "IfMatch is used for optimistic locks. Set to the version that you require to be the current one for the delete to be performed.",
             "type": "integer"
+          },
+          "lockToken": {
+            "description": "LockToken is used for explicit pessimistic locking.",
+            "type": "string"
           },
           "meta": {
             "additionalProperties": {
@@ -152,57 +78,6 @@
       "elephant.repository.DeleteStatusRuleResponse": {
         "type": "object"
       },
-      "elephant.repository.Document": {
-        "description": "Document is a NewsDoc document.",
-        "properties": {
-          "content": {
-            "description": "Content is the content of the document, this is essentially what gets rendered on the page when you view a document.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Block"
-            },
-            "type": "array"
-          },
-          "language": {
-            "description": "Language is the language used in the document as an IETF language tag. F.ex. \"en\", \"en-UK\", \"es\", or \"sv-SE\".",
-            "type": "string"
-          },
-          "links": {
-            "description": "Links are links to other resources and entities. This could be links to topics, categories and subjects for the document, or credited authors.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Block"
-            },
-            "type": "array"
-          },
-          "meta": {
-            "description": "Meta is the metadata for a document, this could be things like teasers, open graph data, newsvalues.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Block"
-            },
-            "type": "array"
-          },
-          "title": {
-            "description": "Title is the title of the document, can be used as the document name, or the headline when the document is displayed.",
-            "type": "string"
-          },
-          "type": {
-            "description": "Type is the content type of the document.",
-            "type": "string"
-          },
-          "uri": {
-            "description": "URI identifies the document (in a more human-readable way than the UUID).",
-            "type": "string"
-          },
-          "url": {
-            "description": "URL is the browseable location of the document (if any).",
-            "type": "string"
-          },
-          "uuid": {
-            "description": "UUID is a unique ID for the document, this can for example be a random v4 UUID, or a URI-derived v5 UUID.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
       "elephant.repository.DocumentMeta": {
         "properties": {
           "acl": {
@@ -226,6 +101,9 @@
             },
             "description": "Heads are the last statuses.",
             "type": "object"
+          },
+          "lock": {
+            "$ref": "#/components/schemas/elephant.repository.Lock"
           },
           "modified": {
             "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
@@ -325,6 +203,23 @@
         },
         "type": "object"
       },
+      "elephant.repository.ExtendLockRequest": {
+        "properties": {
+          "token": {
+            "description": "Lock token in UUID format.",
+            "type": "string"
+          },
+          "ttl": {
+            "description": "Lock TTL in milliseconds.",
+            "type": "integer"
+          },
+          "uuid": {
+            "description": "UUID of the document to extend the lock for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetAllActiveSchemasRequest": {
         "properties": {
           "known": {
@@ -374,7 +269,7 @@
       "elephant.repository.GetDocumentResponse": {
         "properties": {
           "document": {
-            "$ref": "#/components/schemas/elephant.repository.Document"
+            "$ref": "#/components/schemas/newsdoc.Document"
           },
           "version": {
             "type": "integer"
@@ -599,6 +494,69 @@
             "type": "string"
           },
           "originally_created": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.Lock": {
+        "properties": {
+          "app": {
+            "description": "URI identifying the locking application.",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Optional free-form comment.",
+            "type": "string"
+          },
+          "created": {
+            "description": "Created timestamp is the RFC3339 timestamp for when the lock was created.",
+            "type": "string"
+          },
+          "expires": {
+            "description": "Expires timestamp is the RFC3339 timestamp for when the lock will expire.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Lock token string",
+            "type": "string"
+          },
+          "uri": {
+            "description": "URI of the lock owner",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.LockRequest": {
+        "properties": {
+          "app": {
+            "description": "Name of the locking application. Optional.",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Free-form comment string. Optional.",
+            "type": "string"
+          },
+          "ttl": {
+            "description": "Lock TTL in milliseconds",
+            "type": "integer"
+          },
+          "uuid": {
+            "description": "UUID of the document to lock",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.LockResponse": {
+        "properties": {
+          "expires": {
+            "description": "Expires is the RFC3339 timestamp when the lock will expire.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Generated lock token in UUID format.",
             "type": "string"
           }
         },
@@ -901,6 +859,22 @@
         },
         "type": "object"
       },
+      "elephant.repository.UnlockRequest": {
+        "properties": {
+          "token": {
+            "description": "Lock token in UUID format.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the document to unlock",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.UnlockResponse": {
+        "type": "object"
+      },
       "elephant.repository.UpdatePermissionsRequest": {
         "properties": {
           "list": {
@@ -950,7 +924,7 @@
             "type": "array"
           },
           "document": {
-            "$ref": "#/components/schemas/elephant.repository.Document"
+            "$ref": "#/components/schemas/newsdoc.Document"
           },
           "if_match": {
             "description": "IfMatch is used for optimistic locks. Set to the version that you require to be the current one for the update to be performed, or -1 to only perform the update if the document doesn't already exist.",
@@ -958,6 +932,10 @@
           },
           "import_directive": {
             "$ref": "#/components/schemas/elephant.repository.ImportDirective"
+          },
+          "lockToken": {
+            "description": "LockToken is used for explicit pessimistic locking.",
+            "type": "string"
           },
           "meta": {
             "additionalProperties": {
@@ -1008,7 +986,7 @@
       "elephant.repository.ValidateRequest": {
         "properties": {
           "document": {
-            "$ref": "#/components/schemas/elephant.repository.Document"
+            "$ref": "#/components/schemas/newsdoc.Document"
           }
         },
         "type": "object"
@@ -1041,6 +1019,135 @@
       "elephant.repository.WorkflowStatus": {
         "properties": {
           "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "newsdoc.Block": {
+        "description": "Block is the building block for data embedded in documents. It is used for both content, links and metadata. Blocks have can be nested, but that's nothing to strive for, keep it simple.",
+        "properties": {
+          "content": {
+            "description": "Content is used to embed content blocks.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "contenttype": {
+            "description": "ContentType is used to describe the content type of the block/linked entity if it differs from the type of the block.",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Data contains block data.",
+            "type": "object"
+          },
+          "id": {
+            "description": "ID is the block ID,",
+            "type": "string"
+          },
+          "links": {
+            "description": "Links are used to link to other resources and documents.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "description": "Meta is used to embed metadata",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "Name is a name for the block. An alternative to \"rel\" when relationship is a term that doesn't fit.",
+            "type": "string"
+          },
+          "rel": {
+            "description": "Rel describes the relationship to the document/parent entity.",
+            "type": "string"
+          },
+          "role": {
+            "description": "Role is used either as an alternative to rel, or for nuancing the relationship.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Title is the title/headline of the block, typically used in the presentation of the block.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Type is the type of the block",
+            "type": "string"
+          },
+          "uri": {
+            "description": "URI is used to reference another entity in a document.",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL is a browseable URL for the the block.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID is used to reference another Document in a block.",
+            "type": "string"
+          },
+          "value": {
+            "description": "Value is a value for the block. Useful when we want to store a primitive value.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "newsdoc.Document": {
+        "description": "Document is a NewsDoc document.",
+        "properties": {
+          "content": {
+            "description": "Content is the content of the document, this is essentially what gets rendered on the page when you view a document.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "language": {
+            "description": "Language is the language used in the document as an IETF language tag. F.ex. \"en\", \"en-UK\", \"es\", or \"sv-SE\".",
+            "type": "string"
+          },
+          "links": {
+            "description": "Links are links to other resources and entities. This could be links to topics, categories and subjects for the document, or credited authors.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "description": "Meta is the metadata for a document, this could be things like teasers, open graph data, newsvalues.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "title": {
+            "description": "Title is the title of the document, can be used as the document name, or the headline when the document is displayed.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Type is the content type of the document.",
+            "type": "string"
+          },
+          "uri": {
+            "description": "URI identifies the document (in a more human-readable way than the UUID).",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL is the browseable location of the document (if any).",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID is a unique ID for the document, this can for example be a random v4 UUID, or a URI-derived v5 UUID.",
             "type": "string"
           }
         },
@@ -1131,6 +1238,44 @@
           }
         ],
         "summary": "Eventlog",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/ExtendLock": {
+      "post": {
+        "description": "ExtendLock extends the expiration of an existing lock.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.ExtendLockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.LockResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ExtendLock",
         "tags": [
           "Documents"
         ]
@@ -1321,6 +1466,82 @@
           }
         ],
         "summary": "GetStatusHistory",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/Lock": {
+      "post": {
+        "description": "Lock attempts to acquire a write lock on a document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.LockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.LockResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lock",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/Unlock": {
+      "post": {
+        "description": "Unlock releases a write lock on a document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.UnlockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.UnlockResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unlock",
         "tags": [
           "Documents"
         ]
