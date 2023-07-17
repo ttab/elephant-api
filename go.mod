@@ -4,9 +4,9 @@ go 1.20
 
 require (
 	github.com/navigacontentlab/twopdocs v0.2.1
-	github.com/ttab/newsdoc v0.4.1
+	github.com/ttab/newsdoc v0.4.2
 	github.com/twitchtv/twirp v8.1.3+incompatible
-	google.golang.org/protobuf v1.30.0
+	google.golang.org/protobuf v1.31.0
 )
 
 require (
@@ -26,7 +26,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.0 // indirect
 	github.com/stretchr/testify v1.8.1 // indirect
-	github.com/urfave/cli/v2 v2.25.6 // indirect
+	github.com/urfave/cli/v2 v2.25.7 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
