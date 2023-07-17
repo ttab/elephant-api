@@ -1,17 +1,17 @@
 proto_file := repository/service.proto
-generated_files := newsdoc/newsdoc.proto \
-	newsdoc/conversion.go \
-	repository/service.pb.go \
+generated_files := repository/service.pb.go \
 	repository/service.twirp.go \
 	docs/repository-openapi.json
 
 module := $(shell go list -m)
 newsdoc_dir := $(shell go list -m -f '{{.Dir}}' github.com/ttab/newsdoc)
 
-
 pwd := $(shell pwd)
 UID := $(shell id -u)
 GID := $(shell id -g)
+
+.PHONY: build
+build: proto newsdoc/conversion.go
 
 .PHONY: proto
 proto: $(generated_files)
