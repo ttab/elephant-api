@@ -6,9 +6,10 @@ generated_files := repository/service.pb.go \
 module := $(shell go list -m)
 newsdoc_dir := $(shell go list -m -f '{{.Dir}}' github.com/ttab/newsdoc)
 
-pwd := $(shell pwd)
-UID := $(shell id -u)
-GID := $(shell id -g)
+TOOL := docker run --rm \
+	-v "$(shell pwd):/usr/src" \
+	-u $(shell id -u):$(shell id -g) \
+	ghcr.io/ttab/elephant-twirptools:v8.1.3-0
 
 .PHONY: build
 build: proto newsdoc/conversion.go
@@ -16,21 +17,20 @@ build: proto newsdoc/conversion.go
 .PHONY: proto
 proto: $(generated_files)
 
-$(generated_files): $(proto_file) newsdoc/newsdoc.proto Dockerfile Makefile docs
-	docker build . -f Dockerfile -t docformat-generator:latest \
-		--build-arg protoc_version=3.21.9-r0
-	docker run --rm -v "${PWD}:/usr/src" -u $(UID):$(GID) \
-		docformat-generator:latest \
-		protoc --go_out=. \
+$(generated_files): $(proto_file) newsdoc/newsdoc.proto Makefile docs
+	$(TOOL) protoc --go_out=. \
 		--go_opt=module=$(module) \
 		newsdoc/newsdoc.proto
-	docker run --rm -v "${PWD}:/usr/src" -u $(UID):$(GID) \
-		docformat-generator:latest \
-		protoc --go_out=. --twirp_out=. \
+	$(TOOL) protoc --go_out=. --twirp_out=. \
 		--openapi3_out=./docs --openapi3_opt=application=repository,version=v0.0.0 \
 		$(proto_file)
-	jq '. | del(.servers)' docs/repository-openapi.json \
-		| sponge docs/repository-openapi.json
+
+	$(eval TMP := $(shell mktemp -d))
+
+	$(TOOL) jq '. | del(.servers)' docs/repository-openapi.json > $(TMP)/repo.json
+	cp $(TMP)/repo.json docs/repository-openapi.json
+
+	rm -rf $(TMP)
 
 docs:
 	mkdir docs
