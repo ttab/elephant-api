@@ -18,6 +18,28 @@
         },
         "type": "object"
       },
+      "elephant.repository.BulkUpdateRequest": {
+        "properties": {
+          "updates": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.UpdateRequest"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.BulkUpdateResponse": {
+        "properties": {
+          "version": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.CreateStatusRuleRequest": {
         "properties": {
           "rule": {
@@ -1167,6 +1189,44 @@
     "version": "v0.0.0"
   },
   "paths": {
+    "/twirp/elephant.repository.Documents/BulkUpdate": {
+      "post": {
+        "description": "BulkUpdate is used to create new document versions, set statuses, update ACLs.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.BulkUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.BulkUpdateResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "BulkUpdate",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Documents/Delete": {
       "post": {
         "description": "Delete deletes a document and all its associated data.",
