@@ -23,6 +23,9 @@ service Documents {
   rpc GetMeta(GetMetaRequest) returns (GetMetaResponse);
   // Eventlog returns document update events, optionally waiting for new events.
   rpc Eventlog(GetEventlogRequest) returns (GetEventlogResponse);
+  // CompactedEventlog returns document update events. If more than one event
+  // has occured for a document in the given window only the latest will be returned.
+  rpc CompactedEventlog(GetCompactedEventlogRequest) returns (GetCompactedEventlogResponse);
   // GetStatusHistory returns the history of a status for a document.
   rpc GetStatusHistory(GetStatusHistoryRequest) returns (GetStatusHistoryReponse);
   // GetPermissions returns the permissions you have for the document.
@@ -123,6 +126,32 @@ message GetEventlogRequest {
 }
 
 message GetEventlogResponse {
+  repeated EventlogItem items = 1;
+}
+
+message GetCompactedEventlogRequest {
+  // After specifies the event ID after which to start returning events.
+  int64 after = 1;
+  // Until allows us to control the number of events we want to evaluate when
+  // compacting. Must be between 1 and 10000 more than `after`, and cannot be
+  // greater than the current last event. Defaults to `after`+1000.
+  int64 until = 3;
+  // Limit restricts the number of events we want returned for each
+  // call. Together with `offset` this allows us to page through the unique
+  // document events between `after` and `until`. Defaults to 0, meaning no
+  // limit.
+  int32 limit = 4;
+  // Offset allows us to skip N number of events relative to `after`. So while
+  // `after` and until allows us to paginate through the log as a whole,
+  // `offset` and `limit` allows us to page through the unique document events
+  // between `after` and `until`. Defaults to 0, meaning no offset.
+  int32 offset = 5;
+  // Type is used to only return events for documents of the given
+  // type. Defaults to empty, which will return events for all document types.
+  string type = 6;
+}
+
+message GetCompactedEventlogResponse {
   repeated EventlogItem items = 1;
 }
 

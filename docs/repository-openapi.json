@@ -245,6 +245,42 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetCompactedEventlogRequest": {
+        "properties": {
+          "after": {
+            "description": "After specifies the event ID after which to start returning events.",
+            "type": "integer"
+          },
+          "limit": {
+            "description": "Limit restricts the number of events we want returned for each call. Together with `offset` this allows us to page through the unique document events between `after` and `until`. Defaults to 0, meaning no limit.",
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Offset allows us to skip N number of events relative to `after`. So while `after` and until allows us to paginate through the log as a whole, `offset` and `limit` allows us to page through the unique document events between `after` and `until`. Defaults to 0, meaning no offset.",
+            "type": "integer"
+          },
+          "type": {
+            "description": "Type is used to only return events for documents of the given type. Defaults to empty, which will return events for all document types.",
+            "type": "string"
+          },
+          "until": {
+            "description": "Until allows us to control the number of events we want to evaluate when compacting. Must be between 1 and 10000 more than `after`, and cannot be greater than the current last event. Defaults to `after`+1000.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetCompactedEventlogResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetDocumentRequest": {
         "properties": {
           "lock": {
@@ -1167,6 +1203,44 @@
     "version": "v0.0.0"
   },
   "paths": {
+    "/twirp/elephant.repository.Documents/CompactedEventlog": {
+      "post": {
+        "description": "CompactedEventlog returns document update events. If more than one event has occured for a document in the given window only the latest will be returned.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetCompactedEventlogRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetCompactedEventlogResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "CompactedEventlog",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Documents/Delete": {
       "post": {
         "description": "Delete deletes a document and all its associated data.",
