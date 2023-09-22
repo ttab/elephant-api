@@ -134,7 +134,7 @@ message GetCompactedEventlogRequest {
   int64 after = 1;
   // Until allows us to control the number of events we want to evaluate when
   // compacting. Must be between 1 and 10000 more than `after`, and cannot be
-  // greater than the current last event. Defaults to `after`+1000.
+  // greater than the current last event.
   int64 until = 3;
   // Limit restricts the number of events we want returned for each
   // call. Together with `offset` this allows us to page through the unique
