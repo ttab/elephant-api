@@ -280,7 +280,7 @@
       "elephant.repository.GetEventlogRequest": {
         "properties": {
           "after": {
-            "description": "After specifies the event ID after which to start returning events.",
+            "description": "After specifies the event ID after which to start returning events. A negative value of -N will start from the N most recent events.",
             "type": "integer"
           },
           "batch_size": {

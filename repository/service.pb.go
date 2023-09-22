@@ -288,7 +288,8 @@ type GetEventlogRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// After specifies the event ID after which to start returning events.
+	// After specifies the event ID after which to start returning events. A
+	// negative value of -N will start from the N most recent events.
 	After int64 `protobuf:"varint,1,opt,name=after,proto3" json:"after,omitempty"`
 	// Wait is the maximum time to wait for new events. Defaults to 2000.
 	WaitMs int32 `protobuf:"varint,2,opt,name=wait_ms,json=waitMs,proto3" json:"wait_ms,omitempty"`
