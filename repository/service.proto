@@ -111,7 +111,8 @@ message GetPermissionsResponse {
 }
 
 message GetEventlogRequest {
-  // After specifies the event ID after which to start returning events.
+  // After specifies the event ID after which to start returning events. A
+  // negative value of -N will start from the N most recent events.
   int64 after = 1;
   // Wait is the maximum time to wait for new events. Defaults to 2000.
   int32 wait_ms = 2;
