@@ -486,9 +486,16 @@ message Lock {
 }
 
 message RegisterSchemaRequest {
+  // Schema to register. The spec can be omitted if a schema URL is passed.
   Schema schema = 1;
   // Activate the registered schema immediately.
   bool activate = 2;
+  // SchemaURL is an HTTP(S) url to the schema to load, can be passed instead of
+  // an inline schema spec.
+  string schema_url = 3;
+  // SchemaSHA256 is a SHA256 checksum to validate the response body from the
+  // schema URL against.
+  string schema_sha256 = 4;
 }
 
 message RegisterSchemaResponse {}
