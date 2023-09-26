@@ -264,7 +264,7 @@
             "type": "string"
           },
           "until": {
-            "description": "Until allows us to control the number of events we want to evaluate when compacting. Must be between 1 and 10000 more than `after`, and cannot be greater than the current last event. Defaults to `after`+1000.",
+            "description": "Until allows us to control the number of events we want to evaluate when compacting. Must be between 1 and 10000 more than `after`, and cannot be greater than the current last event.",
             "type": "integer"
           }
         },
@@ -659,6 +659,14 @@
           },
           "schema": {
             "$ref": "#/components/schemas/elephant.repository.Schema"
+          },
+          "schema_sha256": {
+            "description": "SchemaSHA256 is a SHA256 checksum to validate the response body from the schema URL against.",
+            "type": "string"
+          },
+          "schema_url": {
+            "description": "SchemaURL is an HTTP(S) url to the schema to load, can be passed instead of an inline schema spec.",
+            "type": "string"
           }
         },
         "type": "object"
