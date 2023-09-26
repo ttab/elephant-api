@@ -13,6 +13,8 @@ service Documents {
   rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
   // Update is used to create new document versions, set statuses, update ACLs.
   rpc Update(UpdateRequest) returns (UpdateResponse);
+  // BulkUpdate is used to create new document versions, set statuses, update ACLs.
+  rpc BulkUpdate(BulkUpdateRequest) returns (BulkUpdateResponse);
   // Validate is used to validate a document without writing it to the
   // repository.
   rpc Validate(ValidateRequest) returns (ValidateResponse);
@@ -355,6 +357,14 @@ message ImportDirective {
 // UpdateResponse describes the result of an update request.
 message UpdateResponse {
   int64 version = 1;
+}
+
+message BulkUpdateRequest {
+  repeated UpdateRequest updates = 1;
+}
+
+message BulkUpdateResponse {
+  repeated int64 version = 1;
 }
 
 message ValidateRequest {
