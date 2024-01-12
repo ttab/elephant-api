@@ -1,7 +1,12 @@
-proto_file := repository/service.proto
-generated_files := repository/service.pb.go \
+repo_proto_file := repository/service.proto
+repo_generated_files := repository/service.pb.go \
 	repository/service.twirp.go \
 	docs/repository-openapi.json
+
+index_proto_file := index/service.proto
+index_generated_files := index/service.pb.go \
+	index/service.twirp.go \
+	docs/index-openapi.json
 
 module := $(shell go list -m)
 newsdoc_dir := $(shell go list -m -f '{{.Dir}}' github.com/ttab/newsdoc)
@@ -15,15 +20,17 @@ TOOL := docker run --rm \
 build: proto newsdoc/conversion.go
 
 .PHONY: proto
-proto: $(generated_files)
+proto: $(repo_generated_files) $(index_generated_files)
 
-$(generated_files): $(proto_file) newsdoc/newsdoc.proto Makefile docs
+newsdoc/newsdoc.pb.go: newsdoc/newsdoc.proto
 	$(TOOL) protoc --go_out=. \
 		--go_opt=module=$(module) \
 		newsdoc/newsdoc.proto
+
+$(repo_generated_files): $(repo_proto_file) newsdoc/newsdoc.pb.go Makefile docs
 	$(TOOL) protoc --go_out=. --twirp_out=. \
 		--openapi3_out=./docs --openapi3_opt=application=repository,version=v0.0.0 \
-		$(proto_file)
+		$(repo_proto_file)
 
 	$(eval TMP := $(shell mktemp -d))
 
@@ -32,11 +39,23 @@ $(generated_files): $(proto_file) newsdoc/newsdoc.proto Makefile docs
 
 	rm -rf $(TMP)
 
+$(index_generated_files): $(index_proto_file) Makefile docs
+	$(TOOL) protoc --go_out=. --twirp_out=. \
+		--openapi3_out=./docs --openapi3_opt=application=index,version=v0.0.0 \
+		$(index_proto_file)
+
+	$(eval TMP := $(shell mktemp -d))
+
+	$(TOOL) jq '. | del(.servers)' docs/index-openapi.json > $(TMP)/index.json
+	cp $(TMP)/index.json docs/index-openapi.json
+
+	rm -rf $(TMP)
+
 docs:
 	mkdir docs
 
 bin/newsdoc: go.mod
-	GOBIN=$(pwd)/bin go install github.com/ttab/newsdoc/cmd/newsdoc
+	GOBIN=$(shell pwd)/bin go install github.com/ttab/newsdoc/cmd/newsdoc
 
 newsdoc/newsdoc.proto: bin/newsdoc
 	./bin/newsdoc protobuf \
