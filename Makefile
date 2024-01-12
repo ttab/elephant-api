@@ -9,7 +9,7 @@ newsdoc_dir := $(shell go list -m -f '{{.Dir}}' github.com/ttab/newsdoc)
 TOOL := docker run --rm \
 	-v "$(shell pwd):/usr/src" \
 	-u $(shell id -u):$(shell id -g) \
-	ghcr.io/ttab/elephant-twirptools:v8.1.3-0
+	ghcr.io/ttab/elephant-twirptools:v8.1.3-3
 
 .PHONY: build
 build: proto newsdoc/conversion.go

@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/ttab/newsdoc v0.4.2
 	github.com/twitchtv/twirp v8.1.3+incompatible
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.32.0
 )
 
 require (
