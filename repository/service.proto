@@ -290,8 +290,12 @@ message GetDocumentRequest {
 }
 
 message GetDocumentResponse {
+  // Document is the requested document.
   newsdoc.Document document = 1;
+  // Version is the version of the returned document.
   int64 version = 2;
+  // Status is returned if the document was requested by status name.
+  Status status = 3;
 }
 
 message GetHistoryRequest {
