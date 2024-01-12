@@ -36,7 +36,7 @@ docs:
 	mkdir docs
 
 bin/newsdoc: go.mod
-	GOBIN=$(pwd)/bin go install github.com/ttab/newsdoc/cmd/newsdoc
+	GOBIN=$(shell pwd)/bin go install github.com/ttab/newsdoc/cmd/newsdoc
 
 newsdoc/newsdoc.proto: bin/newsdoc
 	./bin/newsdoc protobuf \
