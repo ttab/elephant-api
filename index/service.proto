@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package elephant.index;
+
+option go_package = "./index";
+
+service Management {
+  // RegisterCluster for use with index sets.
+  rpc RegisterCluster(RegisterClusterRequest) returns (RegisterClusterResponse);
+  // ListClusters returns a list of clusters together with information about the
+  // number of index sets they contain.
+  rpc ListClusters(ListClustersRequest) returns (ListClustersResponse);
+  // DeleteCluster deletes a registered cluster. A cluster cannot be deleted as
+  // long as it has associated index sets.
+  rpc DeleteCluster(DeleteClusterRequest) returns (DeleteClusterResponse);
+  // DeleteIndexSet deletes an index set. The set cannot be active or enabled.
+  rpc DeleteIndexSet(DeleteIndexSetRequest) returns (DeleteIndexSetResponse);
+  // Reindex set creates a new index set in the specified cluster and starts
+  // indexing documents to it.
+  rpc Reindex(ReindexRequest) returns (ReindexResponse);
+  // PartialReindex restarts an existing index set from a given point in the
+  // repository eventlog.
+  rpc PartialReindex(PartialReindexRequest) returns (PartialReindexResponse);
+  // ListIndexSets lists the available index set, with optional filtering.
+  rpc ListIndexSets(ListIndexSetsRequest) returns (ListIndexSetsResponse);
+  // SetIndexSetStatus is used to change the status of an index set.
+  rpc SetIndexSetStatus(SetIndexSetStatusRequest) returns (SetIndexSetStatusResponse);
+}
+
+message RegisterClusterRequest {
+  // Name used to identify the cluster.
+  string name              = 1;
+  // Endpoint for the cluster.
+  string endpoint          = 2;
+  // Auth is used to specify the authentication method.
+  RegisterClusterAuth auth = 3;
+}
+
+message RegisterClusterAuth {
+  // IAM authentication.
+  bool iam = 1;
+}
+
+message RegisterClusterResponse {}
+
+message ReindexRequest {
+  // Cluster that we should re-index set to.
+  string cluster = 1;
+}
+
+message ReindexResponse {
+  // Name of the new index set.
+  string name = 1;
+}
+
+message ListClustersRequest {}
+
+message ListClustersResponse {
+  repeated Cluster clusters = 1;
+}
+
+message Cluster {
+  // Name used to identify the cluster.
+  string name           = 1;
+  // Endpoint for the cluster.
+  string endpoint       = 2;
+  // Number of index sets in the cluster.
+  int64 index_set_count = 3;
+  // Auth options for the cluster.
+  ClusterAuth auth      = 4;
+}
+
+message ClusterAuth {
+  // IAM authentication.
+  bool iam = 1;
+}
+
+message DeleteClusterRequest {
+  // Name of the cluster to delete.
+  string name = 1;
+}
+
+message DeleteClusterResponse {}
+
+message DeleteIndexSetRequest {
+  // Name of the index set to delete.
+  string name = 1;
+}
+
+message DeleteIndexSetResponse {}
+
+
+message SetIndexSetStatusRequest {
+  // Name of the index set to set the status of.
+  string name       = 1;
+  // Active means that search requests are being routed to this index set. There
+  // is always exactly one active index set at a time. Setting an index set to
+  // active will deactivate but not disable the currently active index set.
+  bool active       = 2;
+  // ForceActive is used to force the activation of an index set that lags more
+  // than 10 events behind the currently active set.
+  bool force_active = 3;
+  // Enabled means that documents should index to the index set. Disabling an
+  // index set will only pause index seting, and it can later be
+  // resumed. Disabling an index set does not deactivate it.
+  bool enabled      = 4;
+}
+
+message SetIndexSetStatusResponse {}
+
+message PartialReindexRequest {
+  // IndexSet to re-index.
+  string index_set = 1;
+  // Position to start from.
+  int64 position   = 2;
+}
+
+message PartialReindexResponse {}
+
+message ListIndexSetsRequest {
+  // Cluster can be used to filter by cluster.
+  string cluster        = 1;
+  // OnlyActive only returns the currently active index set.
+  bool only_active      = 2;
+  // Status can be used to filter index sets by their enabled/disabled status.
+  EnabledFilter  status = 3;
+  // Cursor to the page that should be returned. Omit to get the first page.
+  string cursor         = 4;
+}
+
+enum EnabledFilter {
+  STATUS_UNSPECIFIED = 0;
+  // STATUS_ENABLED means that documents are currently being indexed to the
+  // index set.
+  STATUS_ENABLED     = 1;
+  // STATUS_DISABLED means that no documents are being indexed to the index set.
+  STATUS_DISABLED    = 3;
+}
+
+message ListIndexSetsResponse {
+  // IndexSets that matched the criteria.
+  repeated IndexSet index_sets = 1;
+  // NextPage cursor to use to get the next page of index sets. Empty if no more
+  // index sets exist.
+  string next_page             = 2;
+}
+
+message IndexSet {
+  // Name of the index set.
+  string name    = 1;
+  // Cluster that the index set has been created in.
+  string cluster = 2;
+  // Enabled status of the index set.
+  bool enabled   = 3;
+  // Active status of the index set.
+  bool active    = 4;
+  // Position in the repository content log.
+  int64 position = 5;
+}

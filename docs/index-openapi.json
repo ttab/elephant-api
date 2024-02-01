@@ -1,0 +1,551 @@
+{
+  "components": {
+    "schemas": {
+      "elephant.index.Cluster": {
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/elephant.index.ClusterAuth"
+          },
+          "endpoint": {
+            "description": "Endpoint for the cluster.",
+            "type": "string"
+          },
+          "index_set_count": {
+            "description": "Number of index sets in the cluster.",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Name used to identify the cluster.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.ClusterAuth": {
+        "properties": {
+          "iam": {
+            "description": "IAM authentication.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.DeleteClusterRequest": {
+        "properties": {
+          "name": {
+            "description": "Name of the cluster to delete.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.DeleteClusterResponse": {
+        "type": "object"
+      },
+      "elephant.index.DeleteIndexSetRequest": {
+        "properties": {
+          "name": {
+            "description": "Name of the index set to delete.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.DeleteIndexSetResponse": {
+        "type": "object"
+      },
+      "elephant.index.EnabledFilter": {
+        "enum": [
+          "STATUS_UNSPECIFIED",
+          "STATUS_ENABLED",
+          "STATUS_DISABLED"
+        ],
+        "type": "string"
+      },
+      "elephant.index.IndexSet": {
+        "properties": {
+          "active": {
+            "description": "Active status of the index set.",
+            "type": "boolean"
+          },
+          "cluster": {
+            "description": "Cluster that the index set has been created in.",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Enabled status of the index set.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Name of the index set.",
+            "type": "string"
+          },
+          "position": {
+            "description": "Position in the repository content log.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.ListClustersRequest": {
+        "type": "object"
+      },
+      "elephant.index.ListClustersResponse": {
+        "properties": {
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.Cluster"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.ListIndexSetsRequest": {
+        "properties": {
+          "cluster": {
+            "description": "Cluster can be used to filter by cluster.",
+            "type": "string"
+          },
+          "cursor": {
+            "description": "Cursor to the page that should be returned. Omit to get the first page.",
+            "type": "string"
+          },
+          "only_active": {
+            "description": "OnlyActive only returns the currently active index set.",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/elephant.index.EnabledFilter"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.ListIndexSetsResponse": {
+        "properties": {
+          "index_sets": {
+            "description": "IndexSets that matched the criteria.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.IndexSet"
+            },
+            "type": "array"
+          },
+          "next_page": {
+            "description": "NextPage cursor to use to get the next page of index sets. Empty if no more index sets exist.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.PartialReindexRequest": {
+        "properties": {
+          "index_set": {
+            "description": "IndexSet to re-index.",
+            "type": "string"
+          },
+          "position": {
+            "description": "Position to start from.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.PartialReindexResponse": {
+        "type": "object"
+      },
+      "elephant.index.RegisterClusterAuth": {
+        "properties": {
+          "iam": {
+            "description": "IAM authentication.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.RegisterClusterRequest": {
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/elephant.index.RegisterClusterAuth"
+          },
+          "endpoint": {
+            "description": "Endpoint for the cluster.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name used to identify the cluster.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.RegisterClusterResponse": {
+        "type": "object"
+      },
+      "elephant.index.ReindexRequest": {
+        "properties": {
+          "cluster": {
+            "description": "Cluster that we should re-index set to.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.ReindexResponse": {
+        "properties": {
+          "name": {
+            "description": "Name of the new index set.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.SetIndexSetStatusRequest": {
+        "properties": {
+          "active": {
+            "description": "Active means that search requests are being routed to this index set. There is always exactly one active index set at a time. Setting an index set to active will deactivate but not disable the currently active index set.",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Enabled means that documents should index to the index set. Disabling an index set will only pause index seting, and it can later be resumed. Disabling an index set does not deactivate it.",
+            "type": "boolean"
+          },
+          "force_active": {
+            "description": "ForceActive is used to force the activation of an index set that lags more than 10 events behind the currently active set.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Name of the index set to set the status of.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.SetIndexSetStatusResponse": {
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "index API",
+    "version": "v0.0.0"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/twirp/elephant.index.Management/DeleteCluster": {
+      "post": {
+        "description": "DeleteCluster deletes a registered cluster. A cluster cannot be deleted as long as it has associated index sets.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.DeleteClusterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.DeleteClusterResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "DeleteCluster",
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.Management/DeleteIndexSet": {
+      "post": {
+        "description": "DeleteIndexSet deletes an index set. The set cannot be active or enabled.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.DeleteIndexSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.DeleteIndexSetResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "DeleteIndexSet",
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.Management/ListClusters": {
+      "post": {
+        "description": "ListClusters returns a list of clusters together with information about the number of index sets they contain.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.ListClustersRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.ListClustersResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListClusters",
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.Management/ListIndexSets": {
+      "post": {
+        "description": "ListIndexSets lists the available index set, with optional filtering.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.ListIndexSetsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.ListIndexSetsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListIndexSets",
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.Management/PartialReindex": {
+      "post": {
+        "description": "PartialReindex restarts an existing index set from a given point in the repository eventlog.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.PartialReindexRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.PartialReindexResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "PartialReindex",
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.Management/RegisterCluster": {
+      "post": {
+        "description": "RegisterCluster for use with index sets.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.RegisterClusterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.RegisterClusterResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RegisterCluster",
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.Management/Reindex": {
+      "post": {
+        "description": "Reindex set creates a new index set in the specified cluster and starts indexing documents to it.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.ReindexRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.ReindexResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reindex",
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.Management/SetIndexSetStatus": {
+      "post": {
+        "description": "SetIndexSetStatus is used to change the status of an index set.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.SetIndexSetStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.SetIndexSetStatusResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetIndexSetStatus",
+        "tags": [
+          "Management"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Management"
+    }
+  ]
+}
