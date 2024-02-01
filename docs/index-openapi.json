@@ -3,6 +3,9 @@
     "schemas": {
       "elephant.index.Cluster": {
         "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/elephant.index.ClusterAuth"
+          },
           "endpoint": {
             "description": "Endpoint for the cluster.",
             "type": "string"
@@ -14,6 +17,15 @@
           "name": {
             "description": "Name used to identify the cluster.",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.ClusterAuth": {
+        "properties": {
+          "iam": {
+            "description": "IAM authentication.",
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -141,8 +153,20 @@
       "elephant.index.PartialReindexResponse": {
         "type": "object"
       },
+      "elephant.index.RegisterClusterAuth": {
+        "properties": {
+          "iam": {
+            "description": "IAM authentication.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.RegisterClusterRequest": {
         "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/elephant.index.RegisterClusterAuth"
+          },
           "endpoint": {
             "description": "Endpoint for the cluster.",
             "type": "string"

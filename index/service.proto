@@ -29,9 +29,16 @@ service Management {
 
 message RegisterClusterRequest {
   // Name used to identify the cluster.
-  string name     = 1;
+  string name              = 1;
   // Endpoint for the cluster.
-  string endpoint = 2;
+  string endpoint          = 2;
+  // Auth is used to specify the authentication method.
+  RegisterClusterAuth auth = 3;
+}
+
+message RegisterClusterAuth {
+  // IAM authentication.
+  bool iam = 1;
 }
 
 message RegisterClusterResponse {}
@@ -59,6 +66,13 @@ message Cluster {
   string endpoint       = 2;
   // Number of index sets in the cluster.
   int64 index_set_count = 3;
+  // Auth options for the cluster.
+  ClusterAuth auth      = 4;
+}
+
+message ClusterAuth {
+  // IAM authentication.
+  bool iam = 1;
 }
 
 message DeleteClusterRequest {
