@@ -66,10 +66,14 @@ service Workflows {
 }
 
 service Reports {
+  // List all reports.
+  rpc List(ListReportsRequest) returns (ListReportsResponse);
   // Update or create a report.
   rpc Update(UpdateReportRequest) returns (UpdateReportResponse);
   // Get a report.
   rpc Get(GetReportRequest) returns (GetReportResponse);
+  // Delete a report.
+  rpc Delete(DeleteReportRequest) returns (DeleteReportResponse);
   // Run a report. This will run the report and return the results instead of
   // sending it to any outputs.
   rpc Run(RunReportRequest) returns (RunReportResponse);
@@ -188,6 +192,12 @@ message TestReportResponse {
   bytes spreadsheet = 2;
 }
 
+message DeleteReportRequest {
+  string name = 1;
+}
+
+message DeleteReportResponse {}
+
 message GetReportRequest {
   string name = 1;
 }
@@ -201,6 +211,19 @@ message GetReportResponse {
 message UpdateReportRequest {
   Report report = 1;
   bool enabled = 2;
+}
+
+message ListReportsRequest {}
+
+message ListReportsResponse {
+  repeated ReportListItem reports = 1;
+}
+
+message ReportListItem {
+  string name = 1;
+  string title = 2;
+  string cron_expression = 3;
+  string cron_timezone = 4; // (default UTC)
 }
 
 message Report {

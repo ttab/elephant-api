@@ -88,6 +88,17 @@
       "elephant.repository.DeleteMetricKindResponse": {
         "type": "object"
       },
+      "elephant.repository.DeleteReportRequest": {
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.DeleteReportResponse": {
+        "type": "object"
+      },
       "elephant.repository.DeleteStatusRuleRequest": {
         "properties": {
           "name": {
@@ -560,6 +571,20 @@
         },
         "type": "object"
       },
+      "elephant.repository.ListReportsRequest": {
+        "type": "object"
+      },
+      "elephant.repository.ListReportsResponse": {
+        "properties": {
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ReportListItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.Lock": {
         "properties": {
           "app": {
@@ -725,6 +750,24 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ReportListItem": {
+        "properties": {
+          "cron_expression": {
+            "type": "string"
+          },
+          "cron_timezone": {
+            "description": "(default UTC)",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           },
           "title": {
             "type": "string"
@@ -1921,6 +1964,44 @@
         ]
       }
     },
+    "/twirp/elephant.repository.Reports/Delete": {
+      "post": {
+        "description": "Delete a report.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.DeleteReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.DeleteReportResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Reports/Get": {
       "post": {
         "description": "Get a report.",
@@ -1954,6 +2035,44 @@
           }
         ],
         "summary": "Get",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Reports/List": {
+      "post": {
+        "description": "List all reports.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.ListReportsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.ListReportsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List",
         "tags": [
           "Reports"
         ]
