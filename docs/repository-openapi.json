@@ -560,6 +560,20 @@
         },
         "type": "object"
       },
+      "elephant.repository.ListReportsRequest": {
+        "type": "object"
+      },
+      "elephant.repository.ListReportsResponse": {
+        "properties": {
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ReportListItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.Lock": {
         "properties": {
           "app": {
@@ -725,6 +739,24 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ReportListItem": {
+        "properties": {
+          "cron_expression": {
+            "type": "string"
+          },
+          "cron_timezone": {
+            "description": "(default UTC)",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           },
           "title": {
             "type": "string"
@@ -1954,6 +1986,44 @@
           }
         ],
         "summary": "Get",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Reports/List": {
+      "post": {
+        "description": "List all reports.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.ListReportsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.ListReportsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List",
         "tags": [
           "Reports"
         ]
