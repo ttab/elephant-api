@@ -72,6 +72,8 @@ service Reports {
   rpc Update(UpdateReportRequest) returns (UpdateReportResponse);
   // Get a report.
   rpc Get(GetReportRequest) returns (GetReportResponse);
+  // Delete a report.
+  rpc Delete(DeleteReportRequest) returns (DeleteReportResponse);
   // Run a report. This will run the report and return the results instead of
   // sending it to any outputs.
   rpc Run(RunReportRequest) returns (RunReportResponse);
@@ -189,6 +191,12 @@ message TestReportResponse {
   repeated string tables = 1;
   bytes spreadsheet = 2;
 }
+
+message DeleteReportRequest {
+  string name = 1;
+}
+
+message DeleteReportResponse {}
 
 message GetReportRequest {
   string name = 1;

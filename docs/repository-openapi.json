@@ -88,6 +88,17 @@
       "elephant.repository.DeleteMetricKindResponse": {
         "type": "object"
       },
+      "elephant.repository.DeleteReportRequest": {
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.DeleteReportResponse": {
+        "type": "object"
+      },
       "elephant.repository.DeleteStatusRuleRequest": {
         "properties": {
           "name": {
@@ -1950,6 +1961,44 @@
         "summary": "RegisterMetric",
         "tags": [
           "Metrics"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Reports/Delete": {
+      "post": {
+        "description": "Delete a report.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.DeleteReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.DeleteReportResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete",
+        "tags": [
+          "Reports"
         ]
       }
     },
