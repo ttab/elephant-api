@@ -30,9 +30,9 @@
       },
       "elephant.repository.BulkUpdateResponse": {
         "properties": {
-          "version": {
+          "updates": {
             "items": {
-              "type": "integer"
+              "$ref": "#/components/schemas/elephant.repository.UpdateResponse"
             },
             "type": "array"
           }
@@ -124,7 +124,7 @@
             "type": "string"
           },
           "current_version": {
-            "description": "CurrentVersion is the last written vrsion of the document.",
+            "description": "CurrentVersion is the last written version of the document.",
             "type": "integer"
           },
           "heads": {
@@ -134,8 +134,16 @@
             "description": "Heads are the last statuses.",
             "type": "object"
           },
+          "is_meta_document": {
+            "description": "IsMetaDocument is true if the document is a meta document.",
+            "type": "boolean"
+          },
           "lock": {
             "$ref": "#/components/schemas/elephant.repository.Lock"
+          },
+          "main_document": {
+            "description": "MainDocument is the UUID of the main document if this is a meta document.",
+            "type": "string"
           },
           "modified": {
             "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
@@ -200,36 +208,58 @@
       "elephant.repository.EventlogItem": {
         "properties": {
           "acl": {
+            "description": "Acl entry, if it was an \"acl\" event.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.ACLEntry"
             },
             "type": "array"
           },
           "event": {
+            "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\".",
             "type": "string"
           },
           "id": {
+            "description": "Id of the event.",
             "type": "integer"
           },
+          "language": {
+            "description": "Language of the affected document.",
+            "type": "string"
+          },
+          "main_document": {
+            "description": "MainDocument UUID if the document is a metadata document.",
+            "type": "string"
+          },
+          "old_language": {
+            "description": "OldLanguage of the document if the document changed language.",
+            "type": "string"
+          },
           "status": {
+            "description": "Status that was affected, if it was a \"status\" event.",
             "type": "string"
           },
           "status_id": {
+            "description": "StatusId is the ID of the created status.",
             "type": "integer"
           },
           "timestamp": {
+            "description": "Timestamp that the event occurred, as an RFC3339 timestamp.",
             "type": "string"
           },
           "type": {
+            "description": "Type of the affected document.",
             "type": "string"
           },
           "updater_uri": {
+            "description": "UpdaterUri is the URI for the subject that performed the update.",
             "type": "string"
           },
           "uuid": {
+            "description": "Uuid of the document that was affected.",
             "type": "string"
           },
           "version": {
+            "description": "Version of the document.",
             "type": "integer"
           }
         },
@@ -319,6 +349,9 @@
             "description": "Lock will lock the document for updates. This only affects the creation of new versions of the document, statuses can still be updated.",
             "type": "boolean"
           },
+          "meta_document": {
+            "$ref": "#/components/schemas/elephant.repository.GetMetaDoc"
+          },
           "status": {
             "description": "Status is used to fetch the version of the document references by the last status update. Can be used instead of specifying a version.",
             "type": "string"
@@ -338,6 +371,17 @@
         "properties": {
           "document": {
             "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "is_meta_document": {
+            "description": "IsMetaDocument is true if the document is a meta document.",
+            "type": "boolean"
+          },
+          "main_document": {
+            "description": "MainDocument is the UUID of the main document if this is a meta document.",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/elephant.repository.MetaDocument"
           },
           "status": {
             "$ref": "#/components/schemas/elephant.repository.Status"
@@ -404,6 +448,14 @@
           }
         },
         "type": "object"
+      },
+      "elephant.repository.GetMetaDoc": {
+        "enum": [
+          "META_NONE",
+          "META_INCLUDE",
+          "META_ONLY"
+        ],
+        "type": "string"
       },
       "elephant.repository.GetMetaRequest": {
         "properties": {
@@ -648,6 +700,18 @@
         },
         "type": "object"
       },
+      "elephant.repository.MetaDocument": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "version": {
+            "description": "Version is the version of the returned document.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.MetricAggregation": {
         "enum": [
           "NONE",
@@ -665,6 +729,38 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "elephant.repository.RegisterMetaTypeRequest": {
+        "properties": {
+          "exclusive": {
+            "description": "Exclusive - set to true to only allow the type to be used as a meta type.",
+            "type": "boolean"
+          },
+          "type": {
+            "description": "Type to use as a meta type.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.RegisterMetaTypeResponse": {
+        "type": "object"
+      },
+      "elephant.repository.RegisterMetaTypeUseRequest": {
+        "properties": {
+          "main_type": {
+            "description": "MainType to use the meta type for.",
+            "type": "string"
+          },
+          "meta_type": {
+            "description": "MetaType to use for the main document.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.RegisterMetaTypeUseResponse": {
         "type": "object"
       },
       "elephant.repository.RegisterMetricKindRequest": {
@@ -1063,6 +1159,10 @@
             },
             "type": "array"
           },
+          "update_meta_document": {
+            "description": "UpdateMetaDocument can be set to true to update the meta document instead of the document identified by the UUID.",
+            "type": "boolean"
+          },
           "uuid": {
             "description": "UUID of the document to update.",
             "type": "string"
@@ -1073,6 +1173,9 @@
       "elephant.repository.UpdateResponse": {
         "description": "UpdateResponse describes the result of an update request.",
         "properties": {
+          "uuid": {
+            "type": "string"
+          },
           "version": {
             "type": "integer"
           }
@@ -2301,6 +2404,82 @@
           }
         ],
         "summary": "Register",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/RegisterMetaType": {
+      "post": {
+        "description": "RegisterMetaType registers a type that can be used for meta documents.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.RegisterMetaTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.RegisterMetaTypeResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RegisterMetaType",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/RegisterMetaTypeUse": {
+      "post": {
+        "description": "RegisterMetaTypeUse registers a meta type for use with a main type.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.RegisterMetaTypeUseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.RegisterMetaTypeUseResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RegisterMetaTypeUse",
         "tags": [
           "Schemas"
         ]
