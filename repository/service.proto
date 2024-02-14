@@ -339,7 +339,7 @@ message GetDocumentRequest {
   // MetaDocument controls the inclusion of associated meta
   // documents. "META_INCLUDE" will include the document if it
   // exists. "META_ONLY" will only return the meta document, and will return a
-  // not found error if it doesn't.
+  // not found error if it doesn't exist.
   GetMetaDoc meta_document   = 5;
 }
 
