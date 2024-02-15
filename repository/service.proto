@@ -49,6 +49,10 @@ service Schemas {
   rpc Get(GetSchemaRequest) returns (GetSchemaResponse);
   // GetAllActiveSchemas returns the currently active schemas.
   rpc GetAllActive(GetAllActiveSchemasRequest) returns (GetAllActiveSchemasResponse);
+  // RegisterMetaType registers a type that can be used for meta documents.
+  rpc RegisterMetaType(RegisterMetaTypeRequest) returns (RegisterMetaTypeResponse);
+  // RegisterMetaTypeUse registers a meta type for use with a main type.
+  rpc RegisterMetaTypeUse(RegisterMetaTypeUseRequest) returns (RegisterMetaTypeUseResponse);
 }
 
 service Workflows {
@@ -162,16 +166,32 @@ message GetCompactedEventlogResponse {
 }
 
 message EventlogItem {
-  int64 id = 1;
-  string event = 2;
-  string uuid = 3;
-  string timestamp = 4;
-  int64 version = 5;
-  string status = 6;
-  int64 status_id = 7;
+  // Id of the event.
+  int64 id              = 1;
+  // Event type, one of: "document", "status", "acl", "delete_document".
+  string event          = 2;
+  // Uuid of the document that was affected.
+  string uuid           = 3;
+  // Timestamp that the event occurred, as an RFC3339 timestamp.
+  string timestamp      = 4;
+  // Version of the document.
+  int64 version         = 5;
+  // Status that was affected, if it was a "status" event.
+  string status         = 6;
+  // StatusId is the ID of the created status.
+  int64 status_id       = 7;
+  // Acl entry, if it was an "acl" event.
   repeated ACLEntry acl = 8;
-  string updater_uri = 9;
-  string type = 10;
+  // UpdaterUri is the URI for the subject that performed the update.
+  string updater_uri    = 9;
+  // Type of the affected document.
+  string type           = 10;
+  // Language of the affected document.
+  string language       = 11;
+  // OldLanguage of the document if the document changed language.
+  string old_language   = 12;
+  // MainDocument UUID if the document is a metadata document.
+  string main_document  = 13;
 }
 
 message RunReportRequest {
@@ -299,26 +319,50 @@ message DeleteStatusRuleRequest {
 
 message DeleteStatusRuleResponse {}
 
+enum GetMetaDoc {
+  META_NONE    = 0;
+  META_INCLUDE = 1;
+  META_ONLY    = 2;
+}
+
 message GetDocumentRequest {
   // UUID of the document to get.
-  string uuid = 1;
+  string uuid                = 1;
   // Version to get, omit to get latest (or use status).
-  int64 version = 2;
+  int64 version              = 2;
   // Status is used to fetch the version of the document references by the last
   // status update. Can be used instead of specifying a version.
-  string status = 3;
+  string status              = 3;
   // Lock will lock the document for updates. This only affects the creation of
   // new versions of the document, statuses can still be updated.
-  bool lock = 4;
+  bool lock                  = 4;
+  // MetaDocument controls the inclusion of associated meta
+  // documents. "META_INCLUDE" will include the document if it
+  // exists. "META_ONLY" will only return the meta document, and will return a
+  // not found error if it doesn't exist.
+  GetMetaDoc meta_document   = 5;
 }
 
 message GetDocumentResponse {
   // Document is the requested document.
   newsdoc.Document document = 1;
   // Version is the version of the returned document.
-  int64 version = 2;
+  int64 version             = 2;
   // Status is returned if the document was requested by status name.
-  Status status = 3;
+  Status status             = 3;
+  // Meta contains the meta document, if requested, and if it exists.
+  MetaDocument meta         = 4;
+  // IsMetaDocument is true if the document is a meta document.
+  bool is_meta_document     = 5;
+  // MainDocument is the UUID of the main document if this is a meta document.
+  string main_document      = 6;
+}
+
+message MetaDocument {
+  // Document is the requested document.
+  newsdoc.Document document = 1;
+  // Version is the version of the returned document.
+  int64 version = 2;
 }
 
 message GetHistoryRequest {
@@ -353,25 +397,28 @@ message DocumentVersion {
 // "0", "1", "2"... Use the Validate method to get th errors as structured data.
 message UpdateRequest {
   // UUID of the document to update.
-  string uuid = 1;
+  string uuid                      = 1;
   // Document version to create.
-  newsdoc.Document document = 2;
+  newsdoc.Document document        = 2;
   // Meta data to associate with the document version.
-  map<string, string> meta = 3;
+  map<string, string> meta         = 3;
   // IfMatch is used for optimistic locks. Set to the version that you require
   // to be the current one for the update to be performed, or -1 to only perform
   // the update if the document doesn't already exist.
-  int64 if_match = 4;
-  // LockToken is used for explicit pessimistic locking.
-  string lockToken = 8;
+  int64 if_match                   = 4;
   // Status updates to perform.
-  repeated StatusUpdate status  = 5;
+  repeated StatusUpdate status     = 5;
   // ACL is an ACL list controlling access to the document.
-  repeated ACLEntry acl = 6;
+  repeated ACLEntry acl            = 6;
   // ImportDirective can be used to preserve timestamps and authorship
   // information from originating systems, but requires the "import_directive"
   // scope for use.
   ImportDirective import_directive = 7;
+  // LockToken is used for explicit pessimistic locking.
+  string lockToken                 = 8;
+  // UpdateMetaDocument can be set to true to update the meta document instead
+  // of the document identified by the UUID.
+  bool update_meta_document        = 9;
 }
 
 // ImportDirective can be used to preserve timestamps and authorship information
@@ -384,6 +431,7 @@ message ImportDirective {
 // UpdateResponse describes the result of an update request.
 message UpdateResponse {
   int64 version = 1;
+  string uuid   = 2;
 }
 
 message BulkUpdateRequest {
@@ -391,7 +439,7 @@ message BulkUpdateRequest {
 }
 
 message BulkUpdateResponse {
-  repeated int64 version = 1;
+  repeated UpdateResponse updates = 1;
 }
 
 message ValidateRequest {
@@ -441,7 +489,7 @@ message StatusUpdate {
 message UpdatePermissionsRequest {
   // UUID of the document to update permissions for.
   string uuid = 1;
-  // Set (upsert based on URI) this list of ACL entries. 
+  // Set (upsert based on URI) this list of ACL entries.
   repeated ACLEntry list = 2;
 }
 
@@ -467,24 +515,28 @@ message GetMetaRequest {
 }
 
 message GetMetaResponse {
-  DocumentMeta meta = 1;  
+  DocumentMeta meta = 1;
 }
 
 message DocumentMeta {
   // Created timestamp is the RFC3339 timestamp for when the document was
   // created.
-  string created = 1;
+  string created            = 1;
   // Modified timestamp is the RFC3339 timestamp for the last change that
   // affected the document.
-  string modified = 2;
-  // CurrentVersion is the last written vrsion of the document.
-  int64 current_version = 3;
+  string modified           = 2;
+  // CurrentVersion is the last written version of the document.
+  int64 current_version     = 3;
   // Heads are the last statuses.
   map<string, Status> heads = 4;
   // ACL is an ACL list controlling access to the document.
-  repeated ACLEntry acl = 5;
+  repeated ACLEntry acl     = 5;
   // Document lock, if any
-  Lock lock = 6;
+  Lock lock                 = 6;
+  // IsMetaDocument is true if the document is a meta document.
+  bool is_meta_document     = 7;
+  // MainDocument is the UUID of the main document if this is a meta document.
+  string main_document      = 8;
 }
 
 message Status {
@@ -521,6 +573,24 @@ message Lock {
   // Optional free-form comment.
   string comment = 6;
 }
+
+message RegisterMetaTypeRequest {
+  // Type to use as a meta type.
+  string type    = 1;
+  // Exclusive - set to true to only allow the type to be used as a meta type.
+  bool exclusive = 2;
+}
+
+message RegisterMetaTypeResponse {}
+
+message RegisterMetaTypeUseRequest {
+  // MainType to use the meta type for.
+  string main_type = 1;
+  // MetaType to use for the main document.
+  string meta_type = 2;
+}
+
+message RegisterMetaTypeUseResponse {}
 
 message RegisterSchemaRequest {
   // Schema to register. The spec can be omitted if a schema URL is passed.
@@ -579,7 +649,7 @@ message Schema {
 
 message RegisterMetricKindRequest {
   string name = 1;
-  MetricAggregation aggregation = 2; 
+  MetricAggregation aggregation = 2;
 }
 
 message RegisterMetricKindResponse {}
