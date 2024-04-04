@@ -53,6 +53,10 @@ service Schemas {
   rpc RegisterMetaType(RegisterMetaTypeRequest) returns (RegisterMetaTypeResponse);
   // RegisterMetaTypeUse registers a meta type for use with a main type.
   rpc RegisterMetaTypeUse(RegisterMetaTypeUseRequest) returns (RegisterMetaTypeUseResponse);
+  // GetDeprecations lists all deprecations.
+  rpc GetDeprecations(GetDeprecationsRequest) returns (GetDeprecationsResponse);
+  // UpdateDeprecation creates or updates a deprecation.
+  rpc UpdateDeprecation(UpdateDeprecationRequest) returns (UpdateDeprecationResponse);
 }
 
 service Workflows {
@@ -646,6 +650,23 @@ message Schema {
   string version = 2;
   string spec = 3;
 }
+
+message GetDeprecationsRequest{}
+
+message Deprecation {
+  string label = 1;
+  bool enforced = 2;
+}
+
+message GetDeprecationsResponse{
+  repeated Deprecation deprecations = 1;
+}
+
+message UpdateDeprecationRequest{
+  Deprecation deprecation = 1;
+}
+
+message UpdateDeprecationResponse{}
 
 message RegisterMetricKindRequest {
   string name = 1;
