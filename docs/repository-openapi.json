@@ -110,6 +110,17 @@
       "elephant.repository.DeleteStatusRuleResponse": {
         "type": "object"
       },
+      "elephant.repository.Deprecation": {
+        "properties": {
+          "enforced": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.DocumentMeta": {
         "properties": {
           "acl": {
@@ -337,6 +348,20 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetDeprecationsRequest": {
+        "type": "object"
+      },
+      "elephant.repository.GetDeprecationsResponse": {
+        "properties": {
+          "deprecations": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Deprecation"
             },
             "type": "array"
           }
@@ -1081,6 +1106,17 @@
         "type": "object"
       },
       "elephant.repository.UnlockResponse": {
+        "type": "object"
+      },
+      "elephant.repository.UpdateDeprecationRequest": {
+        "properties": {
+          "deprecation": {
+            "$ref": "#/components/schemas/elephant.repository.Deprecation"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.UpdateDeprecationResponse": {
         "type": "object"
       },
       "elephant.repository.UpdatePermissionsRequest": {
@@ -2371,6 +2407,44 @@
         ]
       }
     },
+    "/twirp/elephant.repository.Schemas/GetDeprecations": {
+      "post": {
+        "description": "GetDeprecations lists all deprecations.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetDeprecationsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetDeprecationsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetDeprecations",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Schemas/Register": {
       "post": {
         "description": "Register register a new validation schema version.",
@@ -2518,6 +2592,44 @@
           }
         ],
         "summary": "SetActive",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/UpdateDeprecation": {
+      "post": {
+        "description": "UpdateDeprecation creates or updates a deprecation.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.UpdateDeprecationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.UpdateDeprecationResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "UpdateDeprecation",
         "tags": [
           "Schemas"
         ]
