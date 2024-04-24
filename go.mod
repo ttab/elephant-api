@@ -3,7 +3,7 @@ module github.com/ttab/elephant-api
 go 1.20
 
 require (
-	github.com/ttab/newsdoc v0.4.2
+	github.com/ttab/newsdoc v0.5.0
 	github.com/twitchtv/twirp v8.1.3+incompatible
 	google.golang.org/protobuf v1.32.0
 )

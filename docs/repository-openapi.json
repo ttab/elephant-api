@@ -1326,6 +1326,10 @@
             "description": "Role is used either as an alternative to rel, or for nuancing the relationship.",
             "type": "string"
           },
+          "sensitivity": {
+            "description": "Sensitivity can be use to communicate how the information in a block can be handled. It could f.ex. be set to \"internal\", to show that it contains information that must be removed or transformed before publishing.",
+            "type": "string"
+          },
           "title": {
             "description": "Title is the title/headline of the block, typically used in the presentation of the block.",
             "type": "string"
