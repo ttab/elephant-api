@@ -20,7 +20,7 @@ TOOL := docker run --rm \
 build: proto newsdoc/conversion.go
 
 .PHONY: proto
-proto: $(repo_generated_files) $(index_generated_files)
+proto: newsdoc/conversion.go $(repo_generated_files) $(index_generated_files)
 
 newsdoc/newsdoc.pb.go: newsdoc/newsdoc.proto
 	$(TOOL) protoc --go_out=. \

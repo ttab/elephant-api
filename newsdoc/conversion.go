@@ -102,6 +102,8 @@ func BlockFromRPC(r *Block) newsdoc.Block {
 		n.Meta = append(n.Meta, BlockFromRPC(b))
 	}
 
+	n.Sensitivity = r.Sensitivity
+
 	return n
 }
 
@@ -168,6 +170,8 @@ func BlockToRPC(n newsdoc.Block) *Block {
 	for _, b := range n.Meta {
 		r.Meta = append(r.Meta, BlockToRPC(b))
 	}
+
+	r.Sensitivity = n.Sensitivity
 
 	return &r
 }
