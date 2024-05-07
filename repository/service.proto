@@ -555,8 +555,13 @@ message RestoreRequest {
 message RestoreResponse {}
 
 message ListDeletedRequest {
-  // UUID of the document list deletions of.
-  string uuid            = 1;
+  // UUID of the document list deletions of. Optional.
+  string uuid          = 1;
+  // BeforeID is used to paginate backwards in deletions. Optional.
+  int64 before_id      = 2;
+  // StartAtDate is used to get deletions starting at a specific date
+  // YYYY-MM-DD. Optional, will be ignored if before_id is specified.
+  string start_at_date = 3;
 }
 
 message ListDeletedResponse {
