@@ -20,6 +20,10 @@ service Documents {
   rpc Validate(ValidateRequest) returns (ValidateResponse);
   // Delete deletes a document and all its associated data.
   rpc Delete(DeleteDocumentRequest) returns (DeleteDocumentResponse);
+  // ListDeleted lists deleted document instances for a UUID.
+  rpc ListDeleted(ListDeletedRequest) returns (ListDeletedResponse);
+  // Restore recovers a deleted document.
+  rpc Restore(RestoreRequest) returns (RestoreResponse);
   // GetMeta returns metadata for a document, including the ACL and current
   // status heads.
   rpc GetMeta(GetMetaRequest) returns (GetMetaResponse);
@@ -540,6 +544,44 @@ message DeleteDocumentRequest {
 }
 
 message DeleteDocumentResponse {}
+
+message RestoreRequest {
+  // UUID of the document to restore.
+  string uuid            = 1;
+  // DeleteRecordID for the specific instance of the document that was deleted.
+  int64 delete_record_id = 2;
+}
+
+message RestoreResponse {}
+
+message ListDeletedRequest {
+  // UUID of the document list deletions of.
+  string uuid            = 1;
+}
+
+message ListDeletedResponse {
+  // Deletes that have been performed on document instances with the given UUID.
+  repeated DeleteRecord deletes = 1;
+}
+
+message DeleteRecord {
+  // ID of the delete record.
+  int64 id       = 1;
+  // UUID of the document.
+  string uuid    = 2;
+  // URI of the document.
+  string uri     = 3;
+  // Type of the document.
+  string type    = 4;
+  // Version that the document had at the time of restore.
+  int64 version  = 5;
+  // Creation time for the delete record, as an RFC3339 timestamp.
+  string created = 6;
+  // Creator of the delete record.
+  string creator = 7;
+  // Meta data included with the delete record.
+  map<string, string> meta = 8;
+}
 
 message GetMetaRequest {
   // UUID of the document to get metadata for
