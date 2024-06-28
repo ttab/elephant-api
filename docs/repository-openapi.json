@@ -608,6 +608,40 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetStatusOverviewRequest": {
+        "properties": {
+          "get_meta": {
+            "description": "GetMeta can be used to load any set status metadata.",
+            "type": "boolean"
+          },
+          "statuses": {
+            "description": "Statuses to return information for.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "uuids": {
+            "description": "UUIDs to get statuses for.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetStatusOverviewResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.StatusOverviewItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetStatusRulesRequest": {
         "type": "object"
       },
@@ -1012,6 +1046,30 @@
           },
           "version": {
             "description": "Version of the document that the status refers to.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.StatusOverviewItem": {
+        "properties": {
+          "heads": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.repository.Status"
+            },
+            "description": "Heads are the last statuses.",
+            "type": "object"
+          },
+          "modified": {
+            "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the document.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version the document is at.",
             "type": "integer"
           }
         },
@@ -1798,6 +1856,44 @@
           }
         ],
         "summary": "GetStatusHistory",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetStatusOverview": {
+      "post": {
+        "description": "GetStatusOverview returns the current version and a set of statuses for a gven list of documents.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetStatusOverviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetStatusOverviewResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetStatusOverview",
         "tags": [
           "Documents"
         ]

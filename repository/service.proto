@@ -30,6 +30,9 @@ service Documents {
   rpc CompactedEventlog(GetCompactedEventlogRequest) returns (GetCompactedEventlogResponse);
   // GetStatusHistory returns the history of a status for a document.
   rpc GetStatusHistory(GetStatusHistoryRequest) returns (GetStatusHistoryReponse);
+  // GetStatusOverview returns the current version and a set of statuses for a
+  // gven list of documents.
+  rpc GetStatusOverview(GetStatusOverviewRequest) returns (GetStatusOverviewResponse);
   // GetPermissions returns the permissions you have for the document.
   rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
   // Lock attempts to acquire a write lock on a document.
@@ -112,6 +115,31 @@ message GetStatusHistoryRequest {
 
 message GetStatusHistoryReponse {
   repeated Status statuses = 1;
+}
+
+message GetStatusOverviewRequest {
+  // UUIDs to get statuses for.
+  repeated string uuids    = 1;
+  // Statuses to return information for.
+  repeated string statuses = 2;
+  // GetMeta can be used to load any set status metadata.
+  bool get_meta            = 3;
+}
+
+message GetStatusOverviewResponse {
+  repeated StatusOverviewItem items = 1;
+}
+
+message StatusOverviewItem {
+  // UUID of the document.
+  string uuid     = 1;
+  // Version the document is at.
+  int64 version   = 2;
+  // Modified timestamp is the RFC3339 timestamp for the last change that
+  // affected the document.
+  string modified = 3;
+  // Heads are the last statuses.
+  map<string, Status> heads = 4;
 }
 
 message GetPermissionsRequest {
@@ -550,10 +578,13 @@ message Status {
   int64 version = 2;
   // Creator of the status.
   string creator = 3;
-  // Created timestamp is the RFC3339 timestamp for when the statue was created.
+  // Created timestamp is the RFC3339 timestamp for when the status was created.
   string created = 4;
   // Meta data for the status.
   map<string, string> meta = 5;
+  // MetaDocumentVersion is the version the meta document had at the time the
+  // status was set.
+  int64 meta_doc_version   = 6;
 }
 
 message ACLEntry {
