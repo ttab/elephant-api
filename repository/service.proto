@@ -550,6 +550,8 @@ message RestoreRequest {
   string uuid            = 1;
   // DeleteRecordID for the specific instance of the document that was deleted.
   int64 delete_record_id = 2;
+  // ACL that should be set for the restored document.
+  repeated ACLEntry acl  = 3;
 }
 
 message RestoreResponse {}
@@ -562,6 +564,8 @@ message ListDeletedRequest {
   // StartAtDate is used to get deletions starting at a specific date
   // YYYY-MM-DD. Optional, will be ignored if before_id is specified.
   string start_at_date = 3;
+  // Timezone that the date should be interpreted in.
+  string timezone      = 4;
 }
 
 message ListDeletedResponse {
@@ -586,6 +590,8 @@ message DeleteRecord {
   string creator = 7;
   // Meta data included with the delete record.
   map<string, string> meta = 8;
+  // Language that the document was in.
+  string language          = 9;
 }
 
 message GetMetaRequest {

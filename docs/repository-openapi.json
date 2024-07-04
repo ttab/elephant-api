@@ -88,6 +88,50 @@
       "elephant.repository.DeleteMetricKindResponse": {
         "type": "object"
       },
+      "elephant.repository.DeleteRecord": {
+        "properties": {
+          "created": {
+            "description": "Creation time for the delete record, as an RFC3339 timestamp.",
+            "type": "string"
+          },
+          "creator": {
+            "description": "Creator of the delete record.",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the delete record.",
+            "type": "integer"
+          },
+          "language": {
+            "description": "Language that the document was in.",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Meta data included with the delete record.",
+            "type": "object"
+          },
+          "type": {
+            "description": "Type of the document.",
+            "type": "string"
+          },
+          "uri": {
+            "description": "URI of the document.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the document.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version that the document had at the time of restore.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.DeleteReportRequest": {
         "properties": {
           "name": {
@@ -682,6 +726,39 @@
         },
         "type": "object"
       },
+      "elephant.repository.ListDeletedRequest": {
+        "properties": {
+          "before_id": {
+            "description": "BeforeID is used to paginate backwards in deletions. Optional.",
+            "type": "integer"
+          },
+          "start_at_date": {
+            "description": "StartAtDate is used to get deletions starting at a specific date YYYY-MM-DD. Optional, will be ignored if before_id is specified.",
+            "type": "string"
+          },
+          "timezone": {
+            "description": "Timezone that the date should be interpreted in.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the document list deletions of. Optional.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ListDeletedResponse": {
+        "properties": {
+          "deletes": {
+            "description": "Deletes that have been performed on document instances with the given UUID.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.DeleteRecord"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.ListReportsRequest": {
         "type": "object"
       },
@@ -967,6 +1044,29 @@
         },
         "type": "object"
       },
+      "elephant.repository.RestoreRequest": {
+        "properties": {
+          "acl": {
+            "description": "ACL that should be set for the restored document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ACLEntry"
+            },
+            "type": "array"
+          },
+          "delete_record_id": {
+            "description": "DeleteRecordID for the specific instance of the document that was deleted.",
+            "type": "integer"
+          },
+          "uuid": {
+            "description": "UUID of the document to restore.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.RestoreResponse": {
+        "type": "object"
+      },
       "elephant.repository.RunReportRequest": {
         "properties": {
           "name": {
@@ -1026,7 +1126,7 @@
       "elephant.repository.Status": {
         "properties": {
           "created": {
-            "description": "Created timestamp is the RFC3339 timestamp for when the statue was created.",
+            "description": "Created timestamp is the RFC3339 timestamp for when the status was created.",
             "type": "string"
           },
           "creator": {
@@ -1043,6 +1143,10 @@
             },
             "description": "Meta data for the status.",
             "type": "object"
+          },
+          "meta_doc_version": {
+            "description": "MetaDocumentVersion is the version the meta document had at the time the status was set.",
+            "type": "integer"
           },
           "version": {
             "description": "Version of the document that the status refers to.",
@@ -1899,6 +2003,44 @@
         ]
       }
     },
+    "/twirp/elephant.repository.Documents/ListDeleted": {
+      "post": {
+        "description": "ListDeleted lists deleted document instances for a UUID.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.ListDeletedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.ListDeletedResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListDeleted",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Documents/Lock": {
       "post": {
         "description": "Lock attempts to acquire a write lock on a document.",
@@ -1932,6 +2074,44 @@
           }
         ],
         "summary": "Lock",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/Restore": {
+      "post": {
+        "description": "Restore recovers a deleted document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.RestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.RestoreResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Restore",
         "tags": [
           "Documents"
         ]

@@ -19,6 +19,10 @@ TOOL := docker run --rm \
 .PHONY: build
 build: proto newsdoc/conversion.go
 
+.PHONY: clean
+clean:
+	rm $(repo_generated_files) $(index_generated_files)
+
 .PHONY: proto
 proto: newsdoc/conversion.go $(repo_generated_files) $(index_generated_files)
 
