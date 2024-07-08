@@ -204,7 +204,8 @@ message GetCompactedEventlogResponse {
 message EventlogItem {
   // Id of the event.
   int64 id              = 1;
-  // Event type, one of: "document", "status", "acl", "delete_document".
+  // Event type, one of: "document", "status", "acl", "delete_document",
+  // "restore_finished".
   string event          = 2;
   // Uuid of the document that was affected.
   string uuid           = 3;
