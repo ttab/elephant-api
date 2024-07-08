@@ -270,7 +270,7 @@
             "type": "array"
           },
           "event": {
-            "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\".",
+            "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\", \"restore_finished\".",
             "type": "string"
           },
           "id": {

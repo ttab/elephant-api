@@ -791,7 +791,8 @@ type EventlogItem struct {
 
 	// Id of the event.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Event type, one of: "document", "status", "acl", "delete_document".
+	// Event type, one of: "document", "status", "acl", "delete_document",
+	// "restore_finished".
 	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 	// Uuid of the document that was affected.
 	Uuid string `protobuf:"bytes,3,opt,name=uuid,proto3" json:"uuid,omitempty"`
