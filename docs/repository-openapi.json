@@ -297,6 +297,10 @@
             "description": "StatusId is the ID of the created status.",
             "type": "integer"
           },
+          "system_state": {
+            "description": "SystemState is set to \"restoring\" if this event was generated from a restore operation.",
+            "type": "string"
+          },
           "timestamp": {
             "description": "Timestamp that the event occurred, as an RFC3339 timestamp.",
             "type": "string"

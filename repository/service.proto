@@ -228,6 +228,9 @@ message EventlogItem {
   string old_language   = 12;
   // MainDocument UUID if the document is a metadata document.
   string main_document  = 13;
+  // SystemState is set to "restoring" if this event was generated from a
+  // restore operation.
+  string system_state   = 14;
 }
 
 message RunReportRequest {
