@@ -24,6 +24,8 @@ service Documents {
   rpc ListDeleted(ListDeletedRequest) returns (ListDeletedResponse);
   // Restore recovers a deleted document.
   rpc Restore(RestoreRequest) returns (RestoreResponse);
+  // Purge removes a deleted document completely.
+  rpc Purge(PurgeRequest) returns (PurgeResponse);
   // GetMeta returns metadata for a document, including the ACL and current
   // status heads.
   rpc GetMeta(GetMetaRequest) returns (GetMetaResponse);
@@ -561,6 +563,16 @@ message RestoreRequest {
 
 message RestoreResponse {}
 
+message PurgeRequest {
+  // UUID of the document to purge.
+  string uuid            = 1;
+  // DeleteRecordID for the specific instance of the document that should be
+  // purged.
+  int64 delete_record_id = 2;
+}
+
+message PurgeResponse {}
+
 message ListDeletedRequest {
   // UUID of the document list deletions of. Optional.
   string uuid          = 1;
@@ -597,6 +609,12 @@ message DeleteRecord {
   map<string, string> meta = 8;
   // Language that the document was in.
   string language          = 9;
+  // Finalised is the time, as an RFC3339 timestamp, that the document finished
+  // deleting. Empty if the delete is in progress.
+  string finalised         = 10;
+  // Purged is the time, as an RFC3339 timestamp, all archived data for the
+  // document was purged. Empty if the document hasn't been purged.
+  string purged            = 11;
 }
 
 message GetMetaRequest {
