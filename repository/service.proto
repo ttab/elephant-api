@@ -566,8 +566,8 @@ message ListDeletedRequest {
   string uuid          = 1;
   // BeforeID is used to paginate backwards in deletions. Optional.
   int64 before_id      = 2;
-  // BeforeDate is used to get deletions going back from a specific date
-  // YYYY-MM-DD. Optional, will be ignored if before_id is specified.
+  // BeforeDate is used to get deletions going back from before the specified
+  // date YYYY-MM-DD. Optional, will be ignored if before_id is specified.
   string before_date = 3;
   // Timezone that the date should be interpreted in.
   string timezone      = 4;

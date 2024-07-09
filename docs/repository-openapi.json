@@ -733,7 +733,7 @@
       "elephant.repository.ListDeletedRequest": {
         "properties": {
           "before_date": {
-            "description": "BeforeDate is used to get deletions going back from a specific date YYYY-MM-DD. Optional, will be ignored if before_id is specified.",
+            "description": "BeforeDate is used to get deletions going back from before the specified date YYYY-MM-DD. Optional, will be ignored if before_id is specified.",
             "type": "string"
           },
           "before_id": {

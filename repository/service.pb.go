@@ -3802,8 +3802,8 @@ type ListDeletedRequest struct {
 	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	// BeforeID is used to paginate backwards in deletions. Optional.
 	BeforeId int64 `protobuf:"varint,2,opt,name=before_id,json=beforeId,proto3" json:"before_id,omitempty"`
-	// BeforeDate is used to get deletions going back from a specific date
-	// YYYY-MM-DD. Optional, will be ignored if before_id is specified.
+	// BeforeDate is used to get deletions going back from before the specified
+	// date YYYY-MM-DD. Optional, will be ignored if before_id is specified.
 	BeforeDate string `protobuf:"bytes,3,opt,name=before_date,json=beforeDate,proto3" json:"before_date,omitempty"`
 	// Timezone that the date should be interpreted in.
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
