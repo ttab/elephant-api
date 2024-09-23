@@ -1,6 +1,6 @@
 module github.com/ttab/elephant-api
 
-go 1.20
+go 1.23.1
 
 require (
 	github.com/ttab/newsdoc v0.5.0

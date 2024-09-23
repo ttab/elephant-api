@@ -4,6 +4,8 @@ package elephant.index;
 
 option go_package = "./index";
 
+import "index/search_v1.proto";
+
 service Management {
   // RegisterCluster for use with index sets.
   rpc RegisterCluster(RegisterClusterRequest) returns (RegisterClusterResponse);
@@ -25,6 +27,10 @@ service Management {
   rpc ListIndexSets(ListIndexSetsRequest) returns (ListIndexSetsResponse);
   // SetIndexSetStatus is used to change the status of an index set.
   rpc SetIndexSetStatus(SetIndexSetStatusRequest) returns (SetIndexSetStatusResponse);
+}
+
+service SearchV1 {
+  rpc Query(QueryRequestV1) returns (QueryResponseV1);
 }
 
 message RegisterClusterRequest {

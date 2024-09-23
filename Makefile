@@ -3,8 +3,9 @@ repo_generated_files := repository/service.pb.go \
 	repository/service.twirp.go \
 	docs/repository-openapi.json
 
-index_proto_file := index/service.proto
+index_proto_file := index/service.proto index/search_v1.proto
 index_generated_files := index/service.pb.go \
+	index/search_v1.pb.go \
 	index/service.twirp.go \
 	docs/index-openapi.json
 

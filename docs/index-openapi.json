@@ -1,6 +1,35 @@
 {
   "components": {
     "schemas": {
+      "elephant.index.BoolQueryV1": {
+        "properties": {
+          "filter": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryV1"
+            },
+            "type": "array"
+          },
+          "must": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryV1"
+            },
+            "type": "array"
+          },
+          "must_not": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryV1"
+            },
+            "type": "array"
+          },
+          "should": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.Cluster": {
         "properties": {
           "auth": {
@@ -61,6 +90,74 @@
           "STATUS_DISABLED"
         ],
         "type": "string"
+      },
+      "elephant.index.FieldValuesV1": {
+        "properties": {
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.HitV1": {
+        "properties": {
+          "fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.index.FieldValuesV1"
+            },
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "sort": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.index.FieldValuesV1"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.HitsTotalV1": {
+        "properties": {
+          "relation": {
+            "type": "string"
+          },
+          "value": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.HitsV1": {
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.HitV1"
+            },
+            "type": "array"
+          },
+          "max_score": {
+            "type": "number"
+          },
+          "total": {
+            "$ref": "#/components/schemas/elephant.index.HitsTotalV1"
+          }
+        },
+        "type": "object"
       },
       "elephant.index.IndexSet": {
         "properties": {
@@ -137,6 +234,31 @@
         },
         "type": "object"
       },
+      "elephant.index.MatchAllQueryV1": {
+        "type": "object"
+      },
+      "elephant.index.MatchPhraseQueryV1": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.MatchQueryV1": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.PartialReindexRequest": {
         "properties": {
           "index_set": {
@@ -151,6 +273,130 @@
         "type": "object"
       },
       "elephant.index.PartialReindexResponse": {
+        "type": "object"
+      },
+      "elephant.index.PrefixQueryV1": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.QueryRequestV1": {
+        "properties": {
+          "document_type": {
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "from": {
+            "type": "integer"
+          },
+          "language": {
+            "type": "string"
+          },
+          "query": {
+            "$ref": "#/components/schemas/elephant.index.QueryV1"
+          },
+          "search_after": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "sort": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.SortingV1"
+            },
+            "type": "array"
+          },
+          "source": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.QueryResponseV1": {
+        "properties": {
+          "hits": {
+            "$ref": "#/components/schemas/elephant.index.HitsV1"
+          },
+          "shards": {
+            "$ref": "#/components/schemas/elephant.index.ShardsV1"
+          },
+          "timed_out": {
+            "type": "boolean"
+          },
+          "took": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.QueryV1": {
+        "properties": {
+          "bool": {
+            "$ref": "#/components/schemas/elephant.index.BoolQueryV1"
+          },
+          "exists": {
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/components/schemas/elephant.index.MatchQueryV1"
+          },
+          "match_all": {
+            "$ref": "#/components/schemas/elephant.index.MatchAllQueryV1"
+          },
+          "match_phrase": {
+            "$ref": "#/components/schemas/elephant.index.MatchPhraseQueryV1"
+          },
+          "prefix": {
+            "$ref": "#/components/schemas/elephant.index.PrefixQueryV1"
+          },
+          "query_string": {
+            "type": "string"
+          },
+          "range": {
+            "$ref": "#/components/schemas/elephant.index.RangeQueryV1"
+          },
+          "term": {
+            "$ref": "#/components/schemas/elephant.index.TermQueryV1"
+          },
+          "terms": {
+            "$ref": "#/components/schemas/elephant.index.TermsQueryV1"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.RangeQueryV1": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "gt": {
+            "type": "string"
+          },
+          "gte": {
+            "type": "string"
+          },
+          "lt": {
+            "type": "string"
+          },
+          "lte": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "elephant.index.RegisterClusterAuth": {
@@ -221,6 +467,59 @@
         "type": "object"
       },
       "elephant.index.SetIndexSetStatusResponse": {
+        "type": "object"
+      },
+      "elephant.index.ShardsV1": {
+        "properties": {
+          "failed": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "successful": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.SortingV1": {
+        "properties": {
+          "desc": {
+            "type": "boolean"
+          },
+          "field": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.TermQueryV1": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.TermsQueryV1": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
         "type": "object"
       }
     },
@@ -541,11 +840,51 @@
           "Management"
         ]
       }
+    },
+    "/twirp/elephant.index.SearchV1/Query": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.QueryRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.QueryResponseV1"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Query",
+        "tags": [
+          "SearchV1"
+        ]
+      }
     }
   },
   "tags": [
     {
       "name": "Management"
+    },
+    {
+      "name": "SearchV1"
     }
   ]
 }

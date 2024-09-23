@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package elephant.index;
+
+option go_package = "./index";
+
+message QueryRequestV1 {
+  string document_type         = 1;
+  string language              = 2;
+  QueryV1 query                = 3;
+  repeated string fields       = 4;
+  repeated SortingV1 sort      = 5;
+  bool source                  = 6;
+  int64 from                   = 7;
+  int64 size                   = 8;
+  repeated string search_after = 9;
+}
+
+message QueryV1 {
+  oneof conditions {
+    BoolQueryV1 bool                 = 1;
+    RangeQueryV1 range               = 2;
+    string exists                    = 3;
+    MatchAllQueryV1 match_all        = 4;
+    TermQueryV1 term                 = 5;
+    TermsQueryV1 terms               = 6;
+    MatchQueryV1 match               = 7;
+    MatchPhraseQueryV1 match_phrase  = 8;
+    string query_string              = 9;
+    PrefixQueryV1 prefix             = 10;
+  }
+}
+
+message BoolQueryV1 {
+  repeated QueryV1 must     = 1;
+  repeated QueryV1 must_not = 2;
+  repeated QueryV1 should   = 3;
+  repeated QueryV1 filter   = 4;
+}
+
+message RangeQueryV1 {
+  string field = 1;
+  string gt    = 2;
+  string gte   = 3;
+  string lt    = 4;
+  string lte   = 5;
+}
+
+message MatchAllQueryV1 {}
+
+message TermQueryV1 {
+  string field = 1;
+  string value = 2;
+}
+
+message TermsQueryV1 {
+  string field = 1;
+  repeated string values = 2;
+}
+
+message MatchQueryV1 {
+  string field = 1;
+  string value = 2;
+}
+
+message MatchPhraseQueryV1 {
+  string field = 1;
+  string value = 2;
+}
+
+message PrefixQueryV1 {
+  string field = 1;
+  string value = 2;
+}
+
+message SortingV1 {
+  string field = 1;
+  bool desc    = 2;
+}
+
+message QueryResponseV1 {
+  int64 took      = 1;
+  bool timed_out  = 2;
+  ShardsV1 shards = 3;
+  HitsV1 hits     = 4;
+}
+
+message ShardsV1 {
+  int32 total      = 1;
+  int32 successful = 2;
+  int32 skipped    = 3;
+  int32 failed     = 4;
+}
+
+message HitsV1 {
+  HitsTotalV1 total   = 1;
+  float max_score     = 2;
+  repeated HitV1 hits = 3;
+}
+
+message HitsTotalV1 {
+  int64 value     = 1;
+  string relation = 2;
+}
+
+message HitV1 {
+  string id    = 1;
+  float score  = 2;
+  map<string, FieldValuesV1> fields = 3;
+  map<string, FieldValuesV1> source = 4;
+  repeated string sort              = 5;
+}
+
+message FieldValuesV1 {
+  repeated string values = 1;
+}
