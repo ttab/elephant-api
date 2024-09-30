@@ -9,6 +9,8 @@ option go_package = "./repository";
 service Documents {
   // Get retrieves a document version.
   rpc Get(GetDocumentRequest) returns (GetDocumentResponse);
+  // BulkGet loads multiple documents in a single request.
+  rpc BulkGet(BulkGetRequest) returns (BulkGetResponse);
   // GetHistory lists the document version history.
   rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
   // Update is used to create new document versions, set statuses, update ACLs.
@@ -399,6 +401,29 @@ message GetDocumentResponse {
   bool is_meta_document     = 5;
   // MainDocument is the UUID of the main document if this is a meta document.
   string main_document      = 6;
+}
+
+message BulkGetRequest {
+  // Documents to get.
+  repeated BulkGetReference documents = 1;
+}
+
+message BulkGetReference {
+  // UUID of the document to get.
+  string uuid                = 1;
+  // Version to get, omit to get latest.
+  int64 version              = 2;
+}
+
+message BulkGetResponse {
+  repeated BulkGetItem items = 1;
+}
+
+message BulkGetItem {
+  // Document is the requested document.
+  newsdoc.Document document = 1;
+  // Version is the version of the returned document.
+  int64 version             = 2;
 }
 
 message MetaDocument {

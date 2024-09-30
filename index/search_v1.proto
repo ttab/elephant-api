@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "newsdoc/newsdoc.proto";
+
 package elephant.index;
 
 option go_package = "./index";
@@ -14,6 +16,9 @@ message QueryRequestV1 {
   int64 from                   = 7;
   int64 size                   = 8;
   repeated string search_after = 9;
+  // LoadDocument will load the current version of the document from the
+  // repository and include it with the search response.
+  bool load_document           = 10;
 }
 
 message QueryV1 {
@@ -109,6 +114,7 @@ message HitV1 {
   map<string, FieldValuesV1> fields = 3;
   map<string, FieldValuesV1> source = 4;
   repeated string sort              = 5;
+  newsdoc.Document document         = 6;
 }
 
 message FieldValuesV1 {
