@@ -18,7 +18,7 @@ message QueryRequestV1 {
   repeated string search_after = 9;
   // LoadDocument will load the current version of the document from the
   // repository and include it with the search response.
-  bool load_documet            = 10;
+  bool load_document           = 10;
 }
 
 message QueryV1 {

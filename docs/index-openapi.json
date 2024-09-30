@@ -306,7 +306,7 @@
           "language": {
             "type": "string"
           },
-          "load_documet": {
+          "load_document": {
             "description": "LoadDocument will load the current version of the document from the repository and include it with the search response.",
             "type": "boolean"
           },
