@@ -2212,12 +2212,18 @@ type StatusRule struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type        string   `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	Name        string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Description string   `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	AccessRule  bool     `protobuf:"varint,4,opt,name=access_rule,json=accessRule,proto3" json:"access_rule,omitempty"`
-	AppliesTo   []string `protobuf:"bytes,5,rep,name=applies_to,json=appliesTo,proto3" json:"applies_to,omitempty"`
-	Expression  string   `protobuf:"bytes,7,opt,name=expression,proto3" json:"expression,omitempty"`
+	// Type that the status rule applies to.
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// Name of the rule.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Description of the rule.
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// AccessRule whether this rule acts as access control.
+	AccessRule bool `protobuf:"varint,4,opt,name=access_rule,json=accessRule,proto3" json:"access_rule,omitempty"`
+	// AppliesTo is a list of statuses that this rule applies to.
+	AppliesTo []string `protobuf:"bytes,5,rep,name=applies_to,json=appliesTo,proto3" json:"applies_to,omitempty"`
+	// Expression that is evaluated for the rule.
+	Expression string `protobuf:"bytes,7,opt,name=expression,proto3" json:"expression,omitempty"`
 }
 
 func (x *StatusRule) Reset() {

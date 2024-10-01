@@ -351,11 +351,17 @@ message CreateStatusRuleRequest {
 }
 
 message StatusRule {
+  // Type that the status rule applies to.
   string type                = 1;
+  // Name of the rule.
   string name                = 2;
+  // Description of the rule.
   string description         = 3;
+  // AccessRule whether this rule acts as access control.
   bool access_rule           = 4;
+  // AppliesTo is a list of statuses that this rule applies to.
   repeated string applies_to = 5;
+  // Expression that is evaluated for the rule.
   string expression          = 7;
 }
 

@@ -1261,24 +1261,30 @@
       "elephant.repository.StatusRule": {
         "properties": {
           "access_rule": {
+            "description": "AccessRule whether this rule acts as access control.",
             "type": "boolean"
           },
           "applies_to": {
+            "description": "AppliesTo is a list of statuses that this rule applies to.",
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "description": {
+            "description": "Description of the rule.",
             "type": "string"
           },
           "expression": {
+            "description": "Expression that is evaluated for the rule.",
             "type": "string"
           },
           "name": {
+            "description": "Name of the rule.",
             "type": "string"
           },
           "type": {
+            "description": "Type that the status rule applies to.",
             "type": "string"
           }
         },
