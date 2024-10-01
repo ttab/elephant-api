@@ -203,6 +203,9 @@
         "properties": {
           "name": {
             "type": "string"
+          },
+          "type": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -1272,13 +1275,10 @@
           "expression": {
             "type": "string"
           },
-          "for_types": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
           "name": {
+            "type": "string"
+          },
+          "type": {
             "type": "string"
           }
         },
@@ -1465,6 +1465,10 @@
           "name": {
             "description": "Name of the status.",
             "type": "string"
+          },
+          "type": {
+            "description": "Type that the status is valid for.",
+            "type": "string"
           }
         },
         "type": "object"
@@ -1508,6 +1512,9 @@
       "elephant.repository.WorkflowStatus": {
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "type": {
             "type": "string"
           }
         },
