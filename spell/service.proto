@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package elephant.spell;
+
+option go_package = "./spell";
+
+// Check content for spelling errors.
+service Check {
+  // Text spellchecks a text and returns the misspelled words or phrases.
+  rpc Text(TextRequest) returns (TextResponse);
+}
+
+// Dictionaries is used to manage custom dictionary entries. Custom dictionaries
+// can be used to add both words and phrases.
+service Dictionaries {
+  // ListDictionaries lists the currently available custom dictionaries.
+  rpc ListDictionaries(ListDictionariesRequest) returns (ListDictionariesResponse);
+  // ListEntries lists entries in the custom dictionaries.
+  rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+  // GetEntry returns the details of a custom word or phrase.
+  rpc GetEntry(GetEntryRequest) returns (GetEntryResponse);
+  // SetEntry is used to add or update custom dictionary entries.
+  rpc SetEntry(SetEntryRequest) returns (SetEntryResponse);
+  // DeleteEntry is used to remove an entry.
+  rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+}
+
+message TextRequest {
+  // Text to spellcheck.
+  string text     = 1;
+  // Language to check the text for.
+  string language = 2;
+}
+
+message TextResponse {
+  repeated MisspelledEntry misspelled = 1;
+}
+
+message MisspelledEntry {
+  // Text that was used in the source text.
+  string text                 = 1;
+  // Suggestions for replacements.
+  repeated string suggestions = 2;
+}
+
+message Suggestion {
+  string text        = 1;
+  string description = 2;
+}
+
+message ListEntriesRequest {
+  // Language to list entries for.
+  string language = 1;
+  // Page to return.
+  int64 page      = 2;
+  // Prefix to filter entries by.
+  string prefix   = 3;
+  // Status to filter entries by
+  string status   = 4;
+}
+
+message ListEntriesResponse {
+  repeated CustomEntry entries = 1;
+}
+
+message CustomEntry {
+  // Language the entry is for.
+  string language                 = 1;
+  // Text is the word (or phrase) itself.
+  string text                     = 2;
+  // Status of the entry, this is used for moderation.
+  string status                   = 3;
+  // Description of the entry.
+  string description              = 4;
+  // CommonMistakes when writing the word or phrase. This is used to pre-filter
+  // text that is spell-checked.
+  repeated string common_mistakes = 5;
+}
+
+message ListDictionariesRequest {}
+
+message ListDictionariesResponse {
+  repeated CustomDictionary dictionaries = 1;
+}
+
+message CustomDictionary {
+  // Language the dictionary is for.
+  string language  = 1;
+  // EntryCount for the dictionary.
+  int64 entry_count = 2;
+}
+
+message GetEntryRequest {
+  // Language the entry is for.
+  string language = 1;
+  // Text is the word or phrase to get the entry for.
+  string text     = 2;
+}
+
+message GetEntryResponse {
+  // Entry information.
+  CustomEntry entry = 1;
+}
+
+
+message SetEntryRequest {
+  // Entry to set.
+  CustomEntry entry = 1;
+}
+
+message SetEntryResponse {}
+
+message DeleteEntryRequest {
+  // Language the entry is for.
+  string language = 1;
+  // Text is the word or phrase to delete.
+  string text     = 2;  
+}
+
+message DeleteEntryResponse {}

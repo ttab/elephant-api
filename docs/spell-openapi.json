@@ -1,0 +1,452 @@
+{
+  "components": {
+    "schemas": {
+      "elephant.spell.CustomDictionary": {
+        "properties": {
+          "entry_count": {
+            "description": "EntryCount for the dictionary.",
+            "type": "integer"
+          },
+          "language": {
+            "description": "Language the dictionary is for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.CustomEntry": {
+        "properties": {
+          "common_mistakes": {
+            "description": "CommonMistakes when writing the word or phrase. This is used to pre-filter text that is spell-checked.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": {
+            "description": "Description of the entry.",
+            "type": "string"
+          },
+          "language": {
+            "description": "Language the entry is for.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status of the entry, this is used for moderation.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text is the word (or phrase) itself.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.DeleteEntryRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the entry is for.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text is the word or phrase to delete.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.DeleteEntryResponse": {
+        "type": "object"
+      },
+      "elephant.spell.GetEntryRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the entry is for.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text is the word or phrase to get the entry for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.GetEntryResponse": {
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/elephant.spell.CustomEntry"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.ListDictionariesRequest": {
+        "type": "object"
+      },
+      "elephant.spell.ListDictionariesResponse": {
+        "properties": {
+          "dictionaries": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.CustomDictionary"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.ListEntriesRequest": {
+        "properties": {
+          "language": {
+            "description": "Language to list entries for.",
+            "type": "string"
+          },
+          "page": {
+            "description": "Page to return.",
+            "type": "integer"
+          },
+          "prefix": {
+            "description": "Prefix to filter entries by.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status to filter entries by",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.ListEntriesResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.CustomEntry"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.MisspelledEntry": {
+        "properties": {
+          "suggestions": {
+            "description": "Suggestions for replacements.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "text": {
+            "description": "Text that was used in the source text.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetEntryRequest": {
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/elephant.spell.CustomEntry"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetEntryResponse": {
+        "type": "object"
+      },
+      "elephant.spell.Suggestion": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.TextRequest": {
+        "properties": {
+          "language": {
+            "description": "Language to check the text for.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text to spellcheck.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.TextResponse": {
+        "properties": {
+          "misspelled": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.MisspelledEntry"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "spell API",
+    "version": "v0.16.0"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/twirp/elephant.spell.Check/Text": {
+      "post": {
+        "description": "Text spellchecks a text and returns the misspelled words or phrases.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.TextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.TextResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Text",
+        "tags": [
+          "Check"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/DeleteEntry": {
+      "post": {
+        "description": "DeleteEntry is used to remove an entry.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.DeleteEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.DeleteEntryResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "DeleteEntry",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/GetEntry": {
+      "post": {
+        "description": "GetEntry returns the details of a custom word or phrase.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.GetEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.GetEntryResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetEntry",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/ListDictionaries": {
+      "post": {
+        "description": "ListDictionaries lists the currently available custom dictionaries.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.ListDictionariesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.ListDictionariesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListDictionaries",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/ListEntries": {
+      "post": {
+        "description": "ListEntries lists entries in the custom dictionaries.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.ListEntriesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.ListEntriesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListEntries",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/SetEntry": {
+      "post": {
+        "description": "SetEntry is used to add or update custom dictionary entries.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SetEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SetEntryResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetEntry",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://spell.api.tt.se"
+    },
+    {
+      "url": "https://spell.api.stage.tt.se"
+    }
+  ],
+  "tags": [
+    {
+      "description": "Check content for spelling errors.",
+      "name": "Check"
+    },
+    {
+      "description": "Dictionaries is used to manage custom dictionary entries. Custom dictionaries can be used to add both words and phrases.",
+      "name": "Dictionaries"
+    }
+  ]
+}
