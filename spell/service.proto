@@ -38,9 +38,9 @@ message TextResponse {
 
 message MisspelledEntry {
   // Text that was used in the source text.
-  string text                 = 1;
+  string text                     = 1;
   // Suggestions for replacements.
-  repeated string suggestions = 2;
+  repeated Suggestion suggestions = 2;
 }
 
 message Suggestion {

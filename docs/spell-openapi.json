@@ -130,7 +130,7 @@
           "suggestions": {
             "description": "Suggestions for replacements.",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/elephant.spell.Suggestion"
             },
             "type": "array"
           },
@@ -198,7 +198,7 @@
   },
   "info": {
     "title": "spell API",
-    "version": "v0.17.0"
+    "version": "v0.17.1"
   },
   "openapi": "3.0.0",
   "paths": {
