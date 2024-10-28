@@ -27,13 +27,17 @@ service Dictionaries {
 
 message TextRequest {
   // Text to spellcheck.
-  string text     = 1;
+  repeated string text     = 1;
   // Language to check the text for.
-  string language = 2;
+  string language          = 2;
 }
 
 message TextResponse {
-  repeated MisspelledEntry misspelled = 1;
+  repeated Misspelled misspelled = 1;
+}
+
+message Misspelled {
+  repeated MisspelledEntry entries = 1;
 }
 
 message MisspelledEntry {

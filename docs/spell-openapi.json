@@ -125,6 +125,17 @@
         },
         "type": "object"
       },
+      "elephant.spell.Misspelled": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.MisspelledEntry"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.spell.MisspelledEntry": {
         "properties": {
           "suggestions": {
@@ -171,7 +182,10 @@
           },
           "text": {
             "description": "Text to spellcheck.",
-            "type": "string"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -180,7 +194,7 @@
         "properties": {
           "misspelled": {
             "items": {
-              "$ref": "#/components/schemas/elephant.spell.MisspelledEntry"
+              "$ref": "#/components/schemas/elephant.spell.Misspelled"
             },
             "type": "array"
           }
@@ -198,7 +212,7 @@
   },
   "info": {
     "title": "spell API",
-    "version": "v0.17.1"
+    "version": "v0.17.2"
   },
   "openapi": "3.0.0",
   "paths": {
