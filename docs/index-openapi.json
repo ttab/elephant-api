@@ -275,6 +275,9 @@
             },
             "type": "array"
           },
+          "name": {
+            "type": "string"
+          },
           "path": {
             "type": "string"
           },

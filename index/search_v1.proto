@@ -130,9 +130,10 @@ message GetMappingsResponseV1 {
 }
 
 message MappingPropertyV1 {
-  string path = 1;
+  string name = 1;
   string type = 2;
-  repeated MappingFieldV1 fields = 3;
+  string path = 3;
+  repeated MappingFieldV1 fields = 4;
 }
 
 message MappingFieldV1 {
