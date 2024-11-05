@@ -120,3 +120,22 @@ message HitV1 {
 message FieldValuesV1 {
   repeated string values = 1;
 }
+
+message GetMappingsRequestV1 {
+  string document_type = 1;
+}
+
+message GetMappingsResponseV1 {
+  repeated MappingPropertyV1 properties = 1;
+}
+
+message MappingPropertyV1 {
+  string path = 1;
+  string type = 2;
+  repeated MappingFieldV1 fields = 3;
+}
+
+message MappingFieldV1 {
+  string name = 1;
+  string type = 2;
+}

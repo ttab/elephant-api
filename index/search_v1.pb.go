@@ -1247,6 +1247,218 @@ func (x *FieldValuesV1) GetValues() []string {
 	return nil
 }
 
+type GetMappingsRequestV1 struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	DocumentType string `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
+}
+
+func (x *GetMappingsRequestV1) Reset() {
+	*x = GetMappingsRequestV1{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_index_search_v1_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetMappingsRequestV1) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMappingsRequestV1) ProtoMessage() {}
+
+func (x *GetMappingsRequestV1) ProtoReflect() protoreflect.Message {
+	mi := &file_index_search_v1_proto_msgTypes[17]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMappingsRequestV1.ProtoReflect.Descriptor instead.
+func (*GetMappingsRequestV1) Descriptor() ([]byte, []int) {
+	return file_index_search_v1_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetMappingsRequestV1) GetDocumentType() string {
+	if x != nil {
+		return x.DocumentType
+	}
+	return ""
+}
+
+type GetMappingsResponseV1 struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Properties []*MappingPropertyV1 `protobuf:"bytes,1,rep,name=properties,proto3" json:"properties,omitempty"`
+}
+
+func (x *GetMappingsResponseV1) Reset() {
+	*x = GetMappingsResponseV1{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_index_search_v1_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetMappingsResponseV1) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMappingsResponseV1) ProtoMessage() {}
+
+func (x *GetMappingsResponseV1) ProtoReflect() protoreflect.Message {
+	mi := &file_index_search_v1_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMappingsResponseV1.ProtoReflect.Descriptor instead.
+func (*GetMappingsResponseV1) Descriptor() ([]byte, []int) {
+	return file_index_search_v1_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetMappingsResponseV1) GetProperties() []*MappingPropertyV1 {
+	if x != nil {
+		return x.Properties
+	}
+	return nil
+}
+
+type MappingPropertyV1 struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Path   string            `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Type   string            `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Fields []*MappingFieldV1 `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty"`
+}
+
+func (x *MappingPropertyV1) Reset() {
+	*x = MappingPropertyV1{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_index_search_v1_proto_msgTypes[19]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MappingPropertyV1) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MappingPropertyV1) ProtoMessage() {}
+
+func (x *MappingPropertyV1) ProtoReflect() protoreflect.Message {
+	mi := &file_index_search_v1_proto_msgTypes[19]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MappingPropertyV1.ProtoReflect.Descriptor instead.
+func (*MappingPropertyV1) Descriptor() ([]byte, []int) {
+	return file_index_search_v1_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *MappingPropertyV1) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *MappingPropertyV1) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *MappingPropertyV1) GetFields() []*MappingFieldV1 {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+type MappingFieldV1 struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+}
+
+func (x *MappingFieldV1) Reset() {
+	*x = MappingFieldV1{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_index_search_v1_proto_msgTypes[20]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MappingFieldV1) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MappingFieldV1) ProtoMessage() {}
+
+func (x *MappingFieldV1) ProtoReflect() protoreflect.Message {
+	mi := &file_index_search_v1_proto_msgTypes[20]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MappingFieldV1.ProtoReflect.Descriptor instead.
+func (*MappingFieldV1) Descriptor() ([]byte, []int) {
+	return file_index_search_v1_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *MappingFieldV1) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *MappingFieldV1) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
 var File_index_search_v1_proto protoreflect.FileDescriptor
 
 var file_index_search_v1_proto_rawDesc = []byte{
@@ -1411,8 +1623,28 @@ var file_index_search_v1_proto_rawDesc = []byte{
 	0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x27, 0x0a, 0x0d, 0x46, 0x69, 0x65,
 	0x6c, 0x64, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x56, 0x31, 0x12, 0x16, 0x0a, 0x06, 0x76, 0x61,
 	0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75,
-	0x65, 0x73, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x2f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x73, 0x22, 0x3b, 0x0a, 0x14, 0x47, 0x65, 0x74, 0x4d, 0x61, 0x70, 0x70, 0x69, 0x6e, 0x67,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x56, 0x31, 0x12, 0x23, 0x0a, 0x0d, 0x64, 0x6f,
+	0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x0c, 0x64, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x54, 0x79, 0x70, 0x65, 0x22,
+	0x5a, 0x0a, 0x15, 0x47, 0x65, 0x74, 0x4d, 0x61, 0x70, 0x70, 0x69, 0x6e, 0x67, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x56, 0x31, 0x12, 0x41, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x70,
+	0x65, 0x72, 0x74, 0x69, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x65,
+	0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x2e, 0x4d, 0x61,
+	0x70, 0x70, 0x69, 0x6e, 0x67, 0x50, 0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x79, 0x56, 0x31, 0x52,
+	0x0a, 0x70, 0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x69, 0x65, 0x73, 0x22, 0x73, 0x0a, 0x11, 0x4d,
+	0x61, 0x70, 0x70, 0x69, 0x6e, 0x67, 0x50, 0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x79, 0x56, 0x31,
+	0x12, 0x12, 0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04,
+	0x70, 0x61, 0x74, 0x68, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x36, 0x0a, 0x06, 0x66, 0x69, 0x65, 0x6c,
+	0x64, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68,
+	0x61, 0x6e, 0x74, 0x2e, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x2e, 0x4d, 0x61, 0x70, 0x70, 0x69, 0x6e,
+	0x67, 0x46, 0x69, 0x65, 0x6c, 0x64, 0x56, 0x31, 0x52, 0x06, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x73,
+	0x22, 0x38, 0x0a, 0x0e, 0x4d, 0x61, 0x70, 0x70, 0x69, 0x6e, 0x67, 0x46, 0x69, 0x65, 0x6c, 0x64,
+	0x56, 0x31, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x2f,
+	0x69, 0x6e, 0x64, 0x65, 0x78, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1427,28 +1659,32 @@ func file_index_search_v1_proto_rawDescGZIP() []byte {
 	return file_index_search_v1_proto_rawDescData
 }
 
-var file_index_search_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_index_search_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_index_search_v1_proto_goTypes = []interface{}{
-	(*QueryRequestV1)(nil),     // 0: elephant.index.QueryRequestV1
-	(*QueryV1)(nil),            // 1: elephant.index.QueryV1
-	(*BoolQueryV1)(nil),        // 2: elephant.index.BoolQueryV1
-	(*RangeQueryV1)(nil),       // 3: elephant.index.RangeQueryV1
-	(*MatchAllQueryV1)(nil),    // 4: elephant.index.MatchAllQueryV1
-	(*TermQueryV1)(nil),        // 5: elephant.index.TermQueryV1
-	(*TermsQueryV1)(nil),       // 6: elephant.index.TermsQueryV1
-	(*MatchQueryV1)(nil),       // 7: elephant.index.MatchQueryV1
-	(*MatchPhraseQueryV1)(nil), // 8: elephant.index.MatchPhraseQueryV1
-	(*PrefixQueryV1)(nil),      // 9: elephant.index.PrefixQueryV1
-	(*SortingV1)(nil),          // 10: elephant.index.SortingV1
-	(*QueryResponseV1)(nil),    // 11: elephant.index.QueryResponseV1
-	(*ShardsV1)(nil),           // 12: elephant.index.ShardsV1
-	(*HitsV1)(nil),             // 13: elephant.index.HitsV1
-	(*HitsTotalV1)(nil),        // 14: elephant.index.HitsTotalV1
-	(*HitV1)(nil),              // 15: elephant.index.HitV1
-	(*FieldValuesV1)(nil),      // 16: elephant.index.FieldValuesV1
-	nil,                        // 17: elephant.index.HitV1.FieldsEntry
-	nil,                        // 18: elephant.index.HitV1.SourceEntry
-	(*newsdoc.Document)(nil),   // 19: newsdoc.Document
+	(*QueryRequestV1)(nil),        // 0: elephant.index.QueryRequestV1
+	(*QueryV1)(nil),               // 1: elephant.index.QueryV1
+	(*BoolQueryV1)(nil),           // 2: elephant.index.BoolQueryV1
+	(*RangeQueryV1)(nil),          // 3: elephant.index.RangeQueryV1
+	(*MatchAllQueryV1)(nil),       // 4: elephant.index.MatchAllQueryV1
+	(*TermQueryV1)(nil),           // 5: elephant.index.TermQueryV1
+	(*TermsQueryV1)(nil),          // 6: elephant.index.TermsQueryV1
+	(*MatchQueryV1)(nil),          // 7: elephant.index.MatchQueryV1
+	(*MatchPhraseQueryV1)(nil),    // 8: elephant.index.MatchPhraseQueryV1
+	(*PrefixQueryV1)(nil),         // 9: elephant.index.PrefixQueryV1
+	(*SortingV1)(nil),             // 10: elephant.index.SortingV1
+	(*QueryResponseV1)(nil),       // 11: elephant.index.QueryResponseV1
+	(*ShardsV1)(nil),              // 12: elephant.index.ShardsV1
+	(*HitsV1)(nil),                // 13: elephant.index.HitsV1
+	(*HitsTotalV1)(nil),           // 14: elephant.index.HitsTotalV1
+	(*HitV1)(nil),                 // 15: elephant.index.HitV1
+	(*FieldValuesV1)(nil),         // 16: elephant.index.FieldValuesV1
+	(*GetMappingsRequestV1)(nil),  // 17: elephant.index.GetMappingsRequestV1
+	(*GetMappingsResponseV1)(nil), // 18: elephant.index.GetMappingsResponseV1
+	(*MappingPropertyV1)(nil),     // 19: elephant.index.MappingPropertyV1
+	(*MappingFieldV1)(nil),        // 20: elephant.index.MappingFieldV1
+	nil,                           // 21: elephant.index.HitV1.FieldsEntry
+	nil,                           // 22: elephant.index.HitV1.SourceEntry
+	(*newsdoc.Document)(nil),      // 23: newsdoc.Document
 }
 var file_index_search_v1_proto_depIdxs = []int32{
 	1,  // 0: elephant.index.QueryRequestV1.query:type_name -> elephant.index.QueryV1
@@ -1469,16 +1705,18 @@ var file_index_search_v1_proto_depIdxs = []int32{
 	13, // 15: elephant.index.QueryResponseV1.hits:type_name -> elephant.index.HitsV1
 	14, // 16: elephant.index.HitsV1.total:type_name -> elephant.index.HitsTotalV1
 	15, // 17: elephant.index.HitsV1.hits:type_name -> elephant.index.HitV1
-	17, // 18: elephant.index.HitV1.fields:type_name -> elephant.index.HitV1.FieldsEntry
-	18, // 19: elephant.index.HitV1.source:type_name -> elephant.index.HitV1.SourceEntry
-	19, // 20: elephant.index.HitV1.document:type_name -> newsdoc.Document
-	16, // 21: elephant.index.HitV1.FieldsEntry.value:type_name -> elephant.index.FieldValuesV1
-	16, // 22: elephant.index.HitV1.SourceEntry.value:type_name -> elephant.index.FieldValuesV1
-	23, // [23:23] is the sub-list for method output_type
-	23, // [23:23] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	21, // 18: elephant.index.HitV1.fields:type_name -> elephant.index.HitV1.FieldsEntry
+	22, // 19: elephant.index.HitV1.source:type_name -> elephant.index.HitV1.SourceEntry
+	23, // 20: elephant.index.HitV1.document:type_name -> newsdoc.Document
+	19, // 21: elephant.index.GetMappingsResponseV1.properties:type_name -> elephant.index.MappingPropertyV1
+	20, // 22: elephant.index.MappingPropertyV1.fields:type_name -> elephant.index.MappingFieldV1
+	16, // 23: elephant.index.HitV1.FieldsEntry.value:type_name -> elephant.index.FieldValuesV1
+	16, // 24: elephant.index.HitV1.SourceEntry.value:type_name -> elephant.index.FieldValuesV1
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_index_search_v1_proto_init() }
@@ -1691,6 +1929,54 @@ func file_index_search_v1_proto_init() {
 				return nil
 			}
 		}
+		file_index_search_v1_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetMappingsRequestV1); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_index_search_v1_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetMappingsResponseV1); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_index_search_v1_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MappingPropertyV1); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_index_search_v1_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*MappingFieldV1); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_index_search_v1_proto_msgTypes[1].OneofWrappers = []interface{}{
 		(*QueryV1_Bool)(nil),
@@ -1710,7 +1996,7 @@ func file_index_search_v1_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_index_search_v1_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
