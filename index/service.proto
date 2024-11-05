@@ -31,6 +31,7 @@ service Management {
 
 service SearchV1 {
   rpc Query(QueryRequestV1) returns (QueryResponseV1);
+  rpc GetMappings(GetMappingsRequestV1) returns (GetMappingsResponseV1);
 }
 
 message RegisterClusterRequest {

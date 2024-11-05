@@ -102,6 +102,25 @@
         },
         "type": "object"
       },
+      "elephant.index.GetMappingsRequestV1": {
+        "properties": {
+          "document_type": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.GetMappingsResponseV1": {
+        "properties": {
+          "properties": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.MappingPropertyV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.HitV1": {
         "properties": {
           "document": {
@@ -232,6 +251,37 @@
           },
           "next_page": {
             "description": "NextPage cursor to use to get the next page of index sets. Empty if no more index sets exist.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.MappingFieldV1": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.MappingPropertyV1": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.MappingFieldV1"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "type": {
             "type": "string"
           }
         },
@@ -673,7 +723,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.17.2"
+    "version": "v0.17.3"
   },
   "openapi": "3.0.0",
   "paths": {
@@ -978,6 +1028,43 @@
         "summary": "SetIndexSetStatus",
         "tags": [
           "Management"
+        ]
+      }
+    },
+    "/twirp/elephant.index.SearchV1/GetMappings": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.GetMappingsRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.GetMappingsResponseV1"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetMappings",
+        "tags": [
+          "SearchV1"
         ]
       }
     },

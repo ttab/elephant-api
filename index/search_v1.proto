@@ -120,3 +120,30 @@ message HitV1 {
 message FieldValuesV1 {
   repeated string values = 1;
 }
+
+message GetMappingsRequestV1 {
+  string document_type = 1;
+}
+
+message GetMappingsResponseV1 {
+  repeated MappingPropertyV1 properties = 1;
+}
+
+message MappingPropertyV1 {
+  // Name of the property.
+  string name = 1;
+  // Type of the property.
+  string type = 2;
+  // Path used for alias properties.
+  string path = 3;
+  // Fields used for alternate indexing metods for the property.
+  repeated MappingFieldV1 fields = 4;
+}
+
+message MappingFieldV1 {
+  // Name of the field.
+  string name = 1;
+  // Type of the field. Does not exactly correspond to Open Search types, but
+  // represents the logical type.
+  string type = 2;
+}
