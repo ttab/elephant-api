@@ -111,6 +111,8 @@ service Metrics {
   rpc GetKinds(GetMetricKindsRequest) returns (GetMetricKindsResponse);
   // Register a data point
   rpc RegisterMetric(RegisterMetricRequest) returns (RegisterMetricResponse);
+  // GetMetrics returns metrics related to a document.
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
 }
 
 message GetStatusRequest {
@@ -863,6 +865,22 @@ message RegisterMetricRequest {
 }
 
 message RegisterMetricResponse {}
+
+message GetMetricsRequest {
+  string uuid  = 1;
+  string kind  = 2;
+  string label = 3;
+}
+
+message GetMetricsResponse {
+  repeated Metric metrics = 2;
+}
+
+message Metric {
+  string kind  = 1;
+  string label = 2;
+  int64 value  = 3;
+}
 
 message LockRequest {
   // UUID of the document to lock
