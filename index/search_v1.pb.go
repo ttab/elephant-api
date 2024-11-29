@@ -1346,9 +1346,13 @@ type MappingPropertyV1 struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name   string            `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Type   string            `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Path   string            `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	// Name of the property.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Type of the property.
+	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	// Path used for alias properties.
+	Path string `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	// Fields used for alternate indexing metods for the property.
 	Fields []*MappingFieldV1 `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
 }
 
@@ -1417,7 +1421,10 @@ type MappingFieldV1 struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of the field.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Type of the field. Does not exactly correspond to Open Search types, but
+	// represents the logical type.
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 }
 
