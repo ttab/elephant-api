@@ -36,6 +36,8 @@ service Documents {
   // CompactedEventlog returns document update events. If more than one event
   // has occured for a document in the given window only the latest will be returned.
   rpc CompactedEventlog(GetCompactedEventlogRequest) returns (GetCompactedEventlogResponse);
+  // GetStatus returns a single status for a document.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
   // GetStatusHistory returns the history of a status for a document.
   rpc GetStatusHistory(GetStatusHistoryRequest) returns (GetStatusHistoryReponse);
   // GetStatusOverview returns the current version and a set of statuses for a
@@ -109,6 +111,19 @@ service Metrics {
   rpc GetKinds(GetMetricKindsRequest) returns (GetMetricKindsResponse);
   // Register a data point
   rpc RegisterMetric(RegisterMetricRequest) returns (RegisterMetricResponse);
+}
+
+message GetStatusRequest {
+  // UUID of the document to get the status history for.
+  string uuid = 1;
+  // Name of the status to get.
+  string name = 2;
+  // ID of the status to get. Optional, will default to the latest status.
+  int64 id = 3;
+}
+
+message GetStatusResponse {
+  Status status = 1;
 }
 
 message GetStatusHistoryRequest {
