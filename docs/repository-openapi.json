@@ -749,6 +749,31 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetStatusRequest": {
+        "properties": {
+          "id": {
+            "description": "ID of the status to get. Optional, will default to the latest status.",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Name of the status to get.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the document to get the status history for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetStatusResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/elephant.repository.Status"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetStatusRulesRequest": {
         "type": "object"
       },
@@ -1670,7 +1695,7 @@
   },
   "info": {
     "title": "repository API",
-    "version": "v0.17.3"
+    "version": "v0.17.4"
   },
   "openapi": "3.0.0",
   "paths": {
@@ -2049,6 +2074,44 @@
           }
         ],
         "summary": "GetPermissions",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetStatus": {
+      "post": {
+        "description": "GetStatus returns a single status.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetStatusResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetStatus",
         "tags": [
           "Documents"
         ]

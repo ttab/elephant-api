@@ -259,9 +259,11 @@
       "elephant.index.MappingFieldV1": {
         "properties": {
           "name": {
+            "description": "Name of the field.",
             "type": "string"
           },
           "type": {
+            "description": "Type of the field. Does not exactly correspond to Open Search types, but represents the logical type.",
             "type": "string"
           }
         },
@@ -270,18 +272,22 @@
       "elephant.index.MappingPropertyV1": {
         "properties": {
           "fields": {
+            "description": "Fields used for alternate indexing metods for the property.",
             "items": {
               "$ref": "#/components/schemas/elephant.index.MappingFieldV1"
             },
             "type": "array"
           },
           "name": {
+            "description": "Name of the property.",
             "type": "string"
           },
           "path": {
+            "description": "Path used for alias properties.",
             "type": "string"
           },
           "type": {
+            "description": "Type of the property.",
             "type": "string"
           }
         },
@@ -723,7 +729,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.17.3"
+    "version": "v0.17.4"
   },
   "openapi": "3.0.0",
   "paths": {
