@@ -13,6 +13,8 @@ service Check {
 // Dictionaries is used to manage custom dictionary entries. Custom dictionaries
 // can be used to add both words and phrases.
 service Dictionaries {
+  // SupportedLanguages returns a list of supported languages.
+  rpc SupportedLanguages(SupportedLanguagesRequest) returns (SupportedLanguagesResponse);
   // ListDictionaries lists the currently available custom dictionaries.
   rpc ListDictionaries(ListDictionariesRequest) returns (ListDictionariesResponse);
   // ListEntries lists entries in the custom dictionaries.
@@ -23,6 +25,18 @@ service Dictionaries {
   rpc SetEntry(SetEntryRequest) returns (SetEntryResponse);
   // DeleteEntry is used to remove an entry.
   rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+}
+
+message SupportedLanguagesRequest {}
+
+message SupportedLanguagesResponse {
+  // Languages that can be used for spellchecking.
+  repeated Language languages = 1;
+}
+
+message Language {
+  // Code for the language.
+  string code = 1;
 }
 
 message TextRequest {

@@ -530,6 +530,9 @@ func (s *checkServer) PathPrefix() string {
 // Dictionaries is used to manage custom dictionary entries. Custom dictionaries
 // can be used to add both words and phrases.
 type Dictionaries interface {
+	// SupportedLanguages returns a list of supported languages.
+	SupportedLanguages(context.Context, *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error)
+
 	// ListDictionaries lists the currently available custom dictionaries.
 	ListDictionaries(context.Context, *ListDictionariesRequest) (*ListDictionariesResponse, error)
 
@@ -552,7 +555,7 @@ type Dictionaries interface {
 
 type dictionariesProtobufClient struct {
 	client      HTTPClient
-	urls        [5]string
+	urls        [6]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -580,7 +583,8 @@ func NewDictionariesProtobufClient(baseURL string, client HTTPClient, opts ...tw
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "elephant.spell", "Dictionaries")
-	urls := [5]string{
+	urls := [6]string{
+		serviceURL + "SupportedLanguages",
 		serviceURL + "ListDictionaries",
 		serviceURL + "ListEntries",
 		serviceURL + "GetEntry",
@@ -594,6 +598,52 @@ func NewDictionariesProtobufClient(baseURL string, client HTTPClient, opts ...tw
 		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
 		opts:        clientOpts,
 	}
+}
+
+func (c *dictionariesProtobufClient) SupportedLanguages(ctx context.Context, in *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Dictionaries")
+	ctx = ctxsetters.WithMethodName(ctx, "SupportedLanguages")
+	caller := c.callSupportedLanguages
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SupportedLanguagesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SupportedLanguagesRequest) when calling interceptor")
+					}
+					return c.callSupportedLanguages(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SupportedLanguagesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SupportedLanguagesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *dictionariesProtobufClient) callSupportedLanguages(ctx context.Context, in *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+	out := new(SupportedLanguagesResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
 }
 
 func (c *dictionariesProtobufClient) ListDictionaries(ctx context.Context, in *ListDictionariesRequest) (*ListDictionariesResponse, error) {
@@ -627,7 +677,7 @@ func (c *dictionariesProtobufClient) ListDictionaries(ctx context.Context, in *L
 
 func (c *dictionariesProtobufClient) callListDictionaries(ctx context.Context, in *ListDictionariesRequest) (*ListDictionariesResponse, error) {
 	out := new(ListDictionariesResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -673,7 +723,7 @@ func (c *dictionariesProtobufClient) ListEntries(ctx context.Context, in *ListEn
 
 func (c *dictionariesProtobufClient) callListEntries(ctx context.Context, in *ListEntriesRequest) (*ListEntriesResponse, error) {
 	out := new(ListEntriesResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -719,7 +769,7 @@ func (c *dictionariesProtobufClient) GetEntry(ctx context.Context, in *GetEntryR
 
 func (c *dictionariesProtobufClient) callGetEntry(ctx context.Context, in *GetEntryRequest) (*GetEntryResponse, error) {
 	out := new(GetEntryResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -765,7 +815,7 @@ func (c *dictionariesProtobufClient) SetEntry(ctx context.Context, in *SetEntryR
 
 func (c *dictionariesProtobufClient) callSetEntry(ctx context.Context, in *SetEntryRequest) (*SetEntryResponse, error) {
 	out := new(SetEntryResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -811,7 +861,7 @@ func (c *dictionariesProtobufClient) DeleteEntry(ctx context.Context, in *Delete
 
 func (c *dictionariesProtobufClient) callDeleteEntry(ctx context.Context, in *DeleteEntryRequest) (*DeleteEntryResponse, error) {
 	out := new(DeleteEntryResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -832,7 +882,7 @@ func (c *dictionariesProtobufClient) callDeleteEntry(ctx context.Context, in *De
 
 type dictionariesJSONClient struct {
 	client      HTTPClient
-	urls        [5]string
+	urls        [6]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -860,7 +910,8 @@ func NewDictionariesJSONClient(baseURL string, client HTTPClient, opts ...twirp.
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "elephant.spell", "Dictionaries")
-	urls := [5]string{
+	urls := [6]string{
+		serviceURL + "SupportedLanguages",
 		serviceURL + "ListDictionaries",
 		serviceURL + "ListEntries",
 		serviceURL + "GetEntry",
@@ -874,6 +925,52 @@ func NewDictionariesJSONClient(baseURL string, client HTTPClient, opts ...twirp.
 		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
 		opts:        clientOpts,
 	}
+}
+
+func (c *dictionariesJSONClient) SupportedLanguages(ctx context.Context, in *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Dictionaries")
+	ctx = ctxsetters.WithMethodName(ctx, "SupportedLanguages")
+	caller := c.callSupportedLanguages
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SupportedLanguagesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SupportedLanguagesRequest) when calling interceptor")
+					}
+					return c.callSupportedLanguages(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SupportedLanguagesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SupportedLanguagesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *dictionariesJSONClient) callSupportedLanguages(ctx context.Context, in *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+	out := new(SupportedLanguagesResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
 }
 
 func (c *dictionariesJSONClient) ListDictionaries(ctx context.Context, in *ListDictionariesRequest) (*ListDictionariesResponse, error) {
@@ -907,7 +1004,7 @@ func (c *dictionariesJSONClient) ListDictionaries(ctx context.Context, in *ListD
 
 func (c *dictionariesJSONClient) callListDictionaries(ctx context.Context, in *ListDictionariesRequest) (*ListDictionariesResponse, error) {
 	out := new(ListDictionariesResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -953,7 +1050,7 @@ func (c *dictionariesJSONClient) ListEntries(ctx context.Context, in *ListEntrie
 
 func (c *dictionariesJSONClient) callListEntries(ctx context.Context, in *ListEntriesRequest) (*ListEntriesResponse, error) {
 	out := new(ListEntriesResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -999,7 +1096,7 @@ func (c *dictionariesJSONClient) GetEntry(ctx context.Context, in *GetEntryReque
 
 func (c *dictionariesJSONClient) callGetEntry(ctx context.Context, in *GetEntryRequest) (*GetEntryResponse, error) {
 	out := new(GetEntryResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -1045,7 +1142,7 @@ func (c *dictionariesJSONClient) SetEntry(ctx context.Context, in *SetEntryReque
 
 func (c *dictionariesJSONClient) callSetEntry(ctx context.Context, in *SetEntryRequest) (*SetEntryResponse, error) {
 	out := new(SetEntryResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -1091,7 +1188,7 @@ func (c *dictionariesJSONClient) DeleteEntry(ctx context.Context, in *DeleteEntr
 
 func (c *dictionariesJSONClient) callDeleteEntry(ctx context.Context, in *DeleteEntryRequest) (*DeleteEntryResponse, error) {
 	out := new(DeleteEntryResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -1203,6 +1300,9 @@ func (s *dictionariesServer) ServeHTTP(resp http.ResponseWriter, req *http.Reque
 	}
 
 	switch method {
+	case "SupportedLanguages":
+		s.serveSupportedLanguages(ctx, resp, req)
+		return
 	case "ListDictionaries":
 		s.serveListDictionaries(ctx, resp, req)
 		return
@@ -1223,6 +1323,186 @@ func (s *dictionariesServer) ServeHTTP(resp http.ResponseWriter, req *http.Reque
 		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
 		return
 	}
+}
+
+func (s *dictionariesServer) serveSupportedLanguages(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveSupportedLanguagesJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveSupportedLanguagesProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *dictionariesServer) serveSupportedLanguagesJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SupportedLanguages")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(SupportedLanguagesRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Dictionaries.SupportedLanguages
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SupportedLanguagesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SupportedLanguagesRequest) when calling interceptor")
+					}
+					return s.Dictionaries.SupportedLanguages(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SupportedLanguagesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SupportedLanguagesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SupportedLanguagesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SupportedLanguagesResponse and nil error while calling SupportedLanguages. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *dictionariesServer) serveSupportedLanguagesProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SupportedLanguages")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(SupportedLanguagesRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Dictionaries.SupportedLanguages
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SupportedLanguagesRequest) (*SupportedLanguagesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SupportedLanguagesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SupportedLanguagesRequest) when calling interceptor")
+					}
+					return s.Dictionaries.SupportedLanguages(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SupportedLanguagesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SupportedLanguagesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SupportedLanguagesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SupportedLanguagesResponse and nil error while calling SupportedLanguages. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
 }
 
 func (s *dictionariesServer) serveListDictionaries(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
@@ -2706,43 +2986,47 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 597 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0x4d, 0x6f, 0xd3, 0x40,
-	0x10, 0x55, 0xbe, 0xda, 0x66, 0x1c, 0x35, 0xd1, 0x46, 0x80, 0x31, 0x48, 0x8d, 0x96, 0x43, 0x73,
-	0x4a, 0x45, 0x11, 0x07, 0x10, 0x1c, 0xda, 0x24, 0xaa, 0x54, 0x35, 0x42, 0x72, 0x10, 0x07, 0x2e,
-	0xc5, 0x38, 0x43, 0x6a, 0x35, 0xb1, 0x8d, 0x77, 0x8d, 0x92, 0x7f, 0xc3, 0x7f, 0xe1, 0x8f, 0x21,
-	0xaf, 0x37, 0xf1, 0x7a, 0xed, 0x34, 0x88, 0xde, 0xbc, 0x33, 0x6f, 0xdf, 0xce, 0xbc, 0x79, 0x99,
-	0x40, 0x97, 0x85, 0xb8, 0x58, 0x9c, 0x31, 0x8c, 0x7e, 0x79, 0x2e, 0x0e, 0xc2, 0x28, 0xe0, 0x01,
-	0x39, 0xc6, 0x05, 0x86, 0x77, 0x8e, 0xcf, 0x07, 0x22, 0x4b, 0x3f, 0x82, 0xf1, 0x19, 0x57, 0xdc,
-	0xc6, 0x9f, 0x31, 0x32, 0x4e, 0x08, 0xd4, 0x39, 0xae, 0xb8, 0x59, 0xe9, 0xd5, 0xfa, 0x4d, 0x5b,
-	0x7c, 0x13, 0x0b, 0x8e, 0x16, 0x8e, 0x3f, 0x8f, 0x9d, 0x39, 0x9a, 0xd5, 0x5e, 0xa5, 0xdf, 0xb4,
-	0xb7, 0x67, 0x7a, 0x0d, 0xad, 0xf4, 0x3a, 0x0b, 0x03, 0x9f, 0x21, 0x79, 0x0f, 0xb0, 0xf4, 0x98,
-	0xa0, 0xc6, 0x99, 0x60, 0x31, 0xce, 0xad, 0x41, 0xfe, 0xcd, 0xc1, 0x64, 0x8b, 0xb0, 0x15, 0x34,
-	0xbd, 0x02, 0xc8, 0x32, 0xe4, 0x1d, 0x1c, 0xa2, 0xcf, 0x23, 0x0f, 0x99, 0xa4, 0x39, 0xd9, 0x4d,
-	0x33, 0xf6, 0x79, 0xb4, 0xb6, 0x37, 0x78, 0xea, 0x42, 0x5b, 0xcb, 0x29, 0x7d, 0x55, 0xb6, 0x7d,
-	0x7d, 0x00, 0x83, 0xc5, 0xf3, 0x39, 0x32, 0xee, 0x05, 0x3e, 0x33, 0xab, 0xe5, 0xc5, 0x4e, 0xb7,
-	0x10, 0x5b, 0x85, 0xd3, 0x4b, 0x80, 0x2c, 0x55, 0xca, 0xdf, 0x03, 0x63, 0x86, 0xcc, 0x8d, 0xbc,
-	0x30, 0x81, 0x48, 0xe9, 0xd4, 0x10, 0xe5, 0x40, 0x6e, 0x3c, 0xc6, 0xc7, 0x69, 0xdd, 0x9b, 0x19,
-	0xa8, 0x7a, 0x57, 0xf2, 0x7a, 0x27, 0xef, 0x84, 0x9b, 0x39, 0xd4, 0x6c, 0xf1, 0x4d, 0x9e, 0xc2,
-	0x41, 0x18, 0xe1, 0x0f, 0x6f, 0x65, 0xd6, 0x04, 0x5a, 0x9e, 0x92, 0x38, 0xe3, 0x0e, 0x8f, 0x99,
-	0x59, 0x4f, 0xe3, 0xe9, 0x89, 0xde, 0x40, 0x37, 0xf7, 0xaa, 0x1c, 0xdd, 0x5b, 0x5d, 0xf0, 0x17,
-	0xba, 0x14, 0xc3, 0x98, 0xf1, 0x60, 0xa9, 0x89, 0xfd, 0xbb, 0x02, 0x86, 0x92, 0xd8, 0x57, 0xbd,
-	0x50, 0xa9, 0xaa, 0xa8, 0x94, 0x55, 0x59, 0x53, 0xab, 0xd4, 0xd5, 0xab, 0x17, 0xd4, 0x23, 0xa7,
-	0xd0, 0x76, 0x83, 0xe5, 0x32, 0xf0, 0x6f, 0x97, 0x1e, 0xe3, 0xce, 0x3d, 0x32, 0xb3, 0x21, 0x6c,
-	0x7b, 0x9c, 0x86, 0x27, 0x32, 0x4a, 0x9f, 0xc3, 0xb3, 0xa4, 0xe1, 0x91, 0xe7, 0x26, 0xf7, 0x1c,
-	0x45, 0x6b, 0xfa, 0x0d, 0xcc, 0x62, 0x4a, 0x0a, 0x32, 0x82, 0xd6, 0x4c, 0x89, 0x4b, 0x55, 0x7a,
-	0xe5, 0xaa, 0x6c, 0x19, 0xd6, 0x76, 0xee, 0x16, 0xfd, 0x04, 0x1d, 0x1d, 0xf1, 0xa0, 0x46, 0x27,
-	0x60, 0x24, 0xd2, 0xae, 0x6f, 0xdd, 0x20, 0xf6, 0xb9, 0x1c, 0x34, 0x88, 0xd0, 0x30, 0x89, 0xd0,
-	0x0b, 0x68, 0x5f, 0x21, 0x4f, 0xa7, 0xf0, 0x6f, 0x8e, 0xd1, 0x35, 0xa7, 0x63, 0xe8, 0x64, 0x14,
-	0xb2, 0xdb, 0xd7, 0xd0, 0x10, 0x8f, 0x08, 0x82, 0x3d, 0xc3, 0x4f, 0x91, 0x74, 0x04, 0xed, 0xa9,
-	0x56, 0xc9, 0x7f, 0xb0, 0x10, 0xe8, 0x4c, 0xb5, 0x62, 0xe8, 0x08, 0xc8, 0x08, 0x17, 0xc8, 0xf1,
-	0x51, 0x6d, 0x3e, 0x81, 0x6e, 0x8e, 0x25, 0x25, 0x3f, 0xbf, 0x86, 0xc6, 0xf0, 0x0e, 0xdd, 0x7b,
-	0x72, 0x01, 0xf5, 0x64, 0x79, 0x91, 0x42, 0x95, 0xca, 0x46, 0xb4, 0x5e, 0x96, 0x27, 0x25, 0xd7,
-	0x9f, 0x1a, 0xb4, 0x54, 0xf3, 0x10, 0x84, 0x8e, 0x6e, 0x28, 0x72, 0xaa, 0x53, 0xec, 0x70, 0xa3,
-	0xd5, 0xdf, 0x0f, 0x94, 0xd3, 0xfa, 0x02, 0x86, 0xf2, 0x1b, 0x26, 0xb4, 0xec, 0x62, 0x7e, 0xad,
-	0x58, 0xaf, 0x1e, 0xc4, 0x48, 0xde, 0x09, 0x1c, 0x6d, 0x9c, 0x41, 0x0a, 0x0b, 0x57, 0xb3, 0x9d,
-	0xd5, 0xdb, 0x0d, 0xc8, 0xe8, 0xa6, 0x3b, 0xe9, 0xa6, 0xfb, 0xe8, 0x74, 0x5b, 0x24, 0x5d, 0x2b,
-	0x03, 0x2d, 0x76, 0x5d, 0xf4, 0x4c, 0xb1, 0xeb, 0x12, 0x47, 0x5c, 0x36, 0xbf, 0x1e, 0x0e, 0xce,
-	0x44, 0xfa, 0xfb, 0x81, 0xf8, 0x9b, 0x7c, 0xf3, 0x37, 0x00, 0x00, 0xff, 0xff, 0x66, 0xd8, 0x82,
-	0x72, 0x3d, 0x07, 0x00, 0x00,
+	// 669 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x56, 0x4f, 0x6f, 0xd3, 0x4e,
+	0x10, 0x55, 0x9a, 0xf4, 0x4f, 0xc6, 0x55, 0x13, 0x6d, 0xf5, 0xfb, 0xe1, 0xba, 0x88, 0x46, 0xcb,
+	0xa1, 0x85, 0x43, 0x2a, 0x8a, 0x40, 0x02, 0xc1, 0xa1, 0x6d, 0xaa, 0x4a, 0x55, 0x2b, 0x24, 0xbb,
+	0xe2, 0xc0, 0xa5, 0x18, 0x67, 0x48, 0xad, 0x26, 0xb6, 0xf1, 0xae, 0x51, 0xf3, 0x6d, 0xf8, 0x08,
+	0x7c, 0x44, 0xe4, 0xf5, 0xda, 0x5e, 0xaf, 0x9d, 0xa6, 0x82, 0x9b, 0x77, 0xe6, 0xed, 0xdb, 0x37,
+	0x6f, 0x46, 0x93, 0xc0, 0x36, 0x8b, 0x70, 0x3a, 0x3d, 0x64, 0x18, 0xff, 0xf4, 0x3d, 0x1c, 0x46,
+	0x71, 0xc8, 0x43, 0xb2, 0x85, 0x53, 0x8c, 0x6e, 0xdd, 0x80, 0x0f, 0x45, 0x96, 0xee, 0xc2, 0x8e,
+	0x93, 0x44, 0x51, 0x18, 0x73, 0x1c, 0x5f, 0xba, 0xc1, 0x24, 0x71, 0x27, 0xc8, 0x6c, 0xfc, 0x91,
+	0x20, 0xe3, 0xf4, 0x1a, 0xac, 0xa6, 0x24, 0x8b, 0xc2, 0x80, 0x21, 0x79, 0x0b, 0xdd, 0x69, 0x1e,
+	0x34, 0x5b, 0x83, 0xf6, 0x81, 0x71, 0x64, 0x0e, 0xab, 0xf4, 0xc3, 0xfc, 0x96, 0x5d, 0x42, 0xe9,
+	0x33, 0xd8, 0xc8, 0xc3, 0x84, 0x40, 0xc7, 0x0b, 0xc7, 0x68, 0xb6, 0x06, 0xad, 0x83, 0xae, 0x2d,
+	0xbe, 0xe9, 0x47, 0x30, 0xae, 0xf1, 0x9e, 0x4b, 0x11, 0x29, 0x84, 0xe3, 0x3d, 0x17, 0x2f, 0x74,
+	0x6d, 0xf1, 0x4d, 0x2c, 0xd8, 0xc8, 0xf9, 0xcc, 0x15, 0x71, 0xb5, 0x38, 0xd3, 0x0b, 0xd8, 0xcc,
+	0xae, 0x4b, 0x99, 0xef, 0x01, 0x66, 0x3e, 0x13, 0x72, 0x70, 0x2c, 0x75, 0x5a, 0xba, 0xce, 0xab,
+	0x02, 0x61, 0x2b, 0x68, 0x7a, 0x0e, 0x50, 0x66, 0xc8, 0x3b, 0x58, 0xc7, 0x80, 0xc7, 0x7e, 0x51,
+	0xee, 0xde, 0x62, 0x9a, 0xb3, 0x80, 0xc7, 0x73, 0x3b, 0xc7, 0x53, 0x0f, 0x7a, 0x5a, 0x4e, 0xa9,
+	0xab, 0x55, 0xd4, 0xf5, 0x01, 0x0c, 0x96, 0x4c, 0x26, 0xc8, 0xb8, 0x1f, 0x06, 0xcc, 0x5c, 0x69,
+	0x16, 0xeb, 0x14, 0x10, 0x5b, 0x85, 0xd3, 0x13, 0x80, 0x32, 0xd5, 0xc8, 0x3f, 0x00, 0x63, 0x8c,
+	0xcc, 0x8b, 0xfd, 0x28, 0x85, 0x48, 0xeb, 0xd4, 0x10, 0xe5, 0x40, 0x2e, 0x7d, 0xc6, 0xcf, 0x32,
+	0xdd, 0x79, 0x0f, 0x54, 0xbf, 0x5b, 0x55, 0xbf, 0xd3, 0x77, 0xa2, 0xbc, 0x0f, 0x6d, 0x5b, 0x7c,
+	0x93, 0xff, 0x61, 0x2d, 0x8a, 0xf1, 0xbb, 0x7f, 0x6f, 0xb6, 0x05, 0x5a, 0x9e, 0xd2, 0x38, 0xe3,
+	0x2e, 0x4f, 0x98, 0xd9, 0xc9, 0xe2, 0xd9, 0x89, 0x5e, 0xc2, 0x76, 0xe5, 0x55, 0xd9, 0xba, 0x37,
+	0xba, 0xe1, 0xbb, 0xba, 0x15, 0xa7, 0x09, 0xe3, 0xe1, 0x4c, 0x33, 0xfb, 0x57, 0x0b, 0x0c, 0x25,
+	0xb1, 0x4c, 0xbd, 0x70, 0x69, 0x45, 0x71, 0xa9, 0x54, 0xd9, 0x56, 0x55, 0xea, 0xee, 0x75, 0x6a,
+	0xee, 0x91, 0x7d, 0xe8, 0x79, 0xe1, 0x6c, 0x16, 0x06, 0x37, 0x33, 0x9f, 0x71, 0xf7, 0x0e, 0x99,
+	0xb9, 0x2a, 0xc6, 0x76, 0x2b, 0x0b, 0x5f, 0xc9, 0x28, 0xdd, 0x81, 0x27, 0x69, 0xc1, 0x23, 0xdf,
+	0x4b, 0xef, 0xb9, 0x8a, 0xd7, 0xf4, 0x2b, 0x98, 0xf5, 0x94, 0x34, 0x64, 0x04, 0x9b, 0x63, 0x25,
+	0x2e, 0x5d, 0x19, 0x34, 0xbb, 0x52, 0x30, 0xcc, 0xed, 0xca, 0x2d, 0xfa, 0x09, 0xfa, 0x3a, 0xe2,
+	0x41, 0x8f, 0xf6, 0xc0, 0x48, 0xad, 0x9d, 0xdf, 0x78, 0x61, 0x12, 0x70, 0xd9, 0x68, 0x10, 0xa1,
+	0xd3, 0x34, 0x42, 0x8f, 0xa1, 0x77, 0x8e, 0x3c, 0xeb, 0xc2, 0xe3, 0x26, 0x46, 0xf7, 0x9c, 0x9e,
+	0x41, 0xbf, 0xa4, 0x90, 0xd5, 0xbe, 0x82, 0x55, 0xf1, 0x88, 0x20, 0x58, 0xd2, 0xfc, 0x0c, 0x49,
+	0x47, 0xd0, 0x73, 0x34, 0x25, 0x7f, 0xc1, 0x42, 0xa0, 0xef, 0x68, 0x62, 0xe8, 0x08, 0xc8, 0x08,
+	0xa7, 0xc8, 0xf1, 0x9f, 0xca, 0xfc, 0x0f, 0xb6, 0x2b, 0x2c, 0x19, 0xf9, 0xd1, 0x05, 0xac, 0x9e,
+	0xde, 0xa2, 0x77, 0x47, 0x8e, 0xa1, 0x93, 0x2e, 0x2f, 0x52, 0x53, 0xa9, 0x6c, 0x44, 0xeb, 0x69,
+	0x73, 0x52, 0x72, 0xfd, 0xee, 0xc0, 0xa6, 0x3a, 0x3c, 0xe4, 0x0e, 0x48, 0x7d, 0x8b, 0x93, 0x17,
+	0xf5, 0xad, 0xb2, 0xe0, 0x67, 0xc0, 0x7a, 0xf9, 0x18, 0xa8, 0xec, 0x19, 0x42, 0x5f, 0x9f, 0x5e,
+	0xb2, 0x5f, 0xfb, 0x55, 0x68, 0x1e, 0x7d, 0xeb, 0x60, 0x39, 0x50, 0x3e, 0xf3, 0x19, 0x0c, 0x65,
+	0x61, 0x10, 0xda, 0x74, 0xb1, 0xba, 0xc3, 0xac, 0xe7, 0x0f, 0x62, 0x24, 0xef, 0x15, 0x6c, 0xe4,
+	0x63, 0x48, 0x6a, 0xdb, 0x5d, 0x9b, 0x71, 0x6b, 0xb0, 0x18, 0x50, 0xd2, 0x39, 0x0b, 0xe9, 0x9c,
+	0x65, 0x74, 0xfa, 0x0c, 0xa6, 0x55, 0x2b, 0xd3, 0x53, 0xaf, 0xba, 0x3e, 0xa0, 0xf5, 0xaa, 0x1b,
+	0xc6, 0xef, 0xa4, 0xfb, 0x65, 0x7d, 0x78, 0x28, 0xd2, 0xdf, 0xd6, 0xc4, 0xdf, 0x84, 0xd7, 0x7f,
+	0x02, 0x00, 0x00, 0xff, 0xff, 0x83, 0xc2, 0xf2, 0xaa, 0x3d, 0x08, 0x00, 0x00,
 }
