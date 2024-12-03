@@ -79,6 +79,15 @@
         },
         "type": "object"
       },
+      "elephant.spell.Language": {
+        "properties": {
+          "code": {
+            "description": "Code for the language.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.spell.ListDictionariesRequest": {
         "type": "object"
       },
@@ -174,6 +183,21 @@
         },
         "type": "object"
       },
+      "elephant.spell.SupportedLanguagesRequest": {
+        "type": "object"
+      },
+      "elephant.spell.SupportedLanguagesResponse": {
+        "properties": {
+          "languages": {
+            "description": "Languages that can be used for spellchecking.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.Language"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.spell.TextRequest": {
         "properties": {
           "language": {
@@ -212,7 +236,7 @@
   },
   "info": {
     "title": "spell API",
-    "version": "v0.17.4"
+    "version": "v0.17.5"
   },
   "openapi": "3.0.0",
   "paths": {
@@ -439,6 +463,44 @@
           }
         ],
         "summary": "SetEntry",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/SupportedLanguages": {
+      "post": {
+        "description": "SupportedLanguages returns a list of supported languages.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SupportedLanguagesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SupportedLanguagesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SupportedLanguages",
         "tags": [
           "Dictionaries"
         ]
