@@ -14,7 +14,7 @@ import (
 	"github.com/ttab/newsdoc/codegen"
 
 	//mage:import twirp
-	_ "github.com/ttab/mage/twirp"
+	"github.com/ttab/mage/twirp"
 )
 
 func Newsdoc() error {
@@ -43,6 +43,18 @@ func Newsdoc() error {
 	err = os.WriteFile("newsdoc/newsdoc.proto", proto.Bytes(), 0660)
 	if err != nil {
 		return fmt.Errorf("write protobuf file: %w", err)
+	}
+
+	tool := twirp.TwirpTools()
+
+	err = tool("protoc",
+		"--go_out=.",
+		"--go_opt=paths=source_relative",
+		"--proto_path", ".",
+		"newsdoc/newsdoc.proto",
+	)
+	if err != nil {
+		return fmt.Errorf("generate go code from protobuf: %w", err)
 	}
 
 	var convert bytes.Buffer

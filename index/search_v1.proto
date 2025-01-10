@@ -4,7 +4,7 @@ import "newsdoc/newsdoc.proto";
 
 package elephant.index;
 
-option go_package = "./index";
+option go_package = "github.com/ttab/elephant-api/index";
 
 message QueryRequestV1 {
   string document_type         = 1;

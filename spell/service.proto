@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package elephant.spell;
 
-option go_package = "./spell";
+option go_package = "github.com/ttab/elephant-api/spell";
 
 // Check content for spelling errors.
 service Check {

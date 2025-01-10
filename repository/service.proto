@@ -4,7 +4,7 @@ import "newsdoc/newsdoc.proto";
 
 package elephant.repository;
 
-option go_package = "./repository";
+option go_package = "github.com/ttab/elephant-api/repository";
 
 service Documents {
   // Get retrieves a document version.
