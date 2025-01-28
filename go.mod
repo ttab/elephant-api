@@ -4,10 +4,10 @@ go 1.23.2
 
 require (
 	github.com/magefile/mage v1.15.0
-	github.com/ttab/mage v0.7.4
+	github.com/ttab/mage v0.7.5
 	github.com/ttab/newsdoc v0.7.0
 	github.com/twitchtv/twirp v8.1.3+incompatible
-	google.golang.org/protobuf v1.36.2
+	google.golang.org/protobuf v1.36.4
 )
 
 require (

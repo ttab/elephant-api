@@ -729,7 +729,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.17.5"
+    "version": "v0.17.7"
   },
   "openapi": "3.0.0",
   "paths": {
