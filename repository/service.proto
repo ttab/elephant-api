@@ -383,6 +383,10 @@ message GetWorkflowRequest {
 message GetWorkflowResponse {
   // Workflow declaration.
   DocumentWorkflow workflow = 1;
+  // UpdaterURI identifies the user that last updated the workflow.
+  string updater_uri        = 2;
+  // Updated is the update time as a RFC3339 timestamp.
+  string updated            = 3;
 }
 
 

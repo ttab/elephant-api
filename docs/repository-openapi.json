@@ -890,6 +890,14 @@
       },
       "elephant.repository.GetWorkflowResponse": {
         "properties": {
+          "updated": {
+            "description": "Updated is the update time as a RFC3339 timestamp.",
+            "type": "string"
+          },
+          "updater_uri": {
+            "description": "UpdaterURI identifies the user that last updated the workflow.",
+            "type": "string"
+          },
           "workflow": {
             "$ref": "#/components/schemas/elephant.repository.DocumentWorkflow"
           }
