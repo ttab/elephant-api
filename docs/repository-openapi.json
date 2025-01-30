@@ -213,6 +213,18 @@
       "elephant.repository.DeleteStatusRuleResponse": {
         "type": "object"
       },
+      "elephant.repository.DeleteWorkflowRequest": {
+        "properties": {
+          "type": {
+            "description": "Type of the document to remove the workflow for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.DeleteWorkflowResponse": {
+        "type": "object"
+      },
       "elephant.repository.Deprecation": {
         "properties": {
           "enforced": {
@@ -262,6 +274,14 @@
           "modified": {
             "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
             "type": "string"
+          },
+          "workflow_checkpoint": {
+            "description": "WorkflowCheckpoint that the document reached most recently.",
+            "type": "string"
+          },
+          "workflow_state": {
+            "description": "WorkflowState that the document is in.",
+            "type": "string"
           }
         },
         "type": "object"
@@ -286,6 +306,30 @@
           "version": {
             "description": "Version of the document.",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.DocumentWorkflow": {
+        "properties": {
+          "checkpoint": {
+            "description": "Checkpoint is the status that should be used as the state checkpoint.",
+            "type": "string"
+          },
+          "negative_checkpoint": {
+            "description": "NegativeCheckpoint is the state that should be used when the checkpoint status is set using a negative version.",
+            "type": "string"
+          },
+          "step_zero": {
+            "description": "StepZero is the step that the state begins in, or reverts to after a checkpoint.",
+            "type": "string"
+          },
+          "steps": {
+            "description": "Steps are the names of statuses that should be used as steps between checkpoints.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -379,6 +423,14 @@
           "version": {
             "description": "Version of the document.",
             "type": "integer"
+          },
+          "workflow_checkpoint": {
+            "description": "WorkflowCheckpoint that the document reached most recently.",
+            "type": "string"
+          },
+          "workflow_state": {
+            "description": "WorkflowState that the document is in.",
+            "type": "string"
           }
         },
         "type": "object"
@@ -827,6 +879,31 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetWorkflowRequest": {
+        "properties": {
+          "type": {
+            "description": "Type of the document to get workflow for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetWorkflowResponse": {
+        "properties": {
+          "updated": {
+            "description": "Updated is the update time as a RFC3339 timestamp.",
+            "type": "string"
+          },
+          "updater_uri": {
+            "description": "UpdaterURI identifies the user that last updated the workflow.",
+            "type": "string"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/elephant.repository.DocumentWorkflow"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.ImportDirective": {
         "description": "ImportDirective can be used to preserve timestamps and authorship information from originating systems.",
         "properties": {
@@ -1264,6 +1341,21 @@
         "type": "object"
       },
       "elephant.repository.SetActiveSchemaResponse": {
+        "type": "object"
+      },
+      "elephant.repository.SetWorkflowRequest": {
+        "properties": {
+          "type": {
+            "description": "Type of the document that this workflow is for.",
+            "type": "string"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/elephant.repository.DocumentWorkflow"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.SetWorkflowResponse": {
         "type": "object"
       },
       "elephant.repository.Status": {
@@ -1734,7 +1826,7 @@
   },
   "info": {
     "title": "repository API",
-    "version": "v0.17.5"
+    "version": "v0.17.7"
   },
   "openapi": "3.0.0",
   "paths": {
@@ -3296,6 +3388,44 @@
         ]
       }
     },
+    "/twirp/elephant.repository.Workflows/DeleteWorkflow": {
+      "post": {
+        "description": "DeleteWorkflow removes the workflow configuration for a document type.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.DeleteWorkflowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.DeleteWorkflowResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "DeleteWorkflow",
+        "tags": [
+          "Workflows"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Workflows/GetStatusRules": {
       "post": {
         "description": "GetStatusRules returns all status rules.",
@@ -3367,6 +3497,82 @@
           }
         ],
         "summary": "GetStatuses",
+        "tags": [
+          "Workflows"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Workflows/GetWorkflow": {
+      "post": {
+        "description": "GetWorkflow for a document type.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetWorkflowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetWorkflowResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetWorkflow",
+        "tags": [
+          "Workflows"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Workflows/SetWorkflow": {
+      "post": {
+        "description": "SetWorkflow configures a workflow for a document type.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.SetWorkflowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.SetWorkflowResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetWorkflow",
         "tags": [
           "Workflows"
         ]
