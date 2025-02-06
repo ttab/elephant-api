@@ -44,11 +44,11 @@
       "elephant.user.ListInboxMessagesRequest": {
         "properties": {
           "before_id": {
-            "description": "Fetch messages with IDs before the given `before_id`. This is used for pagination to retrieve older messages.",
+            "description": "ID of the message before which to list messages.",
             "type": "integer"
           },
           "size": {
-            "description": "The number of messages to include in the results (defaults to 10).",
+            "description": "Number of messages to include in the results (defaults to 10).",
             "type": "integer"
           }
         },
@@ -65,41 +65,7 @@
         },
         "type": "object"
       },
-      "elephant.user.PollInboxMessagesRequest": {
-        "type": "object"
-      },
-      "elephant.user.PollInboxMessagesResponse": {
-        "properties": {
-          "created": {
-            "description": "Created timestamp is the RFC3339 timestamp for when the message was created.",
-            "type": "string"
-          },
-          "created_by": {
-            "description": "Creator of the message (application sub).",
-            "type": "string"
-          },
-          "id": {
-            "description": "ID of the message.",
-            "type": "integer"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/newsdoc.Document"
-          },
-          "recipient": {
-            "description": "Recipient of the message (user sub).",
-            "type": "string"
-          },
-          "updated": {
-            "description": "Updated timestamp is the RFC3339 timestamp for when the message was last updated.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.user.PollMessagesRequest": {
-        "type": "object"
-      },
-      "elephant.user.PollMessagesResponse": {
+      "elephant.user.Message": {
         "properties": {
           "created": {
             "description": "Created timestamp is the RFC3339 timestamp for when the message was created.",
@@ -135,6 +101,46 @@
           "type": {
             "description": "Type of message being sent (e.g. \"validation_error\").",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollInboxMessagesRequest": {
+        "properties": {
+          "after_id": {
+            "description": "ID of the message after which to start returning messages.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollInboxMessagesResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.InboxMessage"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollMessagesRequest": {
+        "properties": {
+          "after_id": {
+            "description": "ID of the message after which to start returning messages.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollMessagesResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.Message"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -345,7 +351,7 @@
   },
   "info": {
     "title": "user API",
-    "version": "v0.17.7"
+    "version": "v0.17.8"
   },
   "openapi": "3.0.0",
   "paths": {

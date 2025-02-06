@@ -38,7 +38,6 @@ message PushMessageRequest {
 
 message PushMessageResponse {}
 
-
 message PushInboxMessageRequest {
   // Recipient of the message (user sub).
   string recipient          = 1;
@@ -48,9 +47,16 @@ message PushInboxMessageRequest {
 
 message PushInboxMessageResponse {}
 
-message PollMessagesRequest {}
+message PollMessagesRequest {
+  // ID of the message after which to start returning messages.
+  int64 after_id = 1;
+}
 
 message PollMessagesResponse {
+  repeated Message messages = 1;
+}
+
+message Message {
   // ID of the message.
   int64 id                    = 1;
   // Type of message being sent (e.g. "validation_error").
@@ -70,9 +76,16 @@ message PollMessagesResponse {
   map<string, string> payload = 8;
 }
 
-message PollInboxMessagesRequest {}
+message PollInboxMessagesRequest {
+  // ID of the message after which to start returning messages.
+  int64 after_id = 1;
+}
 
 message PollInboxMessagesResponse {
+  repeated InboxMessage messages = 1;
+}
+
+message InboxMessage {
   // ID of the message.
   int64 id                  = 1;
   // Created timestamp is the RFC3339 timestamp
@@ -90,10 +103,9 @@ message PollInboxMessagesResponse {
 }
 
 message ListInboxMessagesRequest {
-  // Fetch messages with IDs before the given `before_id`.
-  // This is used for pagination to retrieve older messages.
+  // ID of the message before which to list messages.
   int64 before_id   = 1;
-  // The number of messages to include in the results (defaults to 10).
+  // Number of messages to include in the results (defaults to 10).
   int64 size        = 2;
 }
 
@@ -116,20 +128,3 @@ message DeleteInboxMessageRequest {
 }
 
 message DeleteInboxMessageResponse {}
-
-message InboxMessage {
-  // ID of the message.
-  int64 id                  = 1;
-  // Created timestamp is the RFC3339 timestamp
-  // for when the message was created.
-  string created            = 2;
-  // Creator of the message (application sub).
-  string created_by         = 3;
-  // Updated timestamp is the RFC3339 timestamp
-  // for when the message was last updated.
-  string updated            = 4;
-  // Recipient of the message (user sub).
-  string recipient          = 5;
-  // Payload containing a newsdoc document.
-  newsdoc.Document payload  = 6;
-}
