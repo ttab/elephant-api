@@ -27,6 +27,10 @@
             "description": "ID of the message.",
             "type": "integer"
           },
+          "is_read": {
+            "description": "Indicates whether the message has been read.",
+            "type": "boolean"
+          },
           "payload": {
             "$ref": "#/components/schemas/newsdoc.Document"
           },
@@ -197,8 +201,8 @@
             "description": "ID of the message.",
             "type": "integer"
           },
-          "read": {
-            "description": "Marks the message as read or unread.",
+          "is_read": {
+            "description": "Sets the message's read status.",
             "type": "boolean"
           }
         },

@@ -86,20 +86,22 @@ message PollInboxMessagesResponse {
 }
 
 message InboxMessage {
+  // Recipient of the message (user sub).
+  string recipient          = 1;
   // ID of the message.
-  int64 id                  = 1;
+  int64 id                  = 2;
   // Created timestamp is the RFC3339 timestamp
   // for when the message was created.
-  string created            = 2;
+  string created            = 3;
   // Creator of the message (application sub).
-  string created_by         = 3;
+  string created_by         = 4;
   // Updated timestamp is the RFC3339 timestamp
   // for when the message was last updated.
-  string updated            = 4;
-  // Recipient of the message (user sub).
-  string recipient          = 5;
+  string updated            = 5;
+  // Indicates whether the message has been read.
+  bool is_read              = 6;
   // Payload containing a newsdoc document.
-  newsdoc.Document payload  = 6;
+  newsdoc.Document payload  = 7;
 }
 
 message ListInboxMessagesRequest {
@@ -115,9 +117,9 @@ message ListInboxMessagesResponse {
 
 message UpdateInboxMessageRequest {
   // ID of the message.
-  int64 id                  = 1;
-  // Marks the message as read or unread.
-  bool read = 2;
+  int64 id      = 1;
+  // Sets the message's read status.
+  bool is_read  = 2;
 }
 
 message UpdateInboxMessageResponse {}
