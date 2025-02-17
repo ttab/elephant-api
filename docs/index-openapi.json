@@ -94,7 +94,7 @@
       "elephant.index.EndSubscriptionRequest": {
         "properties": {
           "id": {
-            "type": "string"
+            "type": "integer"
           }
         },
         "type": "object"
@@ -357,7 +357,7 @@
           },
           "id": {
             "description": "ID of the subscription.",
-            "type": "string"
+            "type": "integer"
           },
           "max_wait_ms": {
             "description": "MaxWaitMS is the maximum time to wait before returning an empty response.",
@@ -423,6 +423,10 @@
             },
             "type": "array"
           },
+          "shared": {
+            "description": "Shared performs the query without the identity of the user, allows for better query caching and shared subscriptions.",
+            "type": "boolean"
+          },
           "size": {
             "type": "integer"
           },
@@ -456,7 +460,7 @@
           },
           "subscription_id": {
             "description": "SubscriptionID is the ID of the subscription, if any was started.",
-            "type": "string"
+            "type": "integer"
           },
           "timed_out": {
             "type": "boolean"
