@@ -181,6 +181,9 @@ message QueryRequestV1 {
   bool load_document           = 10;
   // Subscribe starts a subscription for the query.
   bool subscribe               = 11;
+  // Shared performs the query without the identity of the user, allows for
+  // better query caching and shared subscriptions.
+  bool shared                  = 12;
 }
 
 message QueryV1 {
@@ -251,7 +254,7 @@ message QueryResponseV1 {
   ShardsV1 shards = 3;
   HitsV1 hits     = 4;
   // SubscriptionID is the ID of the subscription, if any was started.
-  string subscription_id = 5;
+  int64 subscription_id = 5;
   // SubscriptionCursor is the cursor that should be used with the subscription.
   int64 subscription_cursor = 6;
 }
@@ -316,7 +319,7 @@ message MappingFieldV1 {
 
 message PollSubscriptionRequest {
   // ID of the subscription.
-  string id            = 1;
+  int64 id            = 1;
   // Cursor for current subscription position.
   int64 cursor         = 2;
   // MaxWaitMS is the maximum time to wait before returning an empty response.
@@ -333,7 +336,7 @@ message PollSubscriptionResponse {
 }
 
 message EndSubscriptionRequest {
-  string id = 1;
+  int64 id = 1;
 }
 
 message EndSubscriptionResponse {}
