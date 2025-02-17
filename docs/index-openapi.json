@@ -91,6 +91,17 @@
         ],
         "type": "string"
       },
+      "elephant.index.EndSubscriptionRequest": {
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.EndSubscriptionResponse": {
+        "type": "object"
+      },
       "elephant.index.FieldValuesV1": {
         "properties": {
           "values": {
@@ -334,6 +345,43 @@
       "elephant.index.PartialReindexResponse": {
         "type": "object"
       },
+      "elephant.index.PollSubscriptionRequest": {
+        "properties": {
+          "batch_delay_ms": {
+            "description": "BatchDelayMS is the number of milliseconds to wait for more items after the first.",
+            "type": "integer"
+          },
+          "cursor": {
+            "description": "Cursor for current subscription position.",
+            "type": "integer"
+          },
+          "id": {
+            "description": "ID of the subscription.",
+            "type": "string"
+          },
+          "max_wait_ms": {
+            "description": "MaxWaitMS is the maximum time to wait before returning an empty response.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.PollSubscriptionResponse": {
+        "properties": {
+          "cursor": {
+            "description": "Cursor should be used with the next poll request.",
+            "type": "integer"
+          },
+          "items": {
+            "description": "Items that matched the subscription. Will be empty if the poll timed out.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.HitV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.PrefixQueryV1": {
         "properties": {
           "field": {
@@ -386,6 +434,10 @@
           },
           "source": {
             "type": "boolean"
+          },
+          "subscribe": {
+            "description": "Subscribe starts a subscription for the query.",
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -397,6 +449,14 @@
           },
           "shards": {
             "$ref": "#/components/schemas/elephant.index.ShardsV1"
+          },
+          "subscription_cursor": {
+            "description": "SubscriptionCursor is the cursor that should be used with the subscription.",
+            "type": "integer"
+          },
+          "subscription_id": {
+            "description": "SubscriptionID is the ID of the subscription, if any was started.",
+            "type": "string"
           },
           "timed_out": {
             "type": "boolean"
@@ -1037,6 +1097,43 @@
         ]
       }
     },
+    "/twirp/elephant.index.SearchV1/EndSubscription": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.EndSubscriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.EndSubscriptionResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "EndSubscription",
+        "tags": [
+          "SearchV1"
+        ]
+      }
+    },
     "/twirp/elephant.index.SearchV1/GetMappings": {
       "post": {
         "requestBody": {
@@ -1069,6 +1166,43 @@
           }
         ],
         "summary": "GetMappings",
+        "tags": [
+          "SearchV1"
+        ]
+      }
+    },
+    "/twirp/elephant.index.SearchV1/PollSubscription": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.PollSubscriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.PollSubscriptionResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "PollSubscription",
         "tags": [
           "SearchV1"
         ]
