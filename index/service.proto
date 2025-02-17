@@ -32,6 +32,8 @@ service Management {
 service SearchV1 {
   rpc Query(QueryRequestV1) returns (QueryResponseV1);
   rpc GetMappings(GetMappingsRequestV1) returns (GetMappingsResponseV1);
+  rpc PollSubscription(PollSubscriptionRequest) returns (PollSubscriptionResponse);
+  rpc EndSubscription(EndSubscriptionRequest) returns (EndSubscriptionResponse);
 }
 
 message RegisterClusterRequest {
@@ -95,7 +97,6 @@ message DeleteIndexSetRequest {
 }
 
 message DeleteIndexSetResponse {}
-
 
 message SetIndexSetStatusRequest {
   // Name of the index set to set the status of.
@@ -178,6 +179,8 @@ message QueryRequestV1 {
   // LoadDocument will load the current version of the document from the
   // repository and include it with the search response.
   bool load_document           = 10;
+  // Subscribe starts a subscription for the query.
+  bool subscribe               = 11;
 }
 
 message QueryV1 {
@@ -247,6 +250,10 @@ message QueryResponseV1 {
   bool timed_out  = 2;
   ShardsV1 shards = 3;
   HitsV1 hits     = 4;
+  // SubscriptionID is the ID of the subscription, if any was started.
+  string subscription_id = 5;
+  // SubscriptionCursor is the cursor that should be used with the subscription.
+  int64 subscription_cursor = 6;
 }
 
 message ShardsV1 {
@@ -306,3 +313,27 @@ message MappingFieldV1 {
   // represents the logical type.
   string type = 2;
 }
+
+message PollSubscriptionRequest {
+  // ID of the subscription.
+  string id            = 1;
+  // Cursor for current subscription position.
+  int64 cursor         = 2;
+  // MaxWaitMS is the maximum time to wait before returning an empty response.
+  int64 max_wait_ms    = 3;
+  // BatchDelayMS is the number of milliseconds to wait for more items after the first.
+  int64 batch_delay_ms = 4;
+}
+
+message PollSubscriptionResponse {
+  // Cursor should be used with the next poll request.
+  int64 cursor         = 1;
+  // Items that matched the subscription. Will be empty if the poll timed out.
+  repeated HitV1 items = 2;
+}
+
+message EndSubscriptionRequest {
+  string id = 1;
+}
+
+message EndSubscriptionResponse {}
