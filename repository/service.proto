@@ -264,6 +264,9 @@ message EventlogItem {
   string workflow_state      = 15;
   // WorkflowCheckpoint that the document reached most recently.
   string workflow_checkpoint = 16;
+  // MainDocumentType is the type of the main document if the document is a
+  // metadata document.
+  string main_document_type = 17;
 }
 
 message RunReportRequest {
