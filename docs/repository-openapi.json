@@ -388,6 +388,10 @@
             "description": "MainDocument UUID if the document is a metadata document.",
             "type": "string"
           },
+          "main_document_type": {
+            "description": "MainDocumentType is the type of the main document if the document is a metadata document.",
+            "type": "string"
+          },
           "old_language": {
             "description": "OldLanguage of the document if the document changed language.",
             "type": "string"
