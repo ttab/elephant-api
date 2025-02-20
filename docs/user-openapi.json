@@ -1,0 +1,642 @@
+{
+  "components": {
+    "schemas": {
+      "elephant.user.DeleteInboxMessageRequest": {
+        "properties": {
+          "id": {
+            "description": "ID of the message.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.DeleteInboxMessageResponse": {
+        "type": "object"
+      },
+      "elephant.user.InboxMessage": {
+        "properties": {
+          "created": {
+            "description": "Created timestamp is the RFC3339 timestamp for when the message was created.",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Creator of the message (application sub).",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the message.",
+            "type": "integer"
+          },
+          "is_read": {
+            "description": "Indicates whether the message has been read.",
+            "type": "boolean"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "recipient": {
+            "description": "Recipient of the message (user sub).",
+            "type": "string"
+          },
+          "updated": {
+            "description": "Updated timestamp is the RFC3339 timestamp for when the message was last updated.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.ListInboxMessagesRequest": {
+        "properties": {
+          "before_id": {
+            "description": "ID of the message before which to list messages.",
+            "type": "integer"
+          },
+          "size": {
+            "description": "Number of messages to include in the results (defaults to 10).",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.ListInboxMessagesResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.InboxMessage"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.Message": {
+        "properties": {
+          "created": {
+            "description": "Created timestamp is the RFC3339 timestamp for when the message was created.",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Creator of the message (application sub).",
+            "type": "string"
+          },
+          "doc_type": {
+            "description": "Type of the associated document, optional.",
+            "type": "string"
+          },
+          "doc_uuid": {
+            "description": "UUID of the associated document, optional.",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the message.",
+            "type": "integer"
+          },
+          "payload": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Payload containing a key-value map.",
+            "type": "object"
+          },
+          "recipient": {
+            "description": "Recipient of the message (user sub).",
+            "type": "string"
+          },
+          "type": {
+            "description": "Type of message being sent (e.g. \"validation_error\").",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollInboxMessagesRequest": {
+        "properties": {
+          "after_id": {
+            "description": "ID of the message after which to start returning messages.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollInboxMessagesResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.InboxMessage"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollMessagesRequest": {
+        "properties": {
+          "after_id": {
+            "description": "ID of the message after which to start returning messages.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PollMessagesResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.Message"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PushInboxMessageRequest": {
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "recipient": {
+            "description": "Recipient of the message (user sub).",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PushInboxMessageResponse": {
+        "type": "object"
+      },
+      "elephant.user.PushMessageRequest": {
+        "properties": {
+          "doc_type": {
+            "description": "Type of the associated document, optional.",
+            "type": "string"
+          },
+          "doc_uuid": {
+            "description": "UUID of the associated document, optional.",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Payload containing a key-value map.",
+            "type": "object"
+          },
+          "recipient": {
+            "description": "Recipient of the message (user sub).",
+            "type": "string"
+          },
+          "type": {
+            "description": "Type of message being sent (e.g. \"validation_error\").",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.PushMessageResponse": {
+        "type": "object"
+      },
+      "elephant.user.UpdateInboxMessageRequest": {
+        "properties": {
+          "id": {
+            "description": "ID of the message.",
+            "type": "integer"
+          },
+          "is_read": {
+            "description": "Sets the message's read status.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.UpdateInboxMessageResponse": {
+        "type": "object"
+      },
+      "newsdoc.Block": {
+        "description": "Block is the building block for data embedded in documents. It is used for both content, links and metadata. Blocks have can be nested, but that's nothing to strive for, keep it simple.",
+        "properties": {
+          "content": {
+            "description": "Content is used to embed content blocks.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "contenttype": {
+            "description": "ContentType is used to describe the content type of the block/linked entity if it differs from the type of the block.",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Data contains block data.",
+            "type": "object"
+          },
+          "id": {
+            "description": "ID is the block ID,",
+            "type": "string"
+          },
+          "links": {
+            "description": "Links are used to link to other resources and documents.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "description": "Meta is used to embed metadata",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "Name is a name for the block. An alternative to \"rel\" when relationship is a term that doesn't fit.",
+            "type": "string"
+          },
+          "rel": {
+            "description": "Rel describes the relationship to the document/parent entity.",
+            "type": "string"
+          },
+          "role": {
+            "description": "Role is used either as an alternative to rel, or for nuancing the relationship.",
+            "type": "string"
+          },
+          "sensitivity": {
+            "description": "Sensitivity can be use to communicate how the information in a block can be handled. It could f.ex. be set to \"internal\", to show that it contains information that must be removed or transformed before publishing.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Title is the title/headline of the block, typically used in the presentation of the block.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Type is the type of the block",
+            "type": "string"
+          },
+          "uri": {
+            "description": "URI is used to reference another entity in a document.",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL is a browseable URL for the the block.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID is used to reference another Document in a block.",
+            "type": "string"
+          },
+          "value": {
+            "description": "Value is a value for the block. Useful when we want to store a primitive value.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "newsdoc.Document": {
+        "description": "Document is a NewsDoc document.",
+        "properties": {
+          "content": {
+            "description": "Content is the content of the document, this is essentially what gets rendered on the page when you view a document.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "language": {
+            "description": "Language is the language used in the document as an IETF language tag. F.ex. \"en\", \"en-UK\", \"es\", or \"sv-SE\".",
+            "type": "string"
+          },
+          "links": {
+            "description": "Links are links to other resources and entities. This could be links to topics, categories and subjects for the document, or credited authors.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "description": "Meta is the metadata for a document, this could be things like teasers, open graph data, newsvalues.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Block"
+            },
+            "type": "array"
+          },
+          "title": {
+            "description": "Title is the title of the document, can be used as the document name, or the headline when the document is displayed.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Type is the content type of the document.",
+            "type": "string"
+          },
+          "uri": {
+            "description": "URI identifies the document (in a more human-readable way than the UUID).",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL is the browseable location of the document (if any).",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID is a unique ID for the document, this can for example be a random v4 UUID, or a URI-derived v5 UUID.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "user API",
+    "version": "v0.17.8"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/twirp/elephant.user.Messages/DeleteInboxMessage": {
+      "post": {
+        "description": "Deletes an inbox message.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.DeleteInboxMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.DeleteInboxMessageResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "DeleteInboxMessage",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Messages/ListInboxMessages": {
+      "post": {
+        "description": "Lists all inbox messages for a recipient.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.ListInboxMessagesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.ListInboxMessagesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListInboxMessages",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Messages/PollInboxMessages": {
+      "post": {
+        "description": "Polls for new inbox messages for a recipient.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.PollInboxMessagesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.PollInboxMessagesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "PollInboxMessages",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Messages/PollMessages": {
+      "post": {
+        "description": "Polls for new messages for a recipient.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.PollMessagesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.PollMessagesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "PollMessages",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Messages/PushInboxMessage": {
+      "post": {
+        "description": "Pushes a new inbox message to a recipient.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.PushInboxMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.PushInboxMessageResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "PushInboxMessage",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Messages/PushMessage": {
+      "post": {
+        "description": "Pushes a new message to a recipient.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.PushMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.PushMessageResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "PushMessage",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Messages/UpdateInboxMessage": {
+      "post": {
+        "description": "Updates an existing inbox message.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.UpdateInboxMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.UpdateInboxMessageResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "UpdateInboxMessage",
+        "tags": [
+          "Messages"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://user.api.tt.se"
+    },
+    {
+      "url": "https://user.api.stage.tt.se"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Messages"
+    }
+  ]
+}
