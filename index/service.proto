@@ -239,7 +239,6 @@ message MatchQueryV1 {
 message MatchPhraseQueryV1 {
   string field = 1;
   string value = 2;
-  double boost = 3;
 }
 
 message PrefixQueryV1 {

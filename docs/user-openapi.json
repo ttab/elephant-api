@@ -355,7 +355,7 @@
   },
   "info": {
     "title": "user API",
-    "version": "v0.17.8"
+    "version": "v0.17.9"
   },
   "openapi": "3.0.0",
   "paths": {
