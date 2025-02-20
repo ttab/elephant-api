@@ -259,10 +259,8 @@ message QueryResponseV1 {
   bool timed_out  = 2;
   ShardsV1 shards = 3;
   HitsV1 hits     = 4;
-  // SubscriptionID is the ID of the subscription, if any was started.
-  int64 subscription_id = 5;
-  // SubscriptionCursor is the cursor that should be used with the subscription.
-  int64 subscription_cursor = 6;
+  // Subsciption for search results, if any was started.
+  SubscriptionReference subscription = 5;
 }
 
 message ShardsV1 {
@@ -324,20 +322,30 @@ message MappingFieldV1 {
 }
 
 message PollSubscriptionRequest {
-  // ID of the subscription.
-  int64 id            = 1;
-  // Cursor for current subscription position.
-  int64 cursor         = 2;
+  // Subscriptions to poll.
+  repeated SubscriptionReference subscriptions = 1;
   // MaxWaitMS is the maximum time to wait before returning an empty response.
-  int64 max_wait_ms    = 3;
+  int64 max_wait_ms    = 2;
   // BatchDelayMS is the number of milliseconds to wait for more items after the first.
-  int64 batch_delay_ms = 4;
+  int64 batch_delay_ms = 3;
+}
+
+message SubscriptionReference {
+  // ID of the subscription.
+  int64 id     = 1;
+  // Cursor for current subscription position.
+  int64 cursor = 2;
 }
 
 message PollSubscriptionResponse {
-  // Cursor should be used with the next poll request.
-  int64 cursor         = 1;
-  // Items that matched the subscription. Will be empty if the poll timed out.
+  // Results will be empty if the poll timed out.
+  repeated SubscriptionPollResult result = 1;
+}
+
+message SubscriptionPollResult {
+  // Subsciption reference with current cursor position.
+  repeated SubscriptionReference subscription = 1;
+  // Items that matched the subscription.
   repeated HitV1 items = 2;
 }
 

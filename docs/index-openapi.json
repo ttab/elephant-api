@@ -309,6 +309,9 @@
       },
       "elephant.index.MatchPhraseQueryV1": {
         "properties": {
+          "boost": {
+            "type": "number"
+          },
           "field": {
             "type": "string"
           },
@@ -320,6 +323,9 @@
       },
       "elephant.index.MatchQueryV1": {
         "properties": {
+          "boost": {
+            "type": "number"
+          },
           "field": {
             "type": "string"
           },
@@ -351,31 +357,26 @@
             "description": "BatchDelayMS is the number of milliseconds to wait for more items after the first.",
             "type": "integer"
           },
-          "cursor": {
-            "description": "Cursor for current subscription position.",
-            "type": "integer"
-          },
-          "id": {
-            "description": "ID of the subscription.",
-            "type": "integer"
-          },
           "max_wait_ms": {
             "description": "MaxWaitMS is the maximum time to wait before returning an empty response.",
             "type": "integer"
+          },
+          "subscriptions": {
+            "description": "Subscriptions to poll.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.SubscriptionReference"
+            },
+            "type": "array"
           }
         },
         "type": "object"
       },
       "elephant.index.PollSubscriptionResponse": {
         "properties": {
-          "cursor": {
-            "description": "Cursor should be used with the next poll request.",
-            "type": "integer"
-          },
-          "items": {
-            "description": "Items that matched the subscription. Will be empty if the poll timed out.",
+          "result": {
+            "description": "Results will be empty if the poll timed out.",
             "items": {
-              "$ref": "#/components/schemas/elephant.index.HitV1"
+              "$ref": "#/components/schemas/elephant.index.SubscriptionPollResult"
             },
             "type": "array"
           }
@@ -384,6 +385,12 @@
       },
       "elephant.index.PrefixQueryV1": {
         "properties": {
+          "boost": {
+            "type": "number"
+          },
+          "case_insensitive": {
+            "type": "boolean"
+          },
           "field": {
             "type": "string"
           },
@@ -454,13 +461,8 @@
           "shards": {
             "$ref": "#/components/schemas/elephant.index.ShardsV1"
           },
-          "subscription_cursor": {
-            "description": "SubscriptionCursor is the cursor that should be used with the subscription.",
-            "type": "integer"
-          },
-          "subscription_id": {
-            "description": "SubscriptionID is the ID of the subscription, if any was started.",
-            "type": "integer"
+          "subscription": {
+            "$ref": "#/components/schemas/elephant.index.SubscriptionReference"
           },
           "timed_out": {
             "type": "boolean"
@@ -624,8 +626,43 @@
         },
         "type": "object"
       },
+      "elephant.index.SubscriptionPollResult": {
+        "properties": {
+          "items": {
+            "description": "Items that matched the subscription.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.HitV1"
+            },
+            "type": "array"
+          },
+          "subscription": {
+            "description": "Subsciption reference with current cursor position.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.SubscriptionReference"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.SubscriptionReference": {
+        "properties": {
+          "cursor": {
+            "description": "Cursor for current subscription position.",
+            "type": "integer"
+          },
+          "id": {
+            "description": "ID of the subscription.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.TermQueryV1": {
         "properties": {
+          "boost": {
+            "type": "number"
+          },
           "field": {
             "type": "string"
           },
@@ -637,6 +674,9 @@
       },
       "elephant.index.TermsQueryV1": {
         "properties": {
+          "boost": {
+            "type": "number"
+          },
           "field": {
             "type": "string"
           },
