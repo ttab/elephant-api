@@ -221,26 +221,32 @@ message MatchAllQueryV1 {}
 message TermQueryV1 {
   string field = 1;
   string value = 2;
+  double boost = 3;
 }
 
 message TermsQueryV1 {
   string field = 1;
   repeated string values = 2;
+  double boost = 3;
 }
 
 message MatchQueryV1 {
   string field = 1;
   string value = 2;
+  double boost = 3;
 }
 
 message MatchPhraseQueryV1 {
   string field = 1;
   string value = 2;
+  double boost = 3;
 }
 
 message PrefixQueryV1 {
   string field = 1;
   string value = 2;
+  bool case_insensitive = 3;
+  double boost = 4;
 }
 
 message SortingV1 {
