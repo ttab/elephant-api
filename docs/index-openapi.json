@@ -332,6 +332,38 @@
         },
         "type": "object"
       },
+      "elephant.index.MultiMatchQueryV1": {
+        "properties": {
+          "boolean_and": {
+            "description": "BooleanAnd can be used to require all terms to match.",
+            "type": "boolean"
+          },
+          "boost": {
+            "type": "number"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "minimum_should_match": {
+            "description": "MinimumShouldMatch if the query string contains multiple search terms and you use the or operator, the number of terms that need to match for the document to be considered a match. See https://opensearch.org/docs/latest/query-dsl/minimum-should-match/",
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "tie_breaker": {
+            "type": "number"
+          },
+          "type": {
+            "description": "Type is the multi-match query type. Valid values are best_fields, most_fields, cross_fields, phrase, phrase_prefix, bool_prefix. Default is best_fields.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.PartialReindexRequest": {
         "properties": {
           "index_set": {
@@ -486,6 +518,9 @@
           },
           "match_phrase": {
             "$ref": "#/components/schemas/elephant.index.MatchPhraseQueryV1"
+          },
+          "multi_match": {
+            "$ref": "#/components/schemas/elephant.index.MultiMatchQueryV1"
           },
           "prefix": {
             "$ref": "#/components/schemas/elephant.index.PrefixQueryV1"
@@ -830,7 +865,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.17.9"
+    "version": "v0.17.10"
   },
   "openapi": "3.0.0",
   "paths": {

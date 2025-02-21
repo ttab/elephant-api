@@ -198,6 +198,7 @@ message QueryV1 {
     MatchPhraseQueryV1 match_phrase  = 8;
     string query_string              = 9;
     PrefixQueryV1 prefix             = 10;
+    MultiMatchQueryV1 multi_match    = 11;
   }
 }
 
@@ -234,6 +235,24 @@ message MatchQueryV1 {
   string field = 1;
   string value = 2;
   double boost = 3;
+}
+
+message MultiMatchQueryV1 {
+  repeated string fields = 1;
+  // Type is the multi-match query type. Valid values are best_fields,
+  // most_fields, cross_fields, phrase, phrase_prefix, bool_prefix. Default is
+  // best_fields.
+  string type            = 2;
+  string query           = 3;
+  double boost           = 4;
+  // BooleanAnd can be used to require all terms to match.
+  bool boolean_and       = 5;
+  // MinimumShouldMatch if the query string contains multiple search terms and
+  // you use the or operator, the number of terms that need to match for the
+  // document to be considered a match. See
+  // https://opensearch.org/docs/latest/query-dsl/minimum-should-match/
+  string minimum_should_match = 6;
+  float tie_breaker      = 7;
 }
 
 message MatchPhraseQueryV1 {
