@@ -865,7 +865,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.17.10"
+    "version": "v0.17.11"
   },
   "openapi": "3.0.0",
   "paths": {

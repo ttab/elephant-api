@@ -60,7 +60,16 @@
       },
       "elephant.user.ListInboxMessagesResponse": {
         "properties": {
+          "earliest_id": {
+            "description": "ID of the earliest message returned. Useful for paginating backward.",
+            "type": "integer"
+          },
+          "latest_id": {
+            "description": "ID of the latest message returned. Useful for subsequent polling requests.",
+            "type": "integer"
+          },
           "messages": {
+            "description": "Messages sorted in descending order by id (reflects the created timestamp).",
             "items": {
               "$ref": "#/components/schemas/elephant.user.InboxMessage"
             },
@@ -120,7 +129,12 @@
       },
       "elephant.user.PollInboxMessagesResponse": {
         "properties": {
+          "last_id": {
+            "description": "ID of the most recent message returned. Useful for subsequent polling requests. If no new messages are returned, it will reflect the \"after_id\" from the request.",
+            "type": "integer"
+          },
           "messages": {
+            "description": "Messages sorted in descending order by id (reflects the created timestamp).",
             "items": {
               "$ref": "#/components/schemas/elephant.user.InboxMessage"
             },
@@ -140,7 +154,12 @@
       },
       "elephant.user.PollMessagesResponse": {
         "properties": {
+          "last_id": {
+            "description": "ID of the most recent message returned. Useful for subsequent polling requests. If no new messages are returned, it will reflect the \"after_id\" from the request.",
+            "type": "integer"
+          },
           "messages": {
+            "description": "Messages sorted in descending order by id (reflects the created timestamp).",
             "items": {
               "$ref": "#/components/schemas/elephant.user.Message"
             },
@@ -355,7 +374,7 @@
   },
   "info": {
     "title": "user API",
-    "version": "v0.17.10"
+    "version": "v0.17.11"
   },
   "openapi": "3.0.0",
   "paths": {

@@ -53,7 +53,11 @@ message PollMessagesRequest {
 }
 
 message PollMessagesResponse {
-  repeated Message messages = 1;
+  // ID of the most recent message returned. Useful for subsequent polling requests.
+  // If no new messages are returned, it will reflect the "after_id" from the request.
+  int64 last_id             = 1;
+  // Messages sorted in descending order by id (reflects the created timestamp).
+  repeated Message messages = 2;
 }
 
 message Message {
@@ -82,7 +86,11 @@ message PollInboxMessagesRequest {
 }
 
 message PollInboxMessagesResponse {
-  repeated InboxMessage messages = 1;
+  // ID of the most recent message returned. Useful for subsequent polling requests.
+  // If no new messages are returned, it will reflect the "after_id" from the request.
+  int64 last_id                   = 1;
+  // Messages sorted in descending order by id (reflects the created timestamp).
+  repeated InboxMessage messages  = 2;
 }
 
 message InboxMessage {
@@ -112,7 +120,12 @@ message ListInboxMessagesRequest {
 }
 
 message ListInboxMessagesResponse {
-  repeated InboxMessage messages = 1;
+  // ID of the latest message returned. Useful for subsequent polling requests.
+  int64 latest_id         = 1;
+  // ID of the earliest message returned. Useful for paginating backward.
+  int64 earliest_id       = 2;
+  // Messages sorted in descending order by id (reflects the created timestamp).
+  repeated InboxMessage messages  = 3;
 }
 
 message UpdateInboxMessageRequest {
