@@ -361,8 +361,8 @@ message PollSubscriptionResponse {
 }
 
 message SubscriptionPollResult {
-  // Subsciption reference with current cursor position.
-  repeated SubscriptionReference subscription = 1;
+  // Subscription with current cursor position.
+  SubscriptionReference subscription = 1;
   // Items that matched the subscription.
   repeated HitV1 items = 2;
 }
