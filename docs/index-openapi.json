@@ -668,11 +668,7 @@
             "type": "array"
           },
           "subscription": {
-            "description": "Subsciption reference with current cursor position.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.index.SubscriptionReference"
-            },
-            "type": "array"
+            "$ref": "#/components/schemas/elephant.index.SubscriptionReference"
           }
         },
         "type": "object"
