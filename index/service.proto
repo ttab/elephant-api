@@ -358,6 +358,8 @@ message SubscriptionReference {
 message PollSubscriptionResponse {
   // Results will be empty if the poll timed out.
   repeated SubscriptionPollResult result = 1;
+  // List of subscriptions that are unknown, have expired f.ex.
+  repeated int64 unknown_subscriptions   = 2;
 }
 
 message SubscriptionPollResult {

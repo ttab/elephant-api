@@ -408,6 +408,13 @@
               "$ref": "#/components/schemas/elephant.index.SubscriptionPollResult"
             },
             "type": "array"
+          },
+          "unknown_subscriptions": {
+            "description": "List of subscriptions that are unknown, have expired f.ex.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
           }
         },
         "type": "object"
