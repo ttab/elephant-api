@@ -665,12 +665,38 @@
         },
         "type": "object"
       },
+      "elephant.index.SubscriptionItem": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.index.FieldValuesV1"
+            },
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "match": {
+            "type": "boolean"
+          },
+          "source": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.index.FieldValuesV1"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.SubscriptionPollResult": {
         "properties": {
           "items": {
-            "description": "Items that matched the subscription.",
+            "description": "Items that matched or stopped matching the subscription.",
             "items": {
-              "$ref": "#/components/schemas/elephant.index.HitV1"
+              "$ref": "#/components/schemas/elephant.index.SubscriptionItem"
             },
             "type": "array"
           },
