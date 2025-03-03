@@ -358,13 +358,23 @@ message SubscriptionReference {
 message PollSubscriptionResponse {
   // Results will be empty if the poll timed out.
   repeated SubscriptionPollResult result = 1;
+  // List of subscriptions that are unknown, have expired f.ex.
+  repeated int64 unknown_subscriptions   = 2;
 }
 
 message SubscriptionPollResult {
-  // Subsciption reference with current cursor position.
-  repeated SubscriptionReference subscription = 1;
-  // Items that matched the subscription.
-  repeated HitV1 items = 2;
+  // Subscription with current cursor position.
+  SubscriptionReference subscription = 1;
+  // Items that matched or stopped matching the subscription.
+  repeated SubscriptionItem items = 2;
+}
+
+message SubscriptionItem {
+  string id    = 1;
+  bool match   = 2;
+  map<string, FieldValuesV1> fields = 3;
+  map<string, FieldValuesV1> source = 4;
+  newsdoc.Document document         = 5;
 }
 
 message EndSubscriptionRequest {
