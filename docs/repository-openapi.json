@@ -870,6 +870,12 @@
         "type": "object"
       },
       "elephant.repository.GetStatusesRequest": {
+        "properties": {
+          "type": {
+            "description": "Type of documents to get statuses from.",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "elephant.repository.GetStatusesResponse": {

@@ -353,7 +353,10 @@ message GetStatusRulesResponse {
   repeated StatusRule rules = 1;
 }
 
-message GetStatusesRequest {}
+message GetStatusesRequest {
+  // Type of documents to get statuses from.
+  string type = 1;
+}
 
 message SetWorkflowRequest {
   // Type of the document that this workflow is for.
