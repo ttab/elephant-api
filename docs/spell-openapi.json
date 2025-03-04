@@ -236,7 +236,7 @@
   },
   "info": {
     "title": "spell API",
-    "version": "v0.17.12"
+    "version": "v0.17.13"
   },
   "openapi": "3.0.0",
   "paths": {
