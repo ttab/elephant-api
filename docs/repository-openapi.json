@@ -249,6 +249,10 @@
             "description": "Created timestamp is the RFC3339 timestamp for when the document was created.",
             "type": "string"
           },
+          "creator_uri": {
+            "description": "CreatorURI is the identity of the party that created the document.",
+            "type": "string"
+          },
           "current_version": {
             "description": "CurrentVersion is the last written version of the document.",
             "type": "integer"
@@ -273,6 +277,10 @@
           },
           "modified": {
             "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
+            "type": "string"
+          },
+          "updater_uri": {
+            "description": "UpdaterURI is the identity of the party that last updated the document.",
             "type": "string"
           },
           "workflow_checkpoint": {
@@ -1836,7 +1844,7 @@
   },
   "info": {
     "title": "repository API",
-    "version": "v0.17.13"
+    "version": "v0.17.14"
   },
   "openapi": "3.0.0",
   "paths": {

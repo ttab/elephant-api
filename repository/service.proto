@@ -763,6 +763,10 @@ message DocumentMeta {
   string workflow_state      = 9;
   // WorkflowCheckpoint that the document reached most recently.
   string workflow_checkpoint = 10;
+  // CreatorURI is the identity of the party that created the document.
+  string creator_uri         = 11;
+  // UpdaterURI is the identity of the party that last updated the document.
+  string updater_uri         = 12;
 }
 
 message Status {
