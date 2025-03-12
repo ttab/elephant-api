@@ -3461,7 +3461,7 @@ type DocumentVersion struct {
 	// Meta data to for the document version.
 	Meta map[string]string `protobuf:"bytes,4,rep,name=meta,proto3" json:"meta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Statuses that have been set for the document version.
-	Statuses      []*Status `protobuf:"bytes,5,rep,name=statuses,proto3" json:"statuses,omitempty"`
+	Statuses      map[string]*DocumentVersionStatuses `protobuf:"bytes,5,rep,name=statuses,proto3" json:"statuses,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3524,9 +3524,53 @@ func (x *DocumentVersion) GetMeta() map[string]string {
 	return nil
 }
 
-func (x *DocumentVersion) GetStatuses() []*Status {
+func (x *DocumentVersion) GetStatuses() map[string]*DocumentVersionStatuses {
 	if x != nil {
 		return x.Statuses
+	}
+	return nil
+}
+
+type DocumentVersionStatuses struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*Status              `protobuf:"bytes,5,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentVersionStatuses) Reset() {
+	*x = DocumentVersionStatuses{}
+	mi := &file_repository_service_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentVersionStatuses) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentVersionStatuses) ProtoMessage() {}
+
+func (x *DocumentVersionStatuses) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_service_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentVersionStatuses.ProtoReflect.Descriptor instead.
+func (*DocumentVersionStatuses) Descriptor() ([]byte, []int) {
+	return file_repository_service_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *DocumentVersionStatuses) GetItems() []*Status {
+	if x != nil {
+		return x.Items
 	}
 	return nil
 }
@@ -3568,7 +3612,7 @@ type UpdateRequest struct {
 
 func (x *UpdateRequest) Reset() {
 	*x = UpdateRequest{}
-	mi := &file_repository_service_proto_msgTypes[61]
+	mi := &file_repository_service_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3580,7 +3624,7 @@ func (x *UpdateRequest) String() string {
 func (*UpdateRequest) ProtoMessage() {}
 
 func (x *UpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[61]
+	mi := &file_repository_service_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3593,7 +3637,7 @@ func (x *UpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{61}
+	return file_repository_service_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *UpdateRequest) GetUuid() string {
@@ -3671,7 +3715,7 @@ type ImportDirective struct {
 
 func (x *ImportDirective) Reset() {
 	*x = ImportDirective{}
-	mi := &file_repository_service_proto_msgTypes[62]
+	mi := &file_repository_service_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3683,7 +3727,7 @@ func (x *ImportDirective) String() string {
 func (*ImportDirective) ProtoMessage() {}
 
 func (x *ImportDirective) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[62]
+	mi := &file_repository_service_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3696,7 +3740,7 @@ func (x *ImportDirective) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportDirective.ProtoReflect.Descriptor instead.
 func (*ImportDirective) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{62}
+	return file_repository_service_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ImportDirective) GetOriginallyCreated() string {
@@ -3724,7 +3768,7 @@ type UpdateResponse struct {
 
 func (x *UpdateResponse) Reset() {
 	*x = UpdateResponse{}
-	mi := &file_repository_service_proto_msgTypes[63]
+	mi := &file_repository_service_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3736,7 +3780,7 @@ func (x *UpdateResponse) String() string {
 func (*UpdateResponse) ProtoMessage() {}
 
 func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[63]
+	mi := &file_repository_service_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3749,7 +3793,7 @@ func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateResponse.ProtoReflect.Descriptor instead.
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{63}
+	return file_repository_service_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *UpdateResponse) GetVersion() int64 {
@@ -3775,7 +3819,7 @@ type BulkUpdateRequest struct {
 
 func (x *BulkUpdateRequest) Reset() {
 	*x = BulkUpdateRequest{}
-	mi := &file_repository_service_proto_msgTypes[64]
+	mi := &file_repository_service_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3787,7 +3831,7 @@ func (x *BulkUpdateRequest) String() string {
 func (*BulkUpdateRequest) ProtoMessage() {}
 
 func (x *BulkUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[64]
+	mi := &file_repository_service_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3800,7 +3844,7 @@ func (x *BulkUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkUpdateRequest.ProtoReflect.Descriptor instead.
 func (*BulkUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{64}
+	return file_repository_service_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *BulkUpdateRequest) GetUpdates() []*UpdateRequest {
@@ -3819,7 +3863,7 @@ type BulkUpdateResponse struct {
 
 func (x *BulkUpdateResponse) Reset() {
 	*x = BulkUpdateResponse{}
-	mi := &file_repository_service_proto_msgTypes[65]
+	mi := &file_repository_service_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3831,7 +3875,7 @@ func (x *BulkUpdateResponse) String() string {
 func (*BulkUpdateResponse) ProtoMessage() {}
 
 func (x *BulkUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[65]
+	mi := &file_repository_service_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3844,7 +3888,7 @@ func (x *BulkUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkUpdateResponse.ProtoReflect.Descriptor instead.
 func (*BulkUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{65}
+	return file_repository_service_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *BulkUpdateResponse) GetUpdates() []*UpdateResponse {
@@ -3863,7 +3907,7 @@ type ValidateRequest struct {
 
 func (x *ValidateRequest) Reset() {
 	*x = ValidateRequest{}
-	mi := &file_repository_service_proto_msgTypes[66]
+	mi := &file_repository_service_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3875,7 +3919,7 @@ func (x *ValidateRequest) String() string {
 func (*ValidateRequest) ProtoMessage() {}
 
 func (x *ValidateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[66]
+	mi := &file_repository_service_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3888,7 +3932,7 @@ func (x *ValidateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateRequest.ProtoReflect.Descriptor instead.
 func (*ValidateRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{66}
+	return file_repository_service_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ValidateRequest) GetDocument() *newsdoc.Document {
@@ -3907,7 +3951,7 @@ type ValidateResponse struct {
 
 func (x *ValidateResponse) Reset() {
 	*x = ValidateResponse{}
-	mi := &file_repository_service_proto_msgTypes[67]
+	mi := &file_repository_service_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3919,7 +3963,7 @@ func (x *ValidateResponse) String() string {
 func (*ValidateResponse) ProtoMessage() {}
 
 func (x *ValidateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[67]
+	mi := &file_repository_service_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3932,7 +3976,7 @@ func (x *ValidateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateResponse.ProtoReflect.Descriptor instead.
 func (*ValidateResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{67}
+	return file_repository_service_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ValidateResponse) GetErrors() []*ValidationResult {
@@ -3952,7 +3996,7 @@ type ValidationResult struct {
 
 func (x *ValidationResult) Reset() {
 	*x = ValidationResult{}
-	mi := &file_repository_service_proto_msgTypes[68]
+	mi := &file_repository_service_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3964,7 +4008,7 @@ func (x *ValidationResult) String() string {
 func (*ValidationResult) ProtoMessage() {}
 
 func (x *ValidationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[68]
+	mi := &file_repository_service_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3977,7 +4021,7 @@ func (x *ValidationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationResult.ProtoReflect.Descriptor instead.
 func (*ValidationResult) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{68}
+	return file_repository_service_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ValidationResult) GetEntity() []*EntityRef {
@@ -4015,7 +4059,7 @@ type EntityRef struct {
 
 func (x *EntityRef) Reset() {
 	*x = EntityRef{}
-	mi := &file_repository_service_proto_msgTypes[69]
+	mi := &file_repository_service_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4027,7 +4071,7 @@ func (x *EntityRef) String() string {
 func (*EntityRef) ProtoMessage() {}
 
 func (x *EntityRef) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[69]
+	mi := &file_repository_service_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4040,7 +4084,7 @@ func (x *EntityRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityRef.ProtoReflect.Descriptor instead.
 func (*EntityRef) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{69}
+	return file_repository_service_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *EntityRef) GetRefType() string {
@@ -4105,7 +4149,7 @@ type StatusUpdate struct {
 
 func (x *StatusUpdate) Reset() {
 	*x = StatusUpdate{}
-	mi := &file_repository_service_proto_msgTypes[70]
+	mi := &file_repository_service_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4117,7 +4161,7 @@ func (x *StatusUpdate) String() string {
 func (*StatusUpdate) ProtoMessage() {}
 
 func (x *StatusUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[70]
+	mi := &file_repository_service_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4130,7 +4174,7 @@ func (x *StatusUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusUpdate.ProtoReflect.Descriptor instead.
 func (*StatusUpdate) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{70}
+	return file_repository_service_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *StatusUpdate) GetName() string {
@@ -4173,7 +4217,7 @@ type UpdatePermissionsRequest struct {
 
 func (x *UpdatePermissionsRequest) Reset() {
 	*x = UpdatePermissionsRequest{}
-	mi := &file_repository_service_proto_msgTypes[71]
+	mi := &file_repository_service_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4185,7 +4229,7 @@ func (x *UpdatePermissionsRequest) String() string {
 func (*UpdatePermissionsRequest) ProtoMessage() {}
 
 func (x *UpdatePermissionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[71]
+	mi := &file_repository_service_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4198,7 +4242,7 @@ func (x *UpdatePermissionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePermissionsRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePermissionsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{71}
+	return file_repository_service_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UpdatePermissionsRequest) GetUuid() string {
@@ -4223,7 +4267,7 @@ type UpdatePermissionsResponse struct {
 
 func (x *UpdatePermissionsResponse) Reset() {
 	*x = UpdatePermissionsResponse{}
-	mi := &file_repository_service_proto_msgTypes[72]
+	mi := &file_repository_service_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4235,7 +4279,7 @@ func (x *UpdatePermissionsResponse) String() string {
 func (*UpdatePermissionsResponse) ProtoMessage() {}
 
 func (x *UpdatePermissionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[72]
+	mi := &file_repository_service_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4248,7 +4292,7 @@ func (x *UpdatePermissionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePermissionsResponse.ProtoReflect.Descriptor instead.
 func (*UpdatePermissionsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{72}
+	return file_repository_service_proto_rawDescGZIP(), []int{73}
 }
 
 type DeleteDocumentRequest struct {
@@ -4268,7 +4312,7 @@ type DeleteDocumentRequest struct {
 
 func (x *DeleteDocumentRequest) Reset() {
 	*x = DeleteDocumentRequest{}
-	mi := &file_repository_service_proto_msgTypes[73]
+	mi := &file_repository_service_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4280,7 +4324,7 @@ func (x *DeleteDocumentRequest) String() string {
 func (*DeleteDocumentRequest) ProtoMessage() {}
 
 func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[73]
+	mi := &file_repository_service_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4293,7 +4337,7 @@ func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{73}
+	return file_repository_service_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *DeleteDocumentRequest) GetUuid() string {
@@ -4332,7 +4376,7 @@ type DeleteDocumentResponse struct {
 
 func (x *DeleteDocumentResponse) Reset() {
 	*x = DeleteDocumentResponse{}
-	mi := &file_repository_service_proto_msgTypes[74]
+	mi := &file_repository_service_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4344,7 +4388,7 @@ func (x *DeleteDocumentResponse) String() string {
 func (*DeleteDocumentResponse) ProtoMessage() {}
 
 func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[74]
+	mi := &file_repository_service_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4357,7 +4401,7 @@ func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{74}
+	return file_repository_service_proto_rawDescGZIP(), []int{75}
 }
 
 type RestoreRequest struct {
@@ -4374,7 +4418,7 @@ type RestoreRequest struct {
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_repository_service_proto_msgTypes[75]
+	mi := &file_repository_service_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4386,7 +4430,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[75]
+	mi := &file_repository_service_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4399,7 +4443,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{75}
+	return file_repository_service_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *RestoreRequest) GetUuid() string {
@@ -4431,7 +4475,7 @@ type RestoreResponse struct {
 
 func (x *RestoreResponse) Reset() {
 	*x = RestoreResponse{}
-	mi := &file_repository_service_proto_msgTypes[76]
+	mi := &file_repository_service_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4443,7 +4487,7 @@ func (x *RestoreResponse) String() string {
 func (*RestoreResponse) ProtoMessage() {}
 
 func (x *RestoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[76]
+	mi := &file_repository_service_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4456,7 +4500,7 @@ func (x *RestoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreResponse.ProtoReflect.Descriptor instead.
 func (*RestoreResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{76}
+	return file_repository_service_proto_rawDescGZIP(), []int{77}
 }
 
 type PurgeRequest struct {
@@ -4472,7 +4516,7 @@ type PurgeRequest struct {
 
 func (x *PurgeRequest) Reset() {
 	*x = PurgeRequest{}
-	mi := &file_repository_service_proto_msgTypes[77]
+	mi := &file_repository_service_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4484,7 +4528,7 @@ func (x *PurgeRequest) String() string {
 func (*PurgeRequest) ProtoMessage() {}
 
 func (x *PurgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[77]
+	mi := &file_repository_service_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4497,7 +4541,7 @@ func (x *PurgeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PurgeRequest.ProtoReflect.Descriptor instead.
 func (*PurgeRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{77}
+	return file_repository_service_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *PurgeRequest) GetUuid() string {
@@ -4522,7 +4566,7 @@ type PurgeResponse struct {
 
 func (x *PurgeResponse) Reset() {
 	*x = PurgeResponse{}
-	mi := &file_repository_service_proto_msgTypes[78]
+	mi := &file_repository_service_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4534,7 +4578,7 @@ func (x *PurgeResponse) String() string {
 func (*PurgeResponse) ProtoMessage() {}
 
 func (x *PurgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[78]
+	mi := &file_repository_service_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4547,7 +4591,7 @@ func (x *PurgeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PurgeResponse.ProtoReflect.Descriptor instead.
 func (*PurgeResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{78}
+	return file_repository_service_proto_rawDescGZIP(), []int{79}
 }
 
 type ListDeletedRequest struct {
@@ -4567,7 +4611,7 @@ type ListDeletedRequest struct {
 
 func (x *ListDeletedRequest) Reset() {
 	*x = ListDeletedRequest{}
-	mi := &file_repository_service_proto_msgTypes[79]
+	mi := &file_repository_service_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4579,7 +4623,7 @@ func (x *ListDeletedRequest) String() string {
 func (*ListDeletedRequest) ProtoMessage() {}
 
 func (x *ListDeletedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[79]
+	mi := &file_repository_service_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4592,7 +4636,7 @@ func (x *ListDeletedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDeletedRequest.ProtoReflect.Descriptor instead.
 func (*ListDeletedRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{79}
+	return file_repository_service_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *ListDeletedRequest) GetUuid() string {
@@ -4633,7 +4677,7 @@ type ListDeletedResponse struct {
 
 func (x *ListDeletedResponse) Reset() {
 	*x = ListDeletedResponse{}
-	mi := &file_repository_service_proto_msgTypes[80]
+	mi := &file_repository_service_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4645,7 +4689,7 @@ func (x *ListDeletedResponse) String() string {
 func (*ListDeletedResponse) ProtoMessage() {}
 
 func (x *ListDeletedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[80]
+	mi := &file_repository_service_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4658,7 +4702,7 @@ func (x *ListDeletedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDeletedResponse.ProtoReflect.Descriptor instead.
 func (*ListDeletedResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{80}
+	return file_repository_service_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ListDeletedResponse) GetDeletes() []*DeleteRecord {
@@ -4700,7 +4744,7 @@ type DeleteRecord struct {
 
 func (x *DeleteRecord) Reset() {
 	*x = DeleteRecord{}
-	mi := &file_repository_service_proto_msgTypes[81]
+	mi := &file_repository_service_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4712,7 +4756,7 @@ func (x *DeleteRecord) String() string {
 func (*DeleteRecord) ProtoMessage() {}
 
 func (x *DeleteRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[81]
+	mi := &file_repository_service_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4725,7 +4769,7 @@ func (x *DeleteRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRecord.ProtoReflect.Descriptor instead.
 func (*DeleteRecord) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{81}
+	return file_repository_service_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *DeleteRecord) GetId() int64 {
@@ -4815,7 +4859,7 @@ type GetMetaRequest struct {
 
 func (x *GetMetaRequest) Reset() {
 	*x = GetMetaRequest{}
-	mi := &file_repository_service_proto_msgTypes[82]
+	mi := &file_repository_service_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4827,7 +4871,7 @@ func (x *GetMetaRequest) String() string {
 func (*GetMetaRequest) ProtoMessage() {}
 
 func (x *GetMetaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[82]
+	mi := &file_repository_service_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4840,7 +4884,7 @@ func (x *GetMetaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetaRequest.ProtoReflect.Descriptor instead.
 func (*GetMetaRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{82}
+	return file_repository_service_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *GetMetaRequest) GetUuid() string {
@@ -4859,7 +4903,7 @@ type GetMetaResponse struct {
 
 func (x *GetMetaResponse) Reset() {
 	*x = GetMetaResponse{}
-	mi := &file_repository_service_proto_msgTypes[83]
+	mi := &file_repository_service_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4871,7 +4915,7 @@ func (x *GetMetaResponse) String() string {
 func (*GetMetaResponse) ProtoMessage() {}
 
 func (x *GetMetaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[83]
+	mi := &file_repository_service_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4884,7 +4928,7 @@ func (x *GetMetaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetaResponse.ProtoReflect.Descriptor instead.
 func (*GetMetaResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{83}
+	return file_repository_service_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *GetMetaResponse) GetMeta() *DocumentMeta {
@@ -4928,7 +4972,7 @@ type DocumentMeta struct {
 
 func (x *DocumentMeta) Reset() {
 	*x = DocumentMeta{}
-	mi := &file_repository_service_proto_msgTypes[84]
+	mi := &file_repository_service_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4940,7 +4984,7 @@ func (x *DocumentMeta) String() string {
 func (*DocumentMeta) ProtoMessage() {}
 
 func (x *DocumentMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[84]
+	mi := &file_repository_service_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4953,7 +4997,7 @@ func (x *DocumentMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentMeta.ProtoReflect.Descriptor instead.
 func (*DocumentMeta) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{84}
+	return file_repository_service_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *DocumentMeta) GetCreated() string {
@@ -5061,7 +5105,7 @@ type Status struct {
 
 func (x *Status) Reset() {
 	*x = Status{}
-	mi := &file_repository_service_proto_msgTypes[85]
+	mi := &file_repository_service_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5073,7 +5117,7 @@ func (x *Status) String() string {
 func (*Status) ProtoMessage() {}
 
 func (x *Status) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[85]
+	mi := &file_repository_service_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5086,7 +5130,7 @@ func (x *Status) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Status.ProtoReflect.Descriptor instead.
 func (*Status) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{85}
+	return file_repository_service_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *Status) GetId() int64 {
@@ -5143,7 +5187,7 @@ type ACLEntry struct {
 
 func (x *ACLEntry) Reset() {
 	*x = ACLEntry{}
-	mi := &file_repository_service_proto_msgTypes[86]
+	mi := &file_repository_service_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5155,7 +5199,7 @@ func (x *ACLEntry) String() string {
 func (*ACLEntry) ProtoMessage() {}
 
 func (x *ACLEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[86]
+	mi := &file_repository_service_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5168,7 +5212,7 @@ func (x *ACLEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ACLEntry.ProtoReflect.Descriptor instead.
 func (*ACLEntry) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{86}
+	return file_repository_service_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *ACLEntry) GetUri() string {
@@ -5205,7 +5249,7 @@ type Lock struct {
 
 func (x *Lock) Reset() {
 	*x = Lock{}
-	mi := &file_repository_service_proto_msgTypes[87]
+	mi := &file_repository_service_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5217,7 +5261,7 @@ func (x *Lock) String() string {
 func (*Lock) ProtoMessage() {}
 
 func (x *Lock) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[87]
+	mi := &file_repository_service_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5230,7 +5274,7 @@ func (x *Lock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Lock.ProtoReflect.Descriptor instead.
 func (*Lock) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{87}
+	return file_repository_service_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *Lock) GetToken() string {
@@ -5287,7 +5331,7 @@ type RegisterMetaTypeRequest struct {
 
 func (x *RegisterMetaTypeRequest) Reset() {
 	*x = RegisterMetaTypeRequest{}
-	mi := &file_repository_service_proto_msgTypes[88]
+	mi := &file_repository_service_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5299,7 +5343,7 @@ func (x *RegisterMetaTypeRequest) String() string {
 func (*RegisterMetaTypeRequest) ProtoMessage() {}
 
 func (x *RegisterMetaTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[88]
+	mi := &file_repository_service_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5312,7 +5356,7 @@ func (x *RegisterMetaTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetaTypeRequest.ProtoReflect.Descriptor instead.
 func (*RegisterMetaTypeRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{88}
+	return file_repository_service_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *RegisterMetaTypeRequest) GetType() string {
@@ -5337,7 +5381,7 @@ type RegisterMetaTypeResponse struct {
 
 func (x *RegisterMetaTypeResponse) Reset() {
 	*x = RegisterMetaTypeResponse{}
-	mi := &file_repository_service_proto_msgTypes[89]
+	mi := &file_repository_service_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5349,7 +5393,7 @@ func (x *RegisterMetaTypeResponse) String() string {
 func (*RegisterMetaTypeResponse) ProtoMessage() {}
 
 func (x *RegisterMetaTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[89]
+	mi := &file_repository_service_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5362,7 +5406,7 @@ func (x *RegisterMetaTypeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetaTypeResponse.ProtoReflect.Descriptor instead.
 func (*RegisterMetaTypeResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{89}
+	return file_repository_service_proto_rawDescGZIP(), []int{90}
 }
 
 type RegisterMetaTypeUseRequest struct {
@@ -5377,7 +5421,7 @@ type RegisterMetaTypeUseRequest struct {
 
 func (x *RegisterMetaTypeUseRequest) Reset() {
 	*x = RegisterMetaTypeUseRequest{}
-	mi := &file_repository_service_proto_msgTypes[90]
+	mi := &file_repository_service_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5389,7 +5433,7 @@ func (x *RegisterMetaTypeUseRequest) String() string {
 func (*RegisterMetaTypeUseRequest) ProtoMessage() {}
 
 func (x *RegisterMetaTypeUseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[90]
+	mi := &file_repository_service_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5402,7 +5446,7 @@ func (x *RegisterMetaTypeUseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetaTypeUseRequest.ProtoReflect.Descriptor instead.
 func (*RegisterMetaTypeUseRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{90}
+	return file_repository_service_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *RegisterMetaTypeUseRequest) GetMainType() string {
@@ -5427,7 +5471,7 @@ type RegisterMetaTypeUseResponse struct {
 
 func (x *RegisterMetaTypeUseResponse) Reset() {
 	*x = RegisterMetaTypeUseResponse{}
-	mi := &file_repository_service_proto_msgTypes[91]
+	mi := &file_repository_service_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5439,7 +5483,7 @@ func (x *RegisterMetaTypeUseResponse) String() string {
 func (*RegisterMetaTypeUseResponse) ProtoMessage() {}
 
 func (x *RegisterMetaTypeUseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[91]
+	mi := &file_repository_service_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5452,7 +5496,7 @@ func (x *RegisterMetaTypeUseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetaTypeUseResponse.ProtoReflect.Descriptor instead.
 func (*RegisterMetaTypeUseResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{91}
+	return file_repository_service_proto_rawDescGZIP(), []int{92}
 }
 
 type RegisterSchemaRequest struct {
@@ -5473,7 +5517,7 @@ type RegisterSchemaRequest struct {
 
 func (x *RegisterSchemaRequest) Reset() {
 	*x = RegisterSchemaRequest{}
-	mi := &file_repository_service_proto_msgTypes[92]
+	mi := &file_repository_service_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5485,7 +5529,7 @@ func (x *RegisterSchemaRequest) String() string {
 func (*RegisterSchemaRequest) ProtoMessage() {}
 
 func (x *RegisterSchemaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[92]
+	mi := &file_repository_service_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5498,7 +5542,7 @@ func (x *RegisterSchemaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterSchemaRequest.ProtoReflect.Descriptor instead.
 func (*RegisterSchemaRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{92}
+	return file_repository_service_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *RegisterSchemaRequest) GetSchema() *Schema {
@@ -5537,7 +5581,7 @@ type RegisterSchemaResponse struct {
 
 func (x *RegisterSchemaResponse) Reset() {
 	*x = RegisterSchemaResponse{}
-	mi := &file_repository_service_proto_msgTypes[93]
+	mi := &file_repository_service_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5549,7 +5593,7 @@ func (x *RegisterSchemaResponse) String() string {
 func (*RegisterSchemaResponse) ProtoMessage() {}
 
 func (x *RegisterSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[93]
+	mi := &file_repository_service_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5562,7 +5606,7 @@ func (x *RegisterSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterSchemaResponse.ProtoReflect.Descriptor instead.
 func (*RegisterSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{93}
+	return file_repository_service_proto_rawDescGZIP(), []int{94}
 }
 
 type SetActiveSchemaRequest struct {
@@ -5580,7 +5624,7 @@ type SetActiveSchemaRequest struct {
 
 func (x *SetActiveSchemaRequest) Reset() {
 	*x = SetActiveSchemaRequest{}
-	mi := &file_repository_service_proto_msgTypes[94]
+	mi := &file_repository_service_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5592,7 +5636,7 @@ func (x *SetActiveSchemaRequest) String() string {
 func (*SetActiveSchemaRequest) ProtoMessage() {}
 
 func (x *SetActiveSchemaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[94]
+	mi := &file_repository_service_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5605,7 +5649,7 @@ func (x *SetActiveSchemaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetActiveSchemaRequest.ProtoReflect.Descriptor instead.
 func (*SetActiveSchemaRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{94}
+	return file_repository_service_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *SetActiveSchemaRequest) GetName() string {
@@ -5637,7 +5681,7 @@ type SetActiveSchemaResponse struct {
 
 func (x *SetActiveSchemaResponse) Reset() {
 	*x = SetActiveSchemaResponse{}
-	mi := &file_repository_service_proto_msgTypes[95]
+	mi := &file_repository_service_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5649,7 +5693,7 @@ func (x *SetActiveSchemaResponse) String() string {
 func (*SetActiveSchemaResponse) ProtoMessage() {}
 
 func (x *SetActiveSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[95]
+	mi := &file_repository_service_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5662,7 +5706,7 @@ func (x *SetActiveSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetActiveSchemaResponse.ProtoReflect.Descriptor instead.
 func (*SetActiveSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{95}
+	return file_repository_service_proto_rawDescGZIP(), []int{96}
 }
 
 type GetSchemaRequest struct {
@@ -5678,7 +5722,7 @@ type GetSchemaRequest struct {
 
 func (x *GetSchemaRequest) Reset() {
 	*x = GetSchemaRequest{}
-	mi := &file_repository_service_proto_msgTypes[96]
+	mi := &file_repository_service_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5690,7 +5734,7 @@ func (x *GetSchemaRequest) String() string {
 func (*GetSchemaRequest) ProtoMessage() {}
 
 func (x *GetSchemaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[96]
+	mi := &file_repository_service_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5703,7 +5747,7 @@ func (x *GetSchemaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSchemaRequest.ProtoReflect.Descriptor instead.
 func (*GetSchemaRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{96}
+	return file_repository_service_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *GetSchemaRequest) GetName() string {
@@ -5730,7 +5774,7 @@ type GetSchemaResponse struct {
 
 func (x *GetSchemaResponse) Reset() {
 	*x = GetSchemaResponse{}
-	mi := &file_repository_service_proto_msgTypes[97]
+	mi := &file_repository_service_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5742,7 +5786,7 @@ func (x *GetSchemaResponse) String() string {
 func (*GetSchemaResponse) ProtoMessage() {}
 
 func (x *GetSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[97]
+	mi := &file_repository_service_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5755,7 +5799,7 @@ func (x *GetSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSchemaResponse.ProtoReflect.Descriptor instead.
 func (*GetSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{97}
+	return file_repository_service_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *GetSchemaResponse) GetVersion() string {
@@ -5782,7 +5826,7 @@ type GetAllActiveSchemasRequest struct {
 
 func (x *GetAllActiveSchemasRequest) Reset() {
 	*x = GetAllActiveSchemasRequest{}
-	mi := &file_repository_service_proto_msgTypes[98]
+	mi := &file_repository_service_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5794,7 +5838,7 @@ func (x *GetAllActiveSchemasRequest) String() string {
 func (*GetAllActiveSchemasRequest) ProtoMessage() {}
 
 func (x *GetAllActiveSchemasRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[98]
+	mi := &file_repository_service_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5807,7 +5851,7 @@ func (x *GetAllActiveSchemasRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAllActiveSchemasRequest.ProtoReflect.Descriptor instead.
 func (*GetAllActiveSchemasRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{98}
+	return file_repository_service_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *GetAllActiveSchemasRequest) GetWaitSeconds() int64 {
@@ -5833,7 +5877,7 @@ type GetAllActiveSchemasResponse struct {
 
 func (x *GetAllActiveSchemasResponse) Reset() {
 	*x = GetAllActiveSchemasResponse{}
-	mi := &file_repository_service_proto_msgTypes[99]
+	mi := &file_repository_service_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5845,7 +5889,7 @@ func (x *GetAllActiveSchemasResponse) String() string {
 func (*GetAllActiveSchemasResponse) ProtoMessage() {}
 
 func (x *GetAllActiveSchemasResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[99]
+	mi := &file_repository_service_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5858,7 +5902,7 @@ func (x *GetAllActiveSchemasResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAllActiveSchemasResponse.ProtoReflect.Descriptor instead.
 func (*GetAllActiveSchemasResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{99}
+	return file_repository_service_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *GetAllActiveSchemasResponse) GetSchemas() []*Schema {
@@ -5879,7 +5923,7 @@ type Schema struct {
 
 func (x *Schema) Reset() {
 	*x = Schema{}
-	mi := &file_repository_service_proto_msgTypes[100]
+	mi := &file_repository_service_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5891,7 +5935,7 @@ func (x *Schema) String() string {
 func (*Schema) ProtoMessage() {}
 
 func (x *Schema) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[100]
+	mi := &file_repository_service_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5904,7 +5948,7 @@ func (x *Schema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schema.ProtoReflect.Descriptor instead.
 func (*Schema) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{100}
+	return file_repository_service_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *Schema) GetName() string {
@@ -5936,7 +5980,7 @@ type GetDeprecationsRequest struct {
 
 func (x *GetDeprecationsRequest) Reset() {
 	*x = GetDeprecationsRequest{}
-	mi := &file_repository_service_proto_msgTypes[101]
+	mi := &file_repository_service_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5948,7 +5992,7 @@ func (x *GetDeprecationsRequest) String() string {
 func (*GetDeprecationsRequest) ProtoMessage() {}
 
 func (x *GetDeprecationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[101]
+	mi := &file_repository_service_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5961,7 +6005,7 @@ func (x *GetDeprecationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeprecationsRequest.ProtoReflect.Descriptor instead.
 func (*GetDeprecationsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{101}
+	return file_repository_service_proto_rawDescGZIP(), []int{102}
 }
 
 type Deprecation struct {
@@ -5974,7 +6018,7 @@ type Deprecation struct {
 
 func (x *Deprecation) Reset() {
 	*x = Deprecation{}
-	mi := &file_repository_service_proto_msgTypes[102]
+	mi := &file_repository_service_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5986,7 +6030,7 @@ func (x *Deprecation) String() string {
 func (*Deprecation) ProtoMessage() {}
 
 func (x *Deprecation) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[102]
+	mi := &file_repository_service_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5999,7 +6043,7 @@ func (x *Deprecation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deprecation.ProtoReflect.Descriptor instead.
 func (*Deprecation) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{102}
+	return file_repository_service_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *Deprecation) GetLabel() string {
@@ -6025,7 +6069,7 @@ type GetDeprecationsResponse struct {
 
 func (x *GetDeprecationsResponse) Reset() {
 	*x = GetDeprecationsResponse{}
-	mi := &file_repository_service_proto_msgTypes[103]
+	mi := &file_repository_service_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6037,7 +6081,7 @@ func (x *GetDeprecationsResponse) String() string {
 func (*GetDeprecationsResponse) ProtoMessage() {}
 
 func (x *GetDeprecationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[103]
+	mi := &file_repository_service_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6050,7 +6094,7 @@ func (x *GetDeprecationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeprecationsResponse.ProtoReflect.Descriptor instead.
 func (*GetDeprecationsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{103}
+	return file_repository_service_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *GetDeprecationsResponse) GetDeprecations() []*Deprecation {
@@ -6069,7 +6113,7 @@ type UpdateDeprecationRequest struct {
 
 func (x *UpdateDeprecationRequest) Reset() {
 	*x = UpdateDeprecationRequest{}
-	mi := &file_repository_service_proto_msgTypes[104]
+	mi := &file_repository_service_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6081,7 +6125,7 @@ func (x *UpdateDeprecationRequest) String() string {
 func (*UpdateDeprecationRequest) ProtoMessage() {}
 
 func (x *UpdateDeprecationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[104]
+	mi := &file_repository_service_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6094,7 +6138,7 @@ func (x *UpdateDeprecationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDeprecationRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDeprecationRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{104}
+	return file_repository_service_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *UpdateDeprecationRequest) GetDeprecation() *Deprecation {
@@ -6112,7 +6156,7 @@ type UpdateDeprecationResponse struct {
 
 func (x *UpdateDeprecationResponse) Reset() {
 	*x = UpdateDeprecationResponse{}
-	mi := &file_repository_service_proto_msgTypes[105]
+	mi := &file_repository_service_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6124,7 +6168,7 @@ func (x *UpdateDeprecationResponse) String() string {
 func (*UpdateDeprecationResponse) ProtoMessage() {}
 
 func (x *UpdateDeprecationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[105]
+	mi := &file_repository_service_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6137,7 +6181,7 @@ func (x *UpdateDeprecationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDeprecationResponse.ProtoReflect.Descriptor instead.
 func (*UpdateDeprecationResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{105}
+	return file_repository_service_proto_rawDescGZIP(), []int{106}
 }
 
 type RegisterMetricKindRequest struct {
@@ -6150,7 +6194,7 @@ type RegisterMetricKindRequest struct {
 
 func (x *RegisterMetricKindRequest) Reset() {
 	*x = RegisterMetricKindRequest{}
-	mi := &file_repository_service_proto_msgTypes[106]
+	mi := &file_repository_service_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6162,7 +6206,7 @@ func (x *RegisterMetricKindRequest) String() string {
 func (*RegisterMetricKindRequest) ProtoMessage() {}
 
 func (x *RegisterMetricKindRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[106]
+	mi := &file_repository_service_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6175,7 +6219,7 @@ func (x *RegisterMetricKindRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetricKindRequest.ProtoReflect.Descriptor instead.
 func (*RegisterMetricKindRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{106}
+	return file_repository_service_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *RegisterMetricKindRequest) GetName() string {
@@ -6200,7 +6244,7 @@ type RegisterMetricKindResponse struct {
 
 func (x *RegisterMetricKindResponse) Reset() {
 	*x = RegisterMetricKindResponse{}
-	mi := &file_repository_service_proto_msgTypes[107]
+	mi := &file_repository_service_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6212,7 +6256,7 @@ func (x *RegisterMetricKindResponse) String() string {
 func (*RegisterMetricKindResponse) ProtoMessage() {}
 
 func (x *RegisterMetricKindResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[107]
+	mi := &file_repository_service_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6225,7 +6269,7 @@ func (x *RegisterMetricKindResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetricKindResponse.ProtoReflect.Descriptor instead.
 func (*RegisterMetricKindResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{107}
+	return file_repository_service_proto_rawDescGZIP(), []int{108}
 }
 
 type DeleteMetricKindRequest struct {
@@ -6237,7 +6281,7 @@ type DeleteMetricKindRequest struct {
 
 func (x *DeleteMetricKindRequest) Reset() {
 	*x = DeleteMetricKindRequest{}
-	mi := &file_repository_service_proto_msgTypes[108]
+	mi := &file_repository_service_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6249,7 +6293,7 @@ func (x *DeleteMetricKindRequest) String() string {
 func (*DeleteMetricKindRequest) ProtoMessage() {}
 
 func (x *DeleteMetricKindRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[108]
+	mi := &file_repository_service_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6262,7 +6306,7 @@ func (x *DeleteMetricKindRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMetricKindRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMetricKindRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{108}
+	return file_repository_service_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *DeleteMetricKindRequest) GetName() string {
@@ -6280,7 +6324,7 @@ type DeleteMetricKindResponse struct {
 
 func (x *DeleteMetricKindResponse) Reset() {
 	*x = DeleteMetricKindResponse{}
-	mi := &file_repository_service_proto_msgTypes[109]
+	mi := &file_repository_service_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6292,7 +6336,7 @@ func (x *DeleteMetricKindResponse) String() string {
 func (*DeleteMetricKindResponse) ProtoMessage() {}
 
 func (x *DeleteMetricKindResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[109]
+	mi := &file_repository_service_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6305,7 +6349,7 @@ func (x *DeleteMetricKindResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMetricKindResponse.ProtoReflect.Descriptor instead.
 func (*DeleteMetricKindResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{109}
+	return file_repository_service_proto_rawDescGZIP(), []int{110}
 }
 
 type GetMetricKindsRequest struct {
@@ -6316,7 +6360,7 @@ type GetMetricKindsRequest struct {
 
 func (x *GetMetricKindsRequest) Reset() {
 	*x = GetMetricKindsRequest{}
-	mi := &file_repository_service_proto_msgTypes[110]
+	mi := &file_repository_service_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6328,7 +6372,7 @@ func (x *GetMetricKindsRequest) String() string {
 func (*GetMetricKindsRequest) ProtoMessage() {}
 
 func (x *GetMetricKindsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[110]
+	mi := &file_repository_service_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6341,7 +6385,7 @@ func (x *GetMetricKindsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetricKindsRequest.ProtoReflect.Descriptor instead.
 func (*GetMetricKindsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{110}
+	return file_repository_service_proto_rawDescGZIP(), []int{111}
 }
 
 type GetMetricKindsResponse struct {
@@ -6353,7 +6397,7 @@ type GetMetricKindsResponse struct {
 
 func (x *GetMetricKindsResponse) Reset() {
 	*x = GetMetricKindsResponse{}
-	mi := &file_repository_service_proto_msgTypes[111]
+	mi := &file_repository_service_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6365,7 +6409,7 @@ func (x *GetMetricKindsResponse) String() string {
 func (*GetMetricKindsResponse) ProtoMessage() {}
 
 func (x *GetMetricKindsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[111]
+	mi := &file_repository_service_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6378,7 +6422,7 @@ func (x *GetMetricKindsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetricKindsResponse.ProtoReflect.Descriptor instead.
 func (*GetMetricKindsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{111}
+	return file_repository_service_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *GetMetricKindsResponse) GetKinds() []*MetricKind {
@@ -6398,7 +6442,7 @@ type MetricKind struct {
 
 func (x *MetricKind) Reset() {
 	*x = MetricKind{}
-	mi := &file_repository_service_proto_msgTypes[112]
+	mi := &file_repository_service_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6410,7 +6454,7 @@ func (x *MetricKind) String() string {
 func (*MetricKind) ProtoMessage() {}
 
 func (x *MetricKind) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[112]
+	mi := &file_repository_service_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6423,7 +6467,7 @@ func (x *MetricKind) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetricKind.ProtoReflect.Descriptor instead.
 func (*MetricKind) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{112}
+	return file_repository_service_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *MetricKind) GetName() string {
@@ -6452,7 +6496,7 @@ type RegisterMetricRequest struct {
 
 func (x *RegisterMetricRequest) Reset() {
 	*x = RegisterMetricRequest{}
-	mi := &file_repository_service_proto_msgTypes[113]
+	mi := &file_repository_service_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6464,7 +6508,7 @@ func (x *RegisterMetricRequest) String() string {
 func (*RegisterMetricRequest) ProtoMessage() {}
 
 func (x *RegisterMetricRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[113]
+	mi := &file_repository_service_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6477,7 +6521,7 @@ func (x *RegisterMetricRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetricRequest.ProtoReflect.Descriptor instead.
 func (*RegisterMetricRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{113}
+	return file_repository_service_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *RegisterMetricRequest) GetUuid() string {
@@ -6516,7 +6560,7 @@ type RegisterMetricResponse struct {
 
 func (x *RegisterMetricResponse) Reset() {
 	*x = RegisterMetricResponse{}
-	mi := &file_repository_service_proto_msgTypes[114]
+	mi := &file_repository_service_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6528,7 +6572,7 @@ func (x *RegisterMetricResponse) String() string {
 func (*RegisterMetricResponse) ProtoMessage() {}
 
 func (x *RegisterMetricResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[114]
+	mi := &file_repository_service_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6541,7 +6585,7 @@ func (x *RegisterMetricResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterMetricResponse.ProtoReflect.Descriptor instead.
 func (*RegisterMetricResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{114}
+	return file_repository_service_proto_rawDescGZIP(), []int{115}
 }
 
 type GetMetricsRequest struct {
@@ -6555,7 +6599,7 @@ type GetMetricsRequest struct {
 
 func (x *GetMetricsRequest) Reset() {
 	*x = GetMetricsRequest{}
-	mi := &file_repository_service_proto_msgTypes[115]
+	mi := &file_repository_service_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6567,7 +6611,7 @@ func (x *GetMetricsRequest) String() string {
 func (*GetMetricsRequest) ProtoMessage() {}
 
 func (x *GetMetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[115]
+	mi := &file_repository_service_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6580,7 +6624,7 @@ func (x *GetMetricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetricsRequest.ProtoReflect.Descriptor instead.
 func (*GetMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{115}
+	return file_repository_service_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *GetMetricsRequest) GetUuid() string {
@@ -6613,7 +6657,7 @@ type GetMetricsResponse struct {
 
 func (x *GetMetricsResponse) Reset() {
 	*x = GetMetricsResponse{}
-	mi := &file_repository_service_proto_msgTypes[116]
+	mi := &file_repository_service_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6625,7 +6669,7 @@ func (x *GetMetricsResponse) String() string {
 func (*GetMetricsResponse) ProtoMessage() {}
 
 func (x *GetMetricsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[116]
+	mi := &file_repository_service_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6638,7 +6682,7 @@ func (x *GetMetricsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetricsResponse.ProtoReflect.Descriptor instead.
 func (*GetMetricsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{116}
+	return file_repository_service_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *GetMetricsResponse) GetMetrics() []*Metric {
@@ -6659,7 +6703,7 @@ type Metric struct {
 
 func (x *Metric) Reset() {
 	*x = Metric{}
-	mi := &file_repository_service_proto_msgTypes[117]
+	mi := &file_repository_service_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6671,7 +6715,7 @@ func (x *Metric) String() string {
 func (*Metric) ProtoMessage() {}
 
 func (x *Metric) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[117]
+	mi := &file_repository_service_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6684,7 +6728,7 @@ func (x *Metric) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Metric.ProtoReflect.Descriptor instead.
 func (*Metric) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{117}
+	return file_repository_service_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *Metric) GetKind() string {
@@ -6724,7 +6768,7 @@ type LockRequest struct {
 
 func (x *LockRequest) Reset() {
 	*x = LockRequest{}
-	mi := &file_repository_service_proto_msgTypes[118]
+	mi := &file_repository_service_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6736,7 +6780,7 @@ func (x *LockRequest) String() string {
 func (*LockRequest) ProtoMessage() {}
 
 func (x *LockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[118]
+	mi := &file_repository_service_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6749,7 +6793,7 @@ func (x *LockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LockRequest.ProtoReflect.Descriptor instead.
 func (*LockRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{118}
+	return file_repository_service_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *LockRequest) GetUuid() string {
@@ -6792,7 +6836,7 @@ type LockResponse struct {
 
 func (x *LockResponse) Reset() {
 	*x = LockResponse{}
-	mi := &file_repository_service_proto_msgTypes[119]
+	mi := &file_repository_service_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6804,7 +6848,7 @@ func (x *LockResponse) String() string {
 func (*LockResponse) ProtoMessage() {}
 
 func (x *LockResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[119]
+	mi := &file_repository_service_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6817,7 +6861,7 @@ func (x *LockResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LockResponse.ProtoReflect.Descriptor instead.
 func (*LockResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{119}
+	return file_repository_service_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *LockResponse) GetToken() string {
@@ -6848,7 +6892,7 @@ type ExtendLockRequest struct {
 
 func (x *ExtendLockRequest) Reset() {
 	*x = ExtendLockRequest{}
-	mi := &file_repository_service_proto_msgTypes[120]
+	mi := &file_repository_service_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6860,7 +6904,7 @@ func (x *ExtendLockRequest) String() string {
 func (*ExtendLockRequest) ProtoMessage() {}
 
 func (x *ExtendLockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[120]
+	mi := &file_repository_service_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6873,7 +6917,7 @@ func (x *ExtendLockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtendLockRequest.ProtoReflect.Descriptor instead.
 func (*ExtendLockRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{120}
+	return file_repository_service_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *ExtendLockRequest) GetUuid() string {
@@ -6909,7 +6953,7 @@ type UnlockRequest struct {
 
 func (x *UnlockRequest) Reset() {
 	*x = UnlockRequest{}
-	mi := &file_repository_service_proto_msgTypes[121]
+	mi := &file_repository_service_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6921,7 +6965,7 @@ func (x *UnlockRequest) String() string {
 func (*UnlockRequest) ProtoMessage() {}
 
 func (x *UnlockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[121]
+	mi := &file_repository_service_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6934,7 +6978,7 @@ func (x *UnlockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlockRequest.ProtoReflect.Descriptor instead.
 func (*UnlockRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{121}
+	return file_repository_service_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *UnlockRequest) GetUuid() string {
@@ -6959,7 +7003,7 @@ type UnlockResponse struct {
 
 func (x *UnlockResponse) Reset() {
 	*x = UnlockResponse{}
-	mi := &file_repository_service_proto_msgTypes[122]
+	mi := &file_repository_service_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6971,7 +7015,7 @@ func (x *UnlockResponse) String() string {
 func (*UnlockResponse) ProtoMessage() {}
 
 func (x *UnlockResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[122]
+	mi := &file_repository_service_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6984,7 +7028,7 @@ func (x *UnlockResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlockResponse.ProtoReflect.Descriptor instead.
 func (*UnlockResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{122}
+	return file_repository_service_proto_rawDescGZIP(), []int{123}
 }
 
 var File_repository_service_proto protoreflect.FileDescriptor
@@ -7369,7 +7413,7 @@ var file_repository_service_proto_rawDesc = []byte{
 	0x73, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x65, 0x6c,
 	0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72,
 	0x79, 0x2e, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f,
-	0x6e, 0x52, 0x08, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x95, 0x02, 0x0a, 0x0f,
+	0x6e, 0x52, 0x08, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x97, 0x03, 0x0a, 0x0f,
 	0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12,
 	0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03,
 	0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x72, 0x65,
@@ -7380,14 +7424,27 @@ var file_repository_service_proto_rawDesc = []byte{
 	0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72,
 	0x79, 0x2e, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f,
 	0x6e, 0x2e, 0x4d, 0x65, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x04, 0x6d, 0x65, 0x74,
-	0x61, 0x12, 0x37, 0x0a, 0x08, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x65, 0x73, 0x18, 0x05, 0x20,
-	0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72,
-	0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
-	0x52, 0x08, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x65, 0x73, 0x1a, 0x37, 0x0a, 0x09, 0x4d, 0x65,
-	0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c,
-	0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a,
-	0x02, 0x38, 0x01, 0x22, 0xf5, 0x03, 0x0a, 0x0d, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x52, 0x65,
+	0x61, 0x12, 0x4e, 0x0a, 0x08, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x65, 0x73, 0x18, 0x05, 0x20,
+	0x03, 0x28, 0x0b, 0x32, 0x32, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72,
+	0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x2e, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65,
+	0x6e, 0x74, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x08, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x65,
+	0x73, 0x1a, 0x37, 0x0a, 0x09, 0x4d, 0x65, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10,
+	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79,
+	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x1a, 0x69, 0x0a, 0x0d, 0x53, 0x74,
+	0x61, 0x74, 0x75, 0x73, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b,
+	0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x42, 0x0a,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x2c, 0x2e, 0x65,
+	0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f,
+	0x72, 0x79, 0x2e, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x56, 0x65, 0x72, 0x73, 0x69,
+	0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x65, 0x73, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75,
+	0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x4c, 0x0a, 0x17, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e,
+	0x74, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x65, 0x73,
+	0x12, 0x31, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x05, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x1b, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6f, 0x73,
+	0x69, 0x74, 0x6f, 0x72, 0x79, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x05, 0x69, 0x74,
+	0x65, 0x6d, 0x73, 0x22, 0xf5, 0x03, 0x0a, 0x0d, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x52, 0x65,
 	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x75, 0x75, 0x69, 0x64, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x04, 0x75, 0x75, 0x69, 0x64, 0x12, 0x2d, 0x0a, 0x08, 0x64, 0x6f, 0x63,
 	0x75, 0x6d, 0x65, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x6e, 0x65,
@@ -8111,7 +8168,7 @@ func file_repository_service_proto_rawDescGZIP() []byte {
 }
 
 var file_repository_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_repository_service_proto_msgTypes = make([]protoimpl.MessageInfo, 133)
+var file_repository_service_proto_msgTypes = make([]protoimpl.MessageInfo, 135)
 var file_repository_service_proto_goTypes = []any{
 	(GetMetaDoc)(0),                      // 0: elephant.repository.GetMetaDoc
 	(MetricAggregation)(0),               // 1: elephant.repository.MetricAggregation
@@ -8176,90 +8233,92 @@ var file_repository_service_proto_goTypes = []any{
 	(*GetHistoryRequest)(nil),            // 60: elephant.repository.GetHistoryRequest
 	(*GetHistoryResponse)(nil),           // 61: elephant.repository.GetHistoryResponse
 	(*DocumentVersion)(nil),              // 62: elephant.repository.DocumentVersion
-	(*UpdateRequest)(nil),                // 63: elephant.repository.UpdateRequest
-	(*ImportDirective)(nil),              // 64: elephant.repository.ImportDirective
-	(*UpdateResponse)(nil),               // 65: elephant.repository.UpdateResponse
-	(*BulkUpdateRequest)(nil),            // 66: elephant.repository.BulkUpdateRequest
-	(*BulkUpdateResponse)(nil),           // 67: elephant.repository.BulkUpdateResponse
-	(*ValidateRequest)(nil),              // 68: elephant.repository.ValidateRequest
-	(*ValidateResponse)(nil),             // 69: elephant.repository.ValidateResponse
-	(*ValidationResult)(nil),             // 70: elephant.repository.ValidationResult
-	(*EntityRef)(nil),                    // 71: elephant.repository.EntityRef
-	(*StatusUpdate)(nil),                 // 72: elephant.repository.StatusUpdate
-	(*UpdatePermissionsRequest)(nil),     // 73: elephant.repository.UpdatePermissionsRequest
-	(*UpdatePermissionsResponse)(nil),    // 74: elephant.repository.UpdatePermissionsResponse
-	(*DeleteDocumentRequest)(nil),        // 75: elephant.repository.DeleteDocumentRequest
-	(*DeleteDocumentResponse)(nil),       // 76: elephant.repository.DeleteDocumentResponse
-	(*RestoreRequest)(nil),               // 77: elephant.repository.RestoreRequest
-	(*RestoreResponse)(nil),              // 78: elephant.repository.RestoreResponse
-	(*PurgeRequest)(nil),                 // 79: elephant.repository.PurgeRequest
-	(*PurgeResponse)(nil),                // 80: elephant.repository.PurgeResponse
-	(*ListDeletedRequest)(nil),           // 81: elephant.repository.ListDeletedRequest
-	(*ListDeletedResponse)(nil),          // 82: elephant.repository.ListDeletedResponse
-	(*DeleteRecord)(nil),                 // 83: elephant.repository.DeleteRecord
-	(*GetMetaRequest)(nil),               // 84: elephant.repository.GetMetaRequest
-	(*GetMetaResponse)(nil),              // 85: elephant.repository.GetMetaResponse
-	(*DocumentMeta)(nil),                 // 86: elephant.repository.DocumentMeta
-	(*Status)(nil),                       // 87: elephant.repository.Status
-	(*ACLEntry)(nil),                     // 88: elephant.repository.ACLEntry
-	(*Lock)(nil),                         // 89: elephant.repository.Lock
-	(*RegisterMetaTypeRequest)(nil),      // 90: elephant.repository.RegisterMetaTypeRequest
-	(*RegisterMetaTypeResponse)(nil),     // 91: elephant.repository.RegisterMetaTypeResponse
-	(*RegisterMetaTypeUseRequest)(nil),   // 92: elephant.repository.RegisterMetaTypeUseRequest
-	(*RegisterMetaTypeUseResponse)(nil),  // 93: elephant.repository.RegisterMetaTypeUseResponse
-	(*RegisterSchemaRequest)(nil),        // 94: elephant.repository.RegisterSchemaRequest
-	(*RegisterSchemaResponse)(nil),       // 95: elephant.repository.RegisterSchemaResponse
-	(*SetActiveSchemaRequest)(nil),       // 96: elephant.repository.SetActiveSchemaRequest
-	(*SetActiveSchemaResponse)(nil),      // 97: elephant.repository.SetActiveSchemaResponse
-	(*GetSchemaRequest)(nil),             // 98: elephant.repository.GetSchemaRequest
-	(*GetSchemaResponse)(nil),            // 99: elephant.repository.GetSchemaResponse
-	(*GetAllActiveSchemasRequest)(nil),   // 100: elephant.repository.GetAllActiveSchemasRequest
-	(*GetAllActiveSchemasResponse)(nil),  // 101: elephant.repository.GetAllActiveSchemasResponse
-	(*Schema)(nil),                       // 102: elephant.repository.Schema
-	(*GetDeprecationsRequest)(nil),       // 103: elephant.repository.GetDeprecationsRequest
-	(*Deprecation)(nil),                  // 104: elephant.repository.Deprecation
-	(*GetDeprecationsResponse)(nil),      // 105: elephant.repository.GetDeprecationsResponse
-	(*UpdateDeprecationRequest)(nil),     // 106: elephant.repository.UpdateDeprecationRequest
-	(*UpdateDeprecationResponse)(nil),    // 107: elephant.repository.UpdateDeprecationResponse
-	(*RegisterMetricKindRequest)(nil),    // 108: elephant.repository.RegisterMetricKindRequest
-	(*RegisterMetricKindResponse)(nil),   // 109: elephant.repository.RegisterMetricKindResponse
-	(*DeleteMetricKindRequest)(nil),      // 110: elephant.repository.DeleteMetricKindRequest
-	(*DeleteMetricKindResponse)(nil),     // 111: elephant.repository.DeleteMetricKindResponse
-	(*GetMetricKindsRequest)(nil),        // 112: elephant.repository.GetMetricKindsRequest
-	(*GetMetricKindsResponse)(nil),       // 113: elephant.repository.GetMetricKindsResponse
-	(*MetricKind)(nil),                   // 114: elephant.repository.MetricKind
-	(*RegisterMetricRequest)(nil),        // 115: elephant.repository.RegisterMetricRequest
-	(*RegisterMetricResponse)(nil),       // 116: elephant.repository.RegisterMetricResponse
-	(*GetMetricsRequest)(nil),            // 117: elephant.repository.GetMetricsRequest
-	(*GetMetricsResponse)(nil),           // 118: elephant.repository.GetMetricsResponse
-	(*Metric)(nil),                       // 119: elephant.repository.Metric
-	(*LockRequest)(nil),                  // 120: elephant.repository.LockRequest
-	(*LockResponse)(nil),                 // 121: elephant.repository.LockResponse
-	(*ExtendLockRequest)(nil),            // 122: elephant.repository.ExtendLockRequest
-	(*UnlockRequest)(nil),                // 123: elephant.repository.UnlockRequest
-	(*UnlockResponse)(nil),               // 124: elephant.repository.UnlockResponse
-	nil,                                  // 125: elephant.repository.StatusOverviewItem.HeadsEntry
-	nil,                                  // 126: elephant.repository.GetPermissionsResponse.PermissionsEntry
-	nil,                                  // 127: elephant.repository.DocumentVersion.MetaEntry
-	nil,                                  // 128: elephant.repository.UpdateRequest.MetaEntry
-	nil,                                  // 129: elephant.repository.StatusUpdate.MetaEntry
-	nil,                                  // 130: elephant.repository.DeleteDocumentRequest.MetaEntry
-	nil,                                  // 131: elephant.repository.DeleteRecord.MetaEntry
-	nil,                                  // 132: elephant.repository.DocumentMeta.HeadsEntry
-	nil,                                  // 133: elephant.repository.Status.MetaEntry
-	nil,                                  // 134: elephant.repository.GetAllActiveSchemasRequest.KnownEntry
-	(*newsdoc.Document)(nil),             // 135: newsdoc.Document
+	(*DocumentVersionStatuses)(nil),      // 63: elephant.repository.DocumentVersionStatuses
+	(*UpdateRequest)(nil),                // 64: elephant.repository.UpdateRequest
+	(*ImportDirective)(nil),              // 65: elephant.repository.ImportDirective
+	(*UpdateResponse)(nil),               // 66: elephant.repository.UpdateResponse
+	(*BulkUpdateRequest)(nil),            // 67: elephant.repository.BulkUpdateRequest
+	(*BulkUpdateResponse)(nil),           // 68: elephant.repository.BulkUpdateResponse
+	(*ValidateRequest)(nil),              // 69: elephant.repository.ValidateRequest
+	(*ValidateResponse)(nil),             // 70: elephant.repository.ValidateResponse
+	(*ValidationResult)(nil),             // 71: elephant.repository.ValidationResult
+	(*EntityRef)(nil),                    // 72: elephant.repository.EntityRef
+	(*StatusUpdate)(nil),                 // 73: elephant.repository.StatusUpdate
+	(*UpdatePermissionsRequest)(nil),     // 74: elephant.repository.UpdatePermissionsRequest
+	(*UpdatePermissionsResponse)(nil),    // 75: elephant.repository.UpdatePermissionsResponse
+	(*DeleteDocumentRequest)(nil),        // 76: elephant.repository.DeleteDocumentRequest
+	(*DeleteDocumentResponse)(nil),       // 77: elephant.repository.DeleteDocumentResponse
+	(*RestoreRequest)(nil),               // 78: elephant.repository.RestoreRequest
+	(*RestoreResponse)(nil),              // 79: elephant.repository.RestoreResponse
+	(*PurgeRequest)(nil),                 // 80: elephant.repository.PurgeRequest
+	(*PurgeResponse)(nil),                // 81: elephant.repository.PurgeResponse
+	(*ListDeletedRequest)(nil),           // 82: elephant.repository.ListDeletedRequest
+	(*ListDeletedResponse)(nil),          // 83: elephant.repository.ListDeletedResponse
+	(*DeleteRecord)(nil),                 // 84: elephant.repository.DeleteRecord
+	(*GetMetaRequest)(nil),               // 85: elephant.repository.GetMetaRequest
+	(*GetMetaResponse)(nil),              // 86: elephant.repository.GetMetaResponse
+	(*DocumentMeta)(nil),                 // 87: elephant.repository.DocumentMeta
+	(*Status)(nil),                       // 88: elephant.repository.Status
+	(*ACLEntry)(nil),                     // 89: elephant.repository.ACLEntry
+	(*Lock)(nil),                         // 90: elephant.repository.Lock
+	(*RegisterMetaTypeRequest)(nil),      // 91: elephant.repository.RegisterMetaTypeRequest
+	(*RegisterMetaTypeResponse)(nil),     // 92: elephant.repository.RegisterMetaTypeResponse
+	(*RegisterMetaTypeUseRequest)(nil),   // 93: elephant.repository.RegisterMetaTypeUseRequest
+	(*RegisterMetaTypeUseResponse)(nil),  // 94: elephant.repository.RegisterMetaTypeUseResponse
+	(*RegisterSchemaRequest)(nil),        // 95: elephant.repository.RegisterSchemaRequest
+	(*RegisterSchemaResponse)(nil),       // 96: elephant.repository.RegisterSchemaResponse
+	(*SetActiveSchemaRequest)(nil),       // 97: elephant.repository.SetActiveSchemaRequest
+	(*SetActiveSchemaResponse)(nil),      // 98: elephant.repository.SetActiveSchemaResponse
+	(*GetSchemaRequest)(nil),             // 99: elephant.repository.GetSchemaRequest
+	(*GetSchemaResponse)(nil),            // 100: elephant.repository.GetSchemaResponse
+	(*GetAllActiveSchemasRequest)(nil),   // 101: elephant.repository.GetAllActiveSchemasRequest
+	(*GetAllActiveSchemasResponse)(nil),  // 102: elephant.repository.GetAllActiveSchemasResponse
+	(*Schema)(nil),                       // 103: elephant.repository.Schema
+	(*GetDeprecationsRequest)(nil),       // 104: elephant.repository.GetDeprecationsRequest
+	(*Deprecation)(nil),                  // 105: elephant.repository.Deprecation
+	(*GetDeprecationsResponse)(nil),      // 106: elephant.repository.GetDeprecationsResponse
+	(*UpdateDeprecationRequest)(nil),     // 107: elephant.repository.UpdateDeprecationRequest
+	(*UpdateDeprecationResponse)(nil),    // 108: elephant.repository.UpdateDeprecationResponse
+	(*RegisterMetricKindRequest)(nil),    // 109: elephant.repository.RegisterMetricKindRequest
+	(*RegisterMetricKindResponse)(nil),   // 110: elephant.repository.RegisterMetricKindResponse
+	(*DeleteMetricKindRequest)(nil),      // 111: elephant.repository.DeleteMetricKindRequest
+	(*DeleteMetricKindResponse)(nil),     // 112: elephant.repository.DeleteMetricKindResponse
+	(*GetMetricKindsRequest)(nil),        // 113: elephant.repository.GetMetricKindsRequest
+	(*GetMetricKindsResponse)(nil),       // 114: elephant.repository.GetMetricKindsResponse
+	(*MetricKind)(nil),                   // 115: elephant.repository.MetricKind
+	(*RegisterMetricRequest)(nil),        // 116: elephant.repository.RegisterMetricRequest
+	(*RegisterMetricResponse)(nil),       // 117: elephant.repository.RegisterMetricResponse
+	(*GetMetricsRequest)(nil),            // 118: elephant.repository.GetMetricsRequest
+	(*GetMetricsResponse)(nil),           // 119: elephant.repository.GetMetricsResponse
+	(*Metric)(nil),                       // 120: elephant.repository.Metric
+	(*LockRequest)(nil),                  // 121: elephant.repository.LockRequest
+	(*LockResponse)(nil),                 // 122: elephant.repository.LockResponse
+	(*ExtendLockRequest)(nil),            // 123: elephant.repository.ExtendLockRequest
+	(*UnlockRequest)(nil),                // 124: elephant.repository.UnlockRequest
+	(*UnlockResponse)(nil),               // 125: elephant.repository.UnlockResponse
+	nil,                                  // 126: elephant.repository.StatusOverviewItem.HeadsEntry
+	nil,                                  // 127: elephant.repository.GetPermissionsResponse.PermissionsEntry
+	nil,                                  // 128: elephant.repository.DocumentVersion.MetaEntry
+	nil,                                  // 129: elephant.repository.DocumentVersion.StatusesEntry
+	nil,                                  // 130: elephant.repository.UpdateRequest.MetaEntry
+	nil,                                  // 131: elephant.repository.StatusUpdate.MetaEntry
+	nil,                                  // 132: elephant.repository.DeleteDocumentRequest.MetaEntry
+	nil,                                  // 133: elephant.repository.DeleteRecord.MetaEntry
+	nil,                                  // 134: elephant.repository.DocumentMeta.HeadsEntry
+	nil,                                  // 135: elephant.repository.Status.MetaEntry
+	nil,                                  // 136: elephant.repository.GetAllActiveSchemasRequest.KnownEntry
+	(*newsdoc.Document)(nil),             // 137: newsdoc.Document
 }
 var file_repository_service_proto_depIdxs = []int32{
-	87,  // 0: elephant.repository.GetStatusResponse.status:type_name -> elephant.repository.Status
-	87,  // 1: elephant.repository.GetStatusHistoryReponse.statuses:type_name -> elephant.repository.Status
-	87,  // 2: elephant.repository.GetNilStatusesResponse.statuses:type_name -> elephant.repository.Status
+	88,  // 0: elephant.repository.GetStatusResponse.status:type_name -> elephant.repository.Status
+	88,  // 1: elephant.repository.GetStatusHistoryReponse.statuses:type_name -> elephant.repository.Status
+	88,  // 2: elephant.repository.GetNilStatusesResponse.statuses:type_name -> elephant.repository.Status
 	10,  // 3: elephant.repository.GetStatusOverviewResponse.items:type_name -> elephant.repository.StatusOverviewItem
-	125, // 4: elephant.repository.StatusOverviewItem.heads:type_name -> elephant.repository.StatusOverviewItem.HeadsEntry
-	126, // 5: elephant.repository.GetPermissionsResponse.permissions:type_name -> elephant.repository.GetPermissionsResponse.PermissionsEntry
+	126, // 4: elephant.repository.StatusOverviewItem.heads:type_name -> elephant.repository.StatusOverviewItem.HeadsEntry
+	127, // 5: elephant.repository.GetPermissionsResponse.permissions:type_name -> elephant.repository.GetPermissionsResponse.PermissionsEntry
 	17,  // 6: elephant.repository.GetEventlogResponse.items:type_name -> elephant.repository.EventlogItem
 	17,  // 7: elephant.repository.GetCompactedEventlogResponse.items:type_name -> elephant.repository.EventlogItem
-	88,  // 8: elephant.repository.EventlogItem.acl:type_name -> elephant.repository.ACLEntry
+	89,  // 8: elephant.repository.EventlogItem.acl:type_name -> elephant.repository.ACLEntry
 	30,  // 9: elephant.repository.TestReportRequest.report:type_name -> elephant.repository.Report
 	30,  // 10: elephant.repository.GetReportResponse.report:type_name -> elephant.repository.Report
 	30,  // 11: elephant.repository.UpdateReportRequest.report:type_name -> elephant.repository.Report
@@ -8272,149 +8331,151 @@ var file_repository_service_proto_depIdxs = []int32{
 	44,  // 18: elephant.repository.GetStatusesResponse.statuses:type_name -> elephant.repository.WorkflowStatus
 	49,  // 19: elephant.repository.CreateStatusRuleRequest.rule:type_name -> elephant.repository.StatusRule
 	0,   // 20: elephant.repository.GetDocumentRequest.meta_document:type_name -> elephant.repository.GetMetaDoc
-	135, // 21: elephant.repository.GetDocumentResponse.document:type_name -> newsdoc.Document
-	87,  // 22: elephant.repository.GetDocumentResponse.status:type_name -> elephant.repository.Status
+	137, // 21: elephant.repository.GetDocumentResponse.document:type_name -> newsdoc.Document
+	88,  // 22: elephant.repository.GetDocumentResponse.status:type_name -> elephant.repository.Status
 	59,  // 23: elephant.repository.GetDocumentResponse.meta:type_name -> elephant.repository.MetaDocument
 	56,  // 24: elephant.repository.BulkGetRequest.documents:type_name -> elephant.repository.BulkGetReference
 	58,  // 25: elephant.repository.BulkGetResponse.items:type_name -> elephant.repository.BulkGetItem
-	135, // 26: elephant.repository.BulkGetItem.document:type_name -> newsdoc.Document
-	135, // 27: elephant.repository.MetaDocument.document:type_name -> newsdoc.Document
+	137, // 26: elephant.repository.BulkGetItem.document:type_name -> newsdoc.Document
+	137, // 27: elephant.repository.MetaDocument.document:type_name -> newsdoc.Document
 	62,  // 28: elephant.repository.GetHistoryResponse.versions:type_name -> elephant.repository.DocumentVersion
-	127, // 29: elephant.repository.DocumentVersion.meta:type_name -> elephant.repository.DocumentVersion.MetaEntry
-	87,  // 30: elephant.repository.DocumentVersion.statuses:type_name -> elephant.repository.Status
-	135, // 31: elephant.repository.UpdateRequest.document:type_name -> newsdoc.Document
-	128, // 32: elephant.repository.UpdateRequest.meta:type_name -> elephant.repository.UpdateRequest.MetaEntry
-	72,  // 33: elephant.repository.UpdateRequest.status:type_name -> elephant.repository.StatusUpdate
-	88,  // 34: elephant.repository.UpdateRequest.acl:type_name -> elephant.repository.ACLEntry
-	64,  // 35: elephant.repository.UpdateRequest.import_directive:type_name -> elephant.repository.ImportDirective
-	63,  // 36: elephant.repository.BulkUpdateRequest.updates:type_name -> elephant.repository.UpdateRequest
-	65,  // 37: elephant.repository.BulkUpdateResponse.updates:type_name -> elephant.repository.UpdateResponse
-	135, // 38: elephant.repository.ValidateRequest.document:type_name -> newsdoc.Document
-	70,  // 39: elephant.repository.ValidateResponse.errors:type_name -> elephant.repository.ValidationResult
-	71,  // 40: elephant.repository.ValidationResult.entity:type_name -> elephant.repository.EntityRef
-	129, // 41: elephant.repository.StatusUpdate.meta:type_name -> elephant.repository.StatusUpdate.MetaEntry
-	88,  // 42: elephant.repository.UpdatePermissionsRequest.list:type_name -> elephant.repository.ACLEntry
-	130, // 43: elephant.repository.DeleteDocumentRequest.meta:type_name -> elephant.repository.DeleteDocumentRequest.MetaEntry
-	88,  // 44: elephant.repository.RestoreRequest.acl:type_name -> elephant.repository.ACLEntry
-	83,  // 45: elephant.repository.ListDeletedResponse.deletes:type_name -> elephant.repository.DeleteRecord
-	131, // 46: elephant.repository.DeleteRecord.meta:type_name -> elephant.repository.DeleteRecord.MetaEntry
-	86,  // 47: elephant.repository.GetMetaResponse.meta:type_name -> elephant.repository.DocumentMeta
-	132, // 48: elephant.repository.DocumentMeta.heads:type_name -> elephant.repository.DocumentMeta.HeadsEntry
-	88,  // 49: elephant.repository.DocumentMeta.acl:type_name -> elephant.repository.ACLEntry
-	89,  // 50: elephant.repository.DocumentMeta.lock:type_name -> elephant.repository.Lock
-	133, // 51: elephant.repository.Status.meta:type_name -> elephant.repository.Status.MetaEntry
-	102, // 52: elephant.repository.RegisterSchemaRequest.schema:type_name -> elephant.repository.Schema
-	134, // 53: elephant.repository.GetAllActiveSchemasRequest.known:type_name -> elephant.repository.GetAllActiveSchemasRequest.KnownEntry
-	102, // 54: elephant.repository.GetAllActiveSchemasResponse.schemas:type_name -> elephant.repository.Schema
-	104, // 55: elephant.repository.GetDeprecationsResponse.deprecations:type_name -> elephant.repository.Deprecation
-	104, // 56: elephant.repository.UpdateDeprecationRequest.deprecation:type_name -> elephant.repository.Deprecation
-	1,   // 57: elephant.repository.RegisterMetricKindRequest.aggregation:type_name -> elephant.repository.MetricAggregation
-	114, // 58: elephant.repository.GetMetricKindsResponse.kinds:type_name -> elephant.repository.MetricKind
-	1,   // 59: elephant.repository.MetricKind.aggregation:type_name -> elephant.repository.MetricAggregation
-	119, // 60: elephant.repository.GetMetricsResponse.metrics:type_name -> elephant.repository.Metric
-	87,  // 61: elephant.repository.StatusOverviewItem.HeadsEntry.value:type_name -> elephant.repository.Status
-	87,  // 62: elephant.repository.DocumentMeta.HeadsEntry.value:type_name -> elephant.repository.Status
-	53,  // 63: elephant.repository.Documents.Get:input_type -> elephant.repository.GetDocumentRequest
-	55,  // 64: elephant.repository.Documents.BulkGet:input_type -> elephant.repository.BulkGetRequest
-	60,  // 65: elephant.repository.Documents.GetHistory:input_type -> elephant.repository.GetHistoryRequest
-	63,  // 66: elephant.repository.Documents.Update:input_type -> elephant.repository.UpdateRequest
-	66,  // 67: elephant.repository.Documents.BulkUpdate:input_type -> elephant.repository.BulkUpdateRequest
-	68,  // 68: elephant.repository.Documents.Validate:input_type -> elephant.repository.ValidateRequest
-	75,  // 69: elephant.repository.Documents.Delete:input_type -> elephant.repository.DeleteDocumentRequest
-	81,  // 70: elephant.repository.Documents.ListDeleted:input_type -> elephant.repository.ListDeletedRequest
-	77,  // 71: elephant.repository.Documents.Restore:input_type -> elephant.repository.RestoreRequest
-	79,  // 72: elephant.repository.Documents.Purge:input_type -> elephant.repository.PurgeRequest
-	84,  // 73: elephant.repository.Documents.GetMeta:input_type -> elephant.repository.GetMetaRequest
-	13,  // 74: elephant.repository.Documents.Eventlog:input_type -> elephant.repository.GetEventlogRequest
-	15,  // 75: elephant.repository.Documents.CompactedEventlog:input_type -> elephant.repository.GetCompactedEventlogRequest
-	2,   // 76: elephant.repository.Documents.GetStatus:input_type -> elephant.repository.GetStatusRequest
-	4,   // 77: elephant.repository.Documents.GetStatusHistory:input_type -> elephant.repository.GetStatusHistoryRequest
-	6,   // 78: elephant.repository.Documents.GetNilStatuses:input_type -> elephant.repository.GetNilStatusesRequest
-	8,   // 79: elephant.repository.Documents.GetStatusOverview:input_type -> elephant.repository.GetStatusOverviewRequest
-	11,  // 80: elephant.repository.Documents.GetPermissions:input_type -> elephant.repository.GetPermissionsRequest
-	120, // 81: elephant.repository.Documents.Lock:input_type -> elephant.repository.LockRequest
-	122, // 82: elephant.repository.Documents.ExtendLock:input_type -> elephant.repository.ExtendLockRequest
-	123, // 83: elephant.repository.Documents.Unlock:input_type -> elephant.repository.UnlockRequest
-	94,  // 84: elephant.repository.Schemas.Register:input_type -> elephant.repository.RegisterSchemaRequest
-	96,  // 85: elephant.repository.Schemas.SetActive:input_type -> elephant.repository.SetActiveSchemaRequest
-	98,  // 86: elephant.repository.Schemas.Get:input_type -> elephant.repository.GetSchemaRequest
-	100, // 87: elephant.repository.Schemas.GetAllActive:input_type -> elephant.repository.GetAllActiveSchemasRequest
-	90,  // 88: elephant.repository.Schemas.RegisterMetaType:input_type -> elephant.repository.RegisterMetaTypeRequest
-	92,  // 89: elephant.repository.Schemas.RegisterMetaTypeUse:input_type -> elephant.repository.RegisterMetaTypeUseRequest
-	103, // 90: elephant.repository.Schemas.GetDeprecations:input_type -> elephant.repository.GetDeprecationsRequest
-	106, // 91: elephant.repository.Schemas.UpdateDeprecation:input_type -> elephant.repository.UpdateDeprecationRequest
-	46,  // 92: elephant.repository.Workflows.UpdateStatus:input_type -> elephant.repository.UpdateStatusRequest
-	36,  // 93: elephant.repository.Workflows.GetStatuses:input_type -> elephant.repository.GetStatusesRequest
-	48,  // 94: elephant.repository.Workflows.CreateStatusRule:input_type -> elephant.repository.CreateStatusRuleRequest
-	51,  // 95: elephant.repository.Workflows.DeleteStatusRule:input_type -> elephant.repository.DeleteStatusRuleRequest
-	34,  // 96: elephant.repository.Workflows.GetStatusRules:input_type -> elephant.repository.GetStatusRulesRequest
-	37,  // 97: elephant.repository.Workflows.SetWorkflow:input_type -> elephant.repository.SetWorkflowRequest
-	40,  // 98: elephant.repository.Workflows.GetWorkflow:input_type -> elephant.repository.GetWorkflowRequest
-	42,  // 99: elephant.repository.Workflows.DeleteWorkflow:input_type -> elephant.repository.DeleteWorkflowRequest
-	27,  // 100: elephant.repository.Reports.List:input_type -> elephant.repository.ListReportsRequest
-	26,  // 101: elephant.repository.Reports.Update:input_type -> elephant.repository.UpdateReportRequest
-	24,  // 102: elephant.repository.Reports.Get:input_type -> elephant.repository.GetReportRequest
-	22,  // 103: elephant.repository.Reports.Delete:input_type -> elephant.repository.DeleteReportRequest
-	18,  // 104: elephant.repository.Reports.Run:input_type -> elephant.repository.RunReportRequest
-	20,  // 105: elephant.repository.Reports.Test:input_type -> elephant.repository.TestReportRequest
-	108, // 106: elephant.repository.Metrics.RegisterKind:input_type -> elephant.repository.RegisterMetricKindRequest
-	110, // 107: elephant.repository.Metrics.DeleteKind:input_type -> elephant.repository.DeleteMetricKindRequest
-	112, // 108: elephant.repository.Metrics.GetKinds:input_type -> elephant.repository.GetMetricKindsRequest
-	115, // 109: elephant.repository.Metrics.RegisterMetric:input_type -> elephant.repository.RegisterMetricRequest
-	117, // 110: elephant.repository.Metrics.GetMetrics:input_type -> elephant.repository.GetMetricsRequest
-	54,  // 111: elephant.repository.Documents.Get:output_type -> elephant.repository.GetDocumentResponse
-	57,  // 112: elephant.repository.Documents.BulkGet:output_type -> elephant.repository.BulkGetResponse
-	61,  // 113: elephant.repository.Documents.GetHistory:output_type -> elephant.repository.GetHistoryResponse
-	65,  // 114: elephant.repository.Documents.Update:output_type -> elephant.repository.UpdateResponse
-	67,  // 115: elephant.repository.Documents.BulkUpdate:output_type -> elephant.repository.BulkUpdateResponse
-	69,  // 116: elephant.repository.Documents.Validate:output_type -> elephant.repository.ValidateResponse
-	76,  // 117: elephant.repository.Documents.Delete:output_type -> elephant.repository.DeleteDocumentResponse
-	82,  // 118: elephant.repository.Documents.ListDeleted:output_type -> elephant.repository.ListDeletedResponse
-	78,  // 119: elephant.repository.Documents.Restore:output_type -> elephant.repository.RestoreResponse
-	80,  // 120: elephant.repository.Documents.Purge:output_type -> elephant.repository.PurgeResponse
-	85,  // 121: elephant.repository.Documents.GetMeta:output_type -> elephant.repository.GetMetaResponse
-	14,  // 122: elephant.repository.Documents.Eventlog:output_type -> elephant.repository.GetEventlogResponse
-	16,  // 123: elephant.repository.Documents.CompactedEventlog:output_type -> elephant.repository.GetCompactedEventlogResponse
-	3,   // 124: elephant.repository.Documents.GetStatus:output_type -> elephant.repository.GetStatusResponse
-	5,   // 125: elephant.repository.Documents.GetStatusHistory:output_type -> elephant.repository.GetStatusHistoryReponse
-	7,   // 126: elephant.repository.Documents.GetNilStatuses:output_type -> elephant.repository.GetNilStatusesResponse
-	9,   // 127: elephant.repository.Documents.GetStatusOverview:output_type -> elephant.repository.GetStatusOverviewResponse
-	12,  // 128: elephant.repository.Documents.GetPermissions:output_type -> elephant.repository.GetPermissionsResponse
-	121, // 129: elephant.repository.Documents.Lock:output_type -> elephant.repository.LockResponse
-	121, // 130: elephant.repository.Documents.ExtendLock:output_type -> elephant.repository.LockResponse
-	124, // 131: elephant.repository.Documents.Unlock:output_type -> elephant.repository.UnlockResponse
-	95,  // 132: elephant.repository.Schemas.Register:output_type -> elephant.repository.RegisterSchemaResponse
-	97,  // 133: elephant.repository.Schemas.SetActive:output_type -> elephant.repository.SetActiveSchemaResponse
-	99,  // 134: elephant.repository.Schemas.Get:output_type -> elephant.repository.GetSchemaResponse
-	101, // 135: elephant.repository.Schemas.GetAllActive:output_type -> elephant.repository.GetAllActiveSchemasResponse
-	91,  // 136: elephant.repository.Schemas.RegisterMetaType:output_type -> elephant.repository.RegisterMetaTypeResponse
-	93,  // 137: elephant.repository.Schemas.RegisterMetaTypeUse:output_type -> elephant.repository.RegisterMetaTypeUseResponse
-	105, // 138: elephant.repository.Schemas.GetDeprecations:output_type -> elephant.repository.GetDeprecationsResponse
-	107, // 139: elephant.repository.Schemas.UpdateDeprecation:output_type -> elephant.repository.UpdateDeprecationResponse
-	47,  // 140: elephant.repository.Workflows.UpdateStatus:output_type -> elephant.repository.UpdateStatusResponse
-	45,  // 141: elephant.repository.Workflows.GetStatuses:output_type -> elephant.repository.GetStatusesResponse
-	50,  // 142: elephant.repository.Workflows.CreateStatusRule:output_type -> elephant.repository.CreateStatusRuleResponse
-	52,  // 143: elephant.repository.Workflows.DeleteStatusRule:output_type -> elephant.repository.DeleteStatusRuleResponse
-	35,  // 144: elephant.repository.Workflows.GetStatusRules:output_type -> elephant.repository.GetStatusRulesResponse
-	39,  // 145: elephant.repository.Workflows.SetWorkflow:output_type -> elephant.repository.SetWorkflowResponse
-	41,  // 146: elephant.repository.Workflows.GetWorkflow:output_type -> elephant.repository.GetWorkflowResponse
-	43,  // 147: elephant.repository.Workflows.DeleteWorkflow:output_type -> elephant.repository.DeleteWorkflowResponse
-	28,  // 148: elephant.repository.Reports.List:output_type -> elephant.repository.ListReportsResponse
-	33,  // 149: elephant.repository.Reports.Update:output_type -> elephant.repository.UpdateReportResponse
-	25,  // 150: elephant.repository.Reports.Get:output_type -> elephant.repository.GetReportResponse
-	23,  // 151: elephant.repository.Reports.Delete:output_type -> elephant.repository.DeleteReportResponse
-	19,  // 152: elephant.repository.Reports.Run:output_type -> elephant.repository.RunReportResponse
-	21,  // 153: elephant.repository.Reports.Test:output_type -> elephant.repository.TestReportResponse
-	109, // 154: elephant.repository.Metrics.RegisterKind:output_type -> elephant.repository.RegisterMetricKindResponse
-	111, // 155: elephant.repository.Metrics.DeleteKind:output_type -> elephant.repository.DeleteMetricKindResponse
-	113, // 156: elephant.repository.Metrics.GetKinds:output_type -> elephant.repository.GetMetricKindsResponse
-	116, // 157: elephant.repository.Metrics.RegisterMetric:output_type -> elephant.repository.RegisterMetricResponse
-	118, // 158: elephant.repository.Metrics.GetMetrics:output_type -> elephant.repository.GetMetricsResponse
-	111, // [111:159] is the sub-list for method output_type
-	63,  // [63:111] is the sub-list for method input_type
-	63,  // [63:63] is the sub-list for extension type_name
-	63,  // [63:63] is the sub-list for extension extendee
-	0,   // [0:63] is the sub-list for field type_name
+	128, // 29: elephant.repository.DocumentVersion.meta:type_name -> elephant.repository.DocumentVersion.MetaEntry
+	129, // 30: elephant.repository.DocumentVersion.statuses:type_name -> elephant.repository.DocumentVersion.StatusesEntry
+	88,  // 31: elephant.repository.DocumentVersionStatuses.items:type_name -> elephant.repository.Status
+	137, // 32: elephant.repository.UpdateRequest.document:type_name -> newsdoc.Document
+	130, // 33: elephant.repository.UpdateRequest.meta:type_name -> elephant.repository.UpdateRequest.MetaEntry
+	73,  // 34: elephant.repository.UpdateRequest.status:type_name -> elephant.repository.StatusUpdate
+	89,  // 35: elephant.repository.UpdateRequest.acl:type_name -> elephant.repository.ACLEntry
+	65,  // 36: elephant.repository.UpdateRequest.import_directive:type_name -> elephant.repository.ImportDirective
+	64,  // 37: elephant.repository.BulkUpdateRequest.updates:type_name -> elephant.repository.UpdateRequest
+	66,  // 38: elephant.repository.BulkUpdateResponse.updates:type_name -> elephant.repository.UpdateResponse
+	137, // 39: elephant.repository.ValidateRequest.document:type_name -> newsdoc.Document
+	71,  // 40: elephant.repository.ValidateResponse.errors:type_name -> elephant.repository.ValidationResult
+	72,  // 41: elephant.repository.ValidationResult.entity:type_name -> elephant.repository.EntityRef
+	131, // 42: elephant.repository.StatusUpdate.meta:type_name -> elephant.repository.StatusUpdate.MetaEntry
+	89,  // 43: elephant.repository.UpdatePermissionsRequest.list:type_name -> elephant.repository.ACLEntry
+	132, // 44: elephant.repository.DeleteDocumentRequest.meta:type_name -> elephant.repository.DeleteDocumentRequest.MetaEntry
+	89,  // 45: elephant.repository.RestoreRequest.acl:type_name -> elephant.repository.ACLEntry
+	84,  // 46: elephant.repository.ListDeletedResponse.deletes:type_name -> elephant.repository.DeleteRecord
+	133, // 47: elephant.repository.DeleteRecord.meta:type_name -> elephant.repository.DeleteRecord.MetaEntry
+	87,  // 48: elephant.repository.GetMetaResponse.meta:type_name -> elephant.repository.DocumentMeta
+	134, // 49: elephant.repository.DocumentMeta.heads:type_name -> elephant.repository.DocumentMeta.HeadsEntry
+	89,  // 50: elephant.repository.DocumentMeta.acl:type_name -> elephant.repository.ACLEntry
+	90,  // 51: elephant.repository.DocumentMeta.lock:type_name -> elephant.repository.Lock
+	135, // 52: elephant.repository.Status.meta:type_name -> elephant.repository.Status.MetaEntry
+	103, // 53: elephant.repository.RegisterSchemaRequest.schema:type_name -> elephant.repository.Schema
+	136, // 54: elephant.repository.GetAllActiveSchemasRequest.known:type_name -> elephant.repository.GetAllActiveSchemasRequest.KnownEntry
+	103, // 55: elephant.repository.GetAllActiveSchemasResponse.schemas:type_name -> elephant.repository.Schema
+	105, // 56: elephant.repository.GetDeprecationsResponse.deprecations:type_name -> elephant.repository.Deprecation
+	105, // 57: elephant.repository.UpdateDeprecationRequest.deprecation:type_name -> elephant.repository.Deprecation
+	1,   // 58: elephant.repository.RegisterMetricKindRequest.aggregation:type_name -> elephant.repository.MetricAggregation
+	115, // 59: elephant.repository.GetMetricKindsResponse.kinds:type_name -> elephant.repository.MetricKind
+	1,   // 60: elephant.repository.MetricKind.aggregation:type_name -> elephant.repository.MetricAggregation
+	120, // 61: elephant.repository.GetMetricsResponse.metrics:type_name -> elephant.repository.Metric
+	88,  // 62: elephant.repository.StatusOverviewItem.HeadsEntry.value:type_name -> elephant.repository.Status
+	63,  // 63: elephant.repository.DocumentVersion.StatusesEntry.value:type_name -> elephant.repository.DocumentVersionStatuses
+	88,  // 64: elephant.repository.DocumentMeta.HeadsEntry.value:type_name -> elephant.repository.Status
+	53,  // 65: elephant.repository.Documents.Get:input_type -> elephant.repository.GetDocumentRequest
+	55,  // 66: elephant.repository.Documents.BulkGet:input_type -> elephant.repository.BulkGetRequest
+	60,  // 67: elephant.repository.Documents.GetHistory:input_type -> elephant.repository.GetHistoryRequest
+	64,  // 68: elephant.repository.Documents.Update:input_type -> elephant.repository.UpdateRequest
+	67,  // 69: elephant.repository.Documents.BulkUpdate:input_type -> elephant.repository.BulkUpdateRequest
+	69,  // 70: elephant.repository.Documents.Validate:input_type -> elephant.repository.ValidateRequest
+	76,  // 71: elephant.repository.Documents.Delete:input_type -> elephant.repository.DeleteDocumentRequest
+	82,  // 72: elephant.repository.Documents.ListDeleted:input_type -> elephant.repository.ListDeletedRequest
+	78,  // 73: elephant.repository.Documents.Restore:input_type -> elephant.repository.RestoreRequest
+	80,  // 74: elephant.repository.Documents.Purge:input_type -> elephant.repository.PurgeRequest
+	85,  // 75: elephant.repository.Documents.GetMeta:input_type -> elephant.repository.GetMetaRequest
+	13,  // 76: elephant.repository.Documents.Eventlog:input_type -> elephant.repository.GetEventlogRequest
+	15,  // 77: elephant.repository.Documents.CompactedEventlog:input_type -> elephant.repository.GetCompactedEventlogRequest
+	2,   // 78: elephant.repository.Documents.GetStatus:input_type -> elephant.repository.GetStatusRequest
+	4,   // 79: elephant.repository.Documents.GetStatusHistory:input_type -> elephant.repository.GetStatusHistoryRequest
+	6,   // 80: elephant.repository.Documents.GetNilStatuses:input_type -> elephant.repository.GetNilStatusesRequest
+	8,   // 81: elephant.repository.Documents.GetStatusOverview:input_type -> elephant.repository.GetStatusOverviewRequest
+	11,  // 82: elephant.repository.Documents.GetPermissions:input_type -> elephant.repository.GetPermissionsRequest
+	121, // 83: elephant.repository.Documents.Lock:input_type -> elephant.repository.LockRequest
+	123, // 84: elephant.repository.Documents.ExtendLock:input_type -> elephant.repository.ExtendLockRequest
+	124, // 85: elephant.repository.Documents.Unlock:input_type -> elephant.repository.UnlockRequest
+	95,  // 86: elephant.repository.Schemas.Register:input_type -> elephant.repository.RegisterSchemaRequest
+	97,  // 87: elephant.repository.Schemas.SetActive:input_type -> elephant.repository.SetActiveSchemaRequest
+	99,  // 88: elephant.repository.Schemas.Get:input_type -> elephant.repository.GetSchemaRequest
+	101, // 89: elephant.repository.Schemas.GetAllActive:input_type -> elephant.repository.GetAllActiveSchemasRequest
+	91,  // 90: elephant.repository.Schemas.RegisterMetaType:input_type -> elephant.repository.RegisterMetaTypeRequest
+	93,  // 91: elephant.repository.Schemas.RegisterMetaTypeUse:input_type -> elephant.repository.RegisterMetaTypeUseRequest
+	104, // 92: elephant.repository.Schemas.GetDeprecations:input_type -> elephant.repository.GetDeprecationsRequest
+	107, // 93: elephant.repository.Schemas.UpdateDeprecation:input_type -> elephant.repository.UpdateDeprecationRequest
+	46,  // 94: elephant.repository.Workflows.UpdateStatus:input_type -> elephant.repository.UpdateStatusRequest
+	36,  // 95: elephant.repository.Workflows.GetStatuses:input_type -> elephant.repository.GetStatusesRequest
+	48,  // 96: elephant.repository.Workflows.CreateStatusRule:input_type -> elephant.repository.CreateStatusRuleRequest
+	51,  // 97: elephant.repository.Workflows.DeleteStatusRule:input_type -> elephant.repository.DeleteStatusRuleRequest
+	34,  // 98: elephant.repository.Workflows.GetStatusRules:input_type -> elephant.repository.GetStatusRulesRequest
+	37,  // 99: elephant.repository.Workflows.SetWorkflow:input_type -> elephant.repository.SetWorkflowRequest
+	40,  // 100: elephant.repository.Workflows.GetWorkflow:input_type -> elephant.repository.GetWorkflowRequest
+	42,  // 101: elephant.repository.Workflows.DeleteWorkflow:input_type -> elephant.repository.DeleteWorkflowRequest
+	27,  // 102: elephant.repository.Reports.List:input_type -> elephant.repository.ListReportsRequest
+	26,  // 103: elephant.repository.Reports.Update:input_type -> elephant.repository.UpdateReportRequest
+	24,  // 104: elephant.repository.Reports.Get:input_type -> elephant.repository.GetReportRequest
+	22,  // 105: elephant.repository.Reports.Delete:input_type -> elephant.repository.DeleteReportRequest
+	18,  // 106: elephant.repository.Reports.Run:input_type -> elephant.repository.RunReportRequest
+	20,  // 107: elephant.repository.Reports.Test:input_type -> elephant.repository.TestReportRequest
+	109, // 108: elephant.repository.Metrics.RegisterKind:input_type -> elephant.repository.RegisterMetricKindRequest
+	111, // 109: elephant.repository.Metrics.DeleteKind:input_type -> elephant.repository.DeleteMetricKindRequest
+	113, // 110: elephant.repository.Metrics.GetKinds:input_type -> elephant.repository.GetMetricKindsRequest
+	116, // 111: elephant.repository.Metrics.RegisterMetric:input_type -> elephant.repository.RegisterMetricRequest
+	118, // 112: elephant.repository.Metrics.GetMetrics:input_type -> elephant.repository.GetMetricsRequest
+	54,  // 113: elephant.repository.Documents.Get:output_type -> elephant.repository.GetDocumentResponse
+	57,  // 114: elephant.repository.Documents.BulkGet:output_type -> elephant.repository.BulkGetResponse
+	61,  // 115: elephant.repository.Documents.GetHistory:output_type -> elephant.repository.GetHistoryResponse
+	66,  // 116: elephant.repository.Documents.Update:output_type -> elephant.repository.UpdateResponse
+	68,  // 117: elephant.repository.Documents.BulkUpdate:output_type -> elephant.repository.BulkUpdateResponse
+	70,  // 118: elephant.repository.Documents.Validate:output_type -> elephant.repository.ValidateResponse
+	77,  // 119: elephant.repository.Documents.Delete:output_type -> elephant.repository.DeleteDocumentResponse
+	83,  // 120: elephant.repository.Documents.ListDeleted:output_type -> elephant.repository.ListDeletedResponse
+	79,  // 121: elephant.repository.Documents.Restore:output_type -> elephant.repository.RestoreResponse
+	81,  // 122: elephant.repository.Documents.Purge:output_type -> elephant.repository.PurgeResponse
+	86,  // 123: elephant.repository.Documents.GetMeta:output_type -> elephant.repository.GetMetaResponse
+	14,  // 124: elephant.repository.Documents.Eventlog:output_type -> elephant.repository.GetEventlogResponse
+	16,  // 125: elephant.repository.Documents.CompactedEventlog:output_type -> elephant.repository.GetCompactedEventlogResponse
+	3,   // 126: elephant.repository.Documents.GetStatus:output_type -> elephant.repository.GetStatusResponse
+	5,   // 127: elephant.repository.Documents.GetStatusHistory:output_type -> elephant.repository.GetStatusHistoryReponse
+	7,   // 128: elephant.repository.Documents.GetNilStatuses:output_type -> elephant.repository.GetNilStatusesResponse
+	9,   // 129: elephant.repository.Documents.GetStatusOverview:output_type -> elephant.repository.GetStatusOverviewResponse
+	12,  // 130: elephant.repository.Documents.GetPermissions:output_type -> elephant.repository.GetPermissionsResponse
+	122, // 131: elephant.repository.Documents.Lock:output_type -> elephant.repository.LockResponse
+	122, // 132: elephant.repository.Documents.ExtendLock:output_type -> elephant.repository.LockResponse
+	125, // 133: elephant.repository.Documents.Unlock:output_type -> elephant.repository.UnlockResponse
+	96,  // 134: elephant.repository.Schemas.Register:output_type -> elephant.repository.RegisterSchemaResponse
+	98,  // 135: elephant.repository.Schemas.SetActive:output_type -> elephant.repository.SetActiveSchemaResponse
+	100, // 136: elephant.repository.Schemas.Get:output_type -> elephant.repository.GetSchemaResponse
+	102, // 137: elephant.repository.Schemas.GetAllActive:output_type -> elephant.repository.GetAllActiveSchemasResponse
+	92,  // 138: elephant.repository.Schemas.RegisterMetaType:output_type -> elephant.repository.RegisterMetaTypeResponse
+	94,  // 139: elephant.repository.Schemas.RegisterMetaTypeUse:output_type -> elephant.repository.RegisterMetaTypeUseResponse
+	106, // 140: elephant.repository.Schemas.GetDeprecations:output_type -> elephant.repository.GetDeprecationsResponse
+	108, // 141: elephant.repository.Schemas.UpdateDeprecation:output_type -> elephant.repository.UpdateDeprecationResponse
+	47,  // 142: elephant.repository.Workflows.UpdateStatus:output_type -> elephant.repository.UpdateStatusResponse
+	45,  // 143: elephant.repository.Workflows.GetStatuses:output_type -> elephant.repository.GetStatusesResponse
+	50,  // 144: elephant.repository.Workflows.CreateStatusRule:output_type -> elephant.repository.CreateStatusRuleResponse
+	52,  // 145: elephant.repository.Workflows.DeleteStatusRule:output_type -> elephant.repository.DeleteStatusRuleResponse
+	35,  // 146: elephant.repository.Workflows.GetStatusRules:output_type -> elephant.repository.GetStatusRulesResponse
+	39,  // 147: elephant.repository.Workflows.SetWorkflow:output_type -> elephant.repository.SetWorkflowResponse
+	41,  // 148: elephant.repository.Workflows.GetWorkflow:output_type -> elephant.repository.GetWorkflowResponse
+	43,  // 149: elephant.repository.Workflows.DeleteWorkflow:output_type -> elephant.repository.DeleteWorkflowResponse
+	28,  // 150: elephant.repository.Reports.List:output_type -> elephant.repository.ListReportsResponse
+	33,  // 151: elephant.repository.Reports.Update:output_type -> elephant.repository.UpdateReportResponse
+	25,  // 152: elephant.repository.Reports.Get:output_type -> elephant.repository.GetReportResponse
+	23,  // 153: elephant.repository.Reports.Delete:output_type -> elephant.repository.DeleteReportResponse
+	19,  // 154: elephant.repository.Reports.Run:output_type -> elephant.repository.RunReportResponse
+	21,  // 155: elephant.repository.Reports.Test:output_type -> elephant.repository.TestReportResponse
+	110, // 156: elephant.repository.Metrics.RegisterKind:output_type -> elephant.repository.RegisterMetricKindResponse
+	112, // 157: elephant.repository.Metrics.DeleteKind:output_type -> elephant.repository.DeleteMetricKindResponse
+	114, // 158: elephant.repository.Metrics.GetKinds:output_type -> elephant.repository.GetMetricKindsResponse
+	117, // 159: elephant.repository.Metrics.RegisterMetric:output_type -> elephant.repository.RegisterMetricResponse
+	119, // 160: elephant.repository.Metrics.GetMetrics:output_type -> elephant.repository.GetMetricsResponse
+	113, // [113:161] is the sub-list for method output_type
+	65,  // [65:113] is the sub-list for method input_type
+	65,  // [65:65] is the sub-list for extension type_name
+	65,  // [65:65] is the sub-list for extension extendee
+	0,   // [0:65] is the sub-list for field type_name
 }
 
 func init() { file_repository_service_proto_init() }
@@ -8428,7 +8489,7 @@ func file_repository_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_repository_service_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   133,
+			NumMessages:   135,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

@@ -560,7 +560,11 @@ message DocumentVersion {
   // Meta data to for the document version.
   map<string, string> meta = 4;
   // Statuses that have been set for the document version.
-  repeated Status statuses = 5;
+  map<string, DocumentVersionStatuses> statuses = 5;
+}
+
+message DocumentVersionStatuses {
+  repeated Status items = 5;
 }
 
 // UpdateRequest creates a new document version and/or sets statuses and ACLs

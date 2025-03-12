@@ -312,15 +312,26 @@
             "type": "object"
           },
           "statuses": {
-            "description": "Statuses that have been set for the document version.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Status"
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.repository.DocumentVersionStatuses"
             },
-            "type": "array"
+            "description": "Statuses that have been set for the document version.",
+            "type": "object"
           },
           "version": {
             "description": "Version of the document.",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.DocumentVersionStatuses": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Status"
+            },
+            "type": "array"
           }
         },
         "type": "object"
