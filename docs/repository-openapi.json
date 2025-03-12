@@ -311,6 +311,13 @@
             "description": "Meta data to for the document version.",
             "type": "object"
           },
+          "statuses": {
+            "description": "Statuses that have been set for the document version.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Status"
+            },
+            "type": "array"
+          },
           "version": {
             "description": "Version of the document.",
             "type": "integer"
@@ -627,6 +634,10 @@
             "description": "Before is which version number we should start fetching history from, omit to start with the latest version.",
             "type": "integer"
           },
+          "load_statuses": {
+            "description": "LoadStatuses loads any statuses set on the document versions.",
+            "type": "boolean"
+          },
           "uuid": {
             "description": "UUID of the document to get the history for.",
             "type": "string"
@@ -703,6 +714,33 @@
           "metrics": {
             "items": {
               "$ref": "#/components/schemas/elephant.repository.Metric"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetNilStatusesRequest": {
+        "properties": {
+          "names": {
+            "description": "Names of statuses to get, optional. Defaults to all statuses.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "uuid": {
+            "description": "UUID of the document to get the nil statuses for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetNilStatusesResponse": {
+        "properties": {
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Status"
             },
             "type": "array"
           }
@@ -2185,6 +2223,44 @@
           }
         ],
         "summary": "GetMeta",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetNilStatuses": {
+      "post": {
+        "description": "GetNilStatuses returns all the statuses for a document where version is -1.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetNilStatusesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetNilStatusesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetNilStatuses",
         "tags": [
           "Documents"
         ]
