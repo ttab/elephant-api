@@ -294,6 +294,17 @@
         },
         "type": "object"
       },
+      "elephant.repository.DocumentStatuses": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Status"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.DocumentVersion": {
         "properties": {
           "created": {
@@ -313,7 +324,7 @@
           },
           "statuses": {
             "additionalProperties": {
-              "$ref": "#/components/schemas/elephant.repository.DocumentVersionStatuses"
+              "$ref": "#/components/schemas/elephant.repository.DocumentStatuses"
             },
             "description": "Statuses that have been set for the document version.",
             "type": "object"
@@ -321,17 +332,6 @@
           "version": {
             "description": "Version of the document.",
             "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.DocumentVersionStatuses": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Status"
-            },
-            "type": "array"
           }
         },
         "type": "object"
@@ -750,10 +750,10 @@
       "elephant.repository.GetNilStatusesResponse": {
         "properties": {
           "statuses": {
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Status"
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.repository.DocumentStatuses"
             },
-            "type": "array"
+            "type": "object"
           }
         },
         "type": "object"

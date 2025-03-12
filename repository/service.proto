@@ -158,7 +158,7 @@ message GetNilStatusesRequest {
 }
 
 message GetNilStatusesResponse {
-  repeated Status statuses = 1;
+  map<string, DocumentStatuses> statuses = 1;
 }
 
 message GetStatusOverviewRequest {
@@ -560,10 +560,10 @@ message DocumentVersion {
   // Meta data to for the document version.
   map<string, string> meta = 4;
   // Statuses that have been set for the document version.
-  map<string, DocumentVersionStatuses> statuses = 5;
+  map<string, DocumentStatuses> statuses = 5;
 }
 
-message DocumentVersionStatuses {
+message DocumentStatuses {
   repeated Status items = 5;
 }
 
