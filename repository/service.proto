@@ -40,6 +40,8 @@ service Documents {
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
   // GetStatusHistory returns the history of a status for a document.
   rpc GetStatusHistory(GetStatusHistoryRequest) returns (GetStatusHistoryReponse);
+  // GetNilStatuses returns all the statuses for a document where version is -1.
+  rpc GetNilStatuses(GetNilStatusesRequest) returns (GetNilStatusesResponse);
   // GetStatusOverview returns the current version and a set of statuses for a
   // gven list of documents.
   rpc GetStatusOverview(GetStatusOverviewRequest) returns (GetStatusOverviewResponse);
@@ -146,6 +148,17 @@ message GetStatusHistoryRequest {
 
 message GetStatusHistoryReponse {
   repeated Status statuses = 1;
+}
+
+message GetNilStatusesRequest {
+  // UUID of the document to get the nil statuses for.
+  string uuid           = 1;
+  // Names of statuses to get, optional. Defaults to all statuses.
+  repeated string names = 2;
+}
+
+message GetNilStatusesResponse {
+  map<string, DocumentStatuses> statuses = 1;
 }
 
 message GetStatusOverviewRequest {
@@ -528,6 +541,8 @@ message GetHistoryRequest {
   // Before is which version number we should start fetching history from, omit
   // to start with the latest version.
   int64 before = 2;
+  // LoadStatuses loads any statuses set on the document versions.
+  bool load_statuses = 3;
 }
 
 message GetHistoryResponse {
@@ -544,6 +559,12 @@ message DocumentVersion {
   string creator = 3;
   // Meta data to for the document version.
   map<string, string> meta = 4;
+  // Statuses that have been set for the document version.
+  map<string, DocumentStatuses> statuses = 5;
+}
+
+message DocumentStatuses {
+  repeated Status items = 5;
 }
 
 // UpdateRequest creates a new document version and/or sets statuses and ACLs
