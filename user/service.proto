@@ -24,7 +24,7 @@ service Messages {
 }
 
 message PushMessageRequest {
-  // Type of message being sent (e.g. "validation_error").
+  // Type of message being sent (e.g. "rpc_error").
   string type                 = 1;
   // Recipient of the message (user sub).
   string recipient            = 2;
@@ -49,21 +49,22 @@ message PushInboxMessageResponse {}
 
 message PollMessagesRequest {
   // ID of the message after which to start returning messages.
+  // Set to -1 for the initial request.
   int64 after_id = 1;
 }
 
 message PollMessagesResponse {
-  // ID of the most recent message returned. Useful for subsequent polling requests.
-  // If no new messages are returned, it will reflect the "after_id" from the request.
+  // ID of the most recent message returned. Use for subsequent polling requests.
+  // If no new messages are returned, it matches the `after_id` from the request.
   int64 last_id             = 1;
-  // Messages sorted in descending order by id (reflects the created timestamp).
+  // Messages sorted in ascending order by id (oldest first).
   repeated Message messages = 2;
 }
 
 message Message {
   // ID of the message.
   int64 id                    = 1;
-  // Type of message being sent (e.g. "validation_error").
+  // Type of message being sent (e.g. "rpc_error").
   string type                 = 2;
   // Created timestamp is the RFC3339 timestamp
   // for when the message was created.
@@ -82,14 +83,15 @@ message Message {
 
 message PollInboxMessagesRequest {
   // ID of the message after which to start returning messages.
+  // Set to -1 for the initial request.
   int64 after_id = 1;
 }
 
 message PollInboxMessagesResponse {
-  // ID of the most recent message returned. Useful for subsequent polling requests.
-  // If no new messages are returned, it will reflect the "after_id" from the request.
+  // ID of the most recent message returned. Use for subsequent polling requests.
+  // If no new messages are returned, it matches the `after_id` from the request.
   int64 last_id                   = 1;
-  // Messages sorted in descending order by id (reflects the created timestamp).
+  // Messages sorted in ascending order by id (oldest first).
   repeated InboxMessage messages  = 2;
 }
 
@@ -122,9 +124,9 @@ message ListInboxMessagesRequest {
 message ListInboxMessagesResponse {
   // ID of the latest message returned. Useful for subsequent polling requests.
   int64 latest_id         = 1;
-  // ID of the earliest message returned. Useful for paginating backward.
+  // ID of the earliest message returned. Use for paginating backward.
   int64 earliest_id       = 2;
-  // Messages sorted in descending order by id (reflects the created timestamp).
+  // Messages sorted in descending order by id (newest first).
   repeated InboxMessage messages  = 3;
 }
 

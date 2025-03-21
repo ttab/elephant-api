@@ -23,7 +23,7 @@ const (
 
 type PushMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Type of message being sent (e.g. "validation_error").
+	// Type of message being sent (e.g. "rpc_error").
 	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
 	// Recipient of the message (user sub).
 	Recipient string `protobuf:"bytes,2,opt,name=recipient,proto3" json:"recipient,omitempty"`
@@ -231,6 +231,7 @@ func (*PushInboxMessageResponse) Descriptor() ([]byte, []int) {
 type PollMessagesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID of the message after which to start returning messages.
+	// Set to -1 for the initial request.
 	AfterId       int64 `protobuf:"varint,1,opt,name=after_id,json=afterId,proto3" json:"after_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -275,10 +276,10 @@ func (x *PollMessagesRequest) GetAfterId() int64 {
 
 type PollMessagesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// ID of the most recent message returned. Useful for subsequent polling requests.
-	// If no new messages are returned, it will reflect the "after_id" from the request.
+	// ID of the most recent message returned. Use for subsequent polling requests.
+	// If no new messages are returned, it matches the `after_id` from the request.
 	LastId int64 `protobuf:"varint,1,opt,name=last_id,json=lastId,proto3" json:"last_id,omitempty"`
-	// Messages sorted in descending order by id (reflects the created timestamp).
+	// Messages sorted in ascending order by id (oldest first).
 	Messages      []*Message `protobuf:"bytes,2,rep,name=messages,proto3" json:"messages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -332,7 +333,7 @@ type Message struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID of the message.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Type of message being sent (e.g. "validation_error").
+	// Type of message being sent (e.g. "rpc_error").
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// Created timestamp is the RFC3339 timestamp
 	// for when the message was created.
@@ -440,6 +441,7 @@ func (x *Message) GetPayload() map[string]string {
 type PollInboxMessagesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID of the message after which to start returning messages.
+	// Set to -1 for the initial request.
 	AfterId       int64 `protobuf:"varint,1,opt,name=after_id,json=afterId,proto3" json:"after_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -484,10 +486,10 @@ func (x *PollInboxMessagesRequest) GetAfterId() int64 {
 
 type PollInboxMessagesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// ID of the most recent message returned. Useful for subsequent polling requests.
-	// If no new messages are returned, it will reflect the "after_id" from the request.
+	// ID of the most recent message returned. Use for subsequent polling requests.
+	// If no new messages are returned, it matches the `after_id` from the request.
 	LastId int64 `protobuf:"varint,1,opt,name=last_id,json=lastId,proto3" json:"last_id,omitempty"`
-	// Messages sorted in descending order by id (reflects the created timestamp).
+	// Messages sorted in ascending order by id (oldest first).
 	Messages      []*InboxMessage `protobuf:"bytes,2,rep,name=messages,proto3" json:"messages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -696,9 +698,9 @@ type ListInboxMessagesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID of the latest message returned. Useful for subsequent polling requests.
 	LatestId int64 `protobuf:"varint,1,opt,name=latest_id,json=latestId,proto3" json:"latest_id,omitempty"`
-	// ID of the earliest message returned. Useful for paginating backward.
+	// ID of the earliest message returned. Use for paginating backward.
 	EarliestId int64 `protobuf:"varint,2,opt,name=earliest_id,json=earliestId,proto3" json:"earliest_id,omitempty"`
-	// Messages sorted in descending order by id (reflects the created timestamp).
+	// Messages sorted in descending order by id (newest first).
 	Messages      []*InboxMessage `protobuf:"bytes,3,rep,name=messages,proto3" json:"messages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

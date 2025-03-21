@@ -61,7 +61,7 @@
       "elephant.user.ListInboxMessagesResponse": {
         "properties": {
           "earliest_id": {
-            "description": "ID of the earliest message returned. Useful for paginating backward.",
+            "description": "ID of the earliest message returned. Use for paginating backward.",
             "type": "integer"
           },
           "latest_id": {
@@ -69,7 +69,7 @@
             "type": "integer"
           },
           "messages": {
-            "description": "Messages sorted in descending order by id (reflects the created timestamp).",
+            "description": "Messages sorted in descending order by id (newest first).",
             "items": {
               "$ref": "#/components/schemas/elephant.user.InboxMessage"
             },
@@ -112,7 +112,7 @@
             "type": "string"
           },
           "type": {
-            "description": "Type of message being sent (e.g. \"validation_error\").",
+            "description": "Type of message being sent (e.g. \"rpc_error\").",
             "type": "string"
           }
         },
@@ -121,7 +121,7 @@
       "elephant.user.PollInboxMessagesRequest": {
         "properties": {
           "after_id": {
-            "description": "ID of the message after which to start returning messages.",
+            "description": "ID of the message after which to start returning messages. Set to -1 for the initial request.",
             "type": "integer"
           }
         },
@@ -130,11 +130,11 @@
       "elephant.user.PollInboxMessagesResponse": {
         "properties": {
           "last_id": {
-            "description": "ID of the most recent message returned. Useful for subsequent polling requests. If no new messages are returned, it will reflect the \"after_id\" from the request.",
+            "description": "ID of the most recent message returned. Use for subsequent polling requests. If no new messages are returned, it matches the `after_id` from the request.",
             "type": "integer"
           },
           "messages": {
-            "description": "Messages sorted in descending order by id (reflects the created timestamp).",
+            "description": "Messages sorted in ascending order by id (oldest first).",
             "items": {
               "$ref": "#/components/schemas/elephant.user.InboxMessage"
             },
@@ -146,7 +146,7 @@
       "elephant.user.PollMessagesRequest": {
         "properties": {
           "after_id": {
-            "description": "ID of the message after which to start returning messages.",
+            "description": "ID of the message after which to start returning messages. Set to -1 for the initial request.",
             "type": "integer"
           }
         },
@@ -155,11 +155,11 @@
       "elephant.user.PollMessagesResponse": {
         "properties": {
           "last_id": {
-            "description": "ID of the most recent message returned. Useful for subsequent polling requests. If no new messages are returned, it will reflect the \"after_id\" from the request.",
+            "description": "ID of the most recent message returned. Use for subsequent polling requests. If no new messages are returned, it matches the `after_id` from the request.",
             "type": "integer"
           },
           "messages": {
-            "description": "Messages sorted in descending order by id (reflects the created timestamp).",
+            "description": "Messages sorted in ascending order by id (oldest first).",
             "items": {
               "$ref": "#/components/schemas/elephant.user.Message"
             },
@@ -205,7 +205,7 @@
             "type": "string"
           },
           "type": {
-            "description": "Type of message being sent (e.g. \"validation_error\").",
+            "description": "Type of message being sent (e.g. \"rpc_error\").",
             "type": "string"
           }
         },
