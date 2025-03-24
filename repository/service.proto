@@ -958,12 +958,18 @@ message RegisterMetricRequest {
 message RegisterMetricResponse {}
 
 message GetMetricsRequest {
-  string uuid  = 1;
-  string kind  = 2;
-  string label = 3;
+  // The documents to get metrics for.
+  repeated string uuids  = 1;
+  // The metric kinds to get. Optional, defaults to all.
+  repeated string kinds  = 2;
 }
 
 message GetMetricsResponse {
+  map<string,DocumentMetrics> documents = 1;
+}
+
+message DocumentMetrics {
+  string          uuid = 1;
   repeated Metric metrics = 2;
 }
 

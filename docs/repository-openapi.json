@@ -294,6 +294,20 @@
         },
         "type": "object"
       },
+      "elephant.repository.DocumentMetrics": {
+        "properties": {
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Metric"
+            },
+            "type": "array"
+          },
+          "uuid": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.DocumentStatuses": {
         "properties": {
           "items": {
@@ -708,25 +722,30 @@
       },
       "elephant.repository.GetMetricsRequest": {
         "properties": {
-          "kind": {
-            "type": "string"
+          "kinds": {
+            "description": "The metric kinds to get. Optional, defaults to all.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
-          "label": {
-            "type": "string"
-          },
-          "uuid": {
-            "type": "string"
+          "uuids": {
+            "description": "The documents to get metrics for.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
       },
       "elephant.repository.GetMetricsResponse": {
         "properties": {
-          "metrics": {
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.Metric"
+          "documents": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.repository.DocumentMetrics"
             },
-            "type": "array"
+            "type": "object"
           }
         },
         "type": "object"
