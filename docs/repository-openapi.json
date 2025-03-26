@@ -98,6 +98,39 @@
       "elephant.repository.CreateStatusRuleResponse": {
         "type": "object"
       },
+      "elephant.repository.CreateUploadRequest": {
+        "properties": {
+          "content_type": {
+            "description": "ContentType is the type of the file as a mimetype.",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Meta can be used to set arbitrary key-value data on an upload.",
+            "type": "object"
+          },
+          "name": {
+            "description": "Name of the uploaded file, this should be the basename of the file.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.CreateUploadResponse": {
+        "properties": {
+          "id": {
+            "description": "ID of the created upload.",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL to post the object content to.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.DeleteDocumentRequest": {
         "properties": {
           "if_match": {
@@ -1704,6 +1737,20 @@
             },
             "type": "array"
           },
+          "attach_objects": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "AttachObjects is used to attach uploaded objects to a document. This must be done in combination with a document create or update.",
+            "type": "object"
+          },
+          "detach_objects": {
+            "description": "DetatchObjects is used to detach uploaded objects from a document. This must be done in combination with a document create or update.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "document": {
             "$ref": "#/components/schemas/newsdoc.Document"
           },
@@ -2087,6 +2134,44 @@
           }
         ],
         "summary": "CompactedEventlog",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/CreateUpload": {
+      "post": {
+        "description": "CreateUpload is used to start the process of uploading objects that then can be attached to a document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.CreateUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.CreateUploadResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "CreateUpload",
         "tags": [
           "Documents"
         ]
