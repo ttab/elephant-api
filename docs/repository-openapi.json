@@ -965,6 +965,20 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetWithheldRequest": {
+        "type": "object"
+      },
+      "elephant.repository.GetWithheldResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ScheduledDocument"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetWorkflowRequest": {
         "properties": {
           "type": {
@@ -1395,6 +1409,43 @@
         },
         "type": "object"
       },
+      "elephant.repository.ScheduledDocument": {
+        "properties": {
+          "assignment": {
+            "description": "Assignment ID.",
+            "type": "string"
+          },
+          "document_version": {
+            "description": "DocumentVersion is the last version that was set as withheld.",
+            "type": "integer"
+          },
+          "planning_item": {
+            "description": "PlanningItem UUID.",
+            "type": "string"
+          },
+          "publish": {
+            "description": "Publish timestamp as RFC3339 set in the assignment.",
+            "type": "string"
+          },
+          "scheduled_by": {
+            "description": "ScheduledBy is the sub of the user that set the withheld status.",
+            "type": "string"
+          },
+          "status_id": {
+            "description": "StatusID is the last withheld status ID.",
+            "type": "integer"
+          },
+          "type": {
+            "description": "Type of the scheduled document.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID is the ID of the scheduled document.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.Schema": {
         "properties": {
           "name": {
@@ -1659,6 +1710,17 @@
           "if_match": {
             "description": "IfMatch is used for optimistic locks. Set to the version that you require to be the current one for the update to be performed, or -1 to only perform the update if the document doesn't already exist.",
             "type": "integer"
+          },
+          "if_status_heads": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "IfStatusHeads is used to only perform the update if the status heads match.",
+            "type": "object"
+          },
+          "if_workflow_state": {
+            "description": "IfWorkflowState is used to only perform the update if it's in the specified workflow state.",
+            "type": "string"
           },
           "import_directive": {
             "$ref": "#/components/schemas/elephant.repository.ImportDirective"
@@ -2443,6 +2505,44 @@
           }
         ],
         "summary": "GetStatusOverview",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetWithheld": {
+      "post": {
+        "description": "GetWithheld returns the next upcoming scheduled publish actions. This is not a complete list, but a list of the next N documents that are considered eligible for publishing.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetWithheldRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetWithheldResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetWithheld",
         "tags": [
           "Documents"
         ]
