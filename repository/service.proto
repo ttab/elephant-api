@@ -53,6 +53,10 @@ service Documents {
   rpc ExtendLock(ExtendLockRequest) returns (LockResponse);
   // Unlock releases a write lock on a document.
   rpc Unlock(UnlockRequest) returns (UnlockResponse);
+  // GetWithheld returns the next upcoming scheduled publish actions. This is
+  // not a complete list, but a list of the next N documents that are considered
+  // eligible for publishing.
+  rpc GetWithheld(GetWithheldRequest) returns (GetWithheldResponse);
 }
 
 service Schemas {
@@ -597,6 +601,11 @@ message UpdateRequest {
   // UpdateMetaDocument can be set to true to update the meta document instead
   // of the document identified by the UUID.
   bool update_meta_document        = 9;
+  // IfWorkflowState is used to only perform the update if it's in the specified
+  // workflow state.
+  string if_workflow_state         = 10;
+  // IfStatusHeads is used to only perform the update if the status heads match.
+  map<string, int64> if_status_heads = 11;
 }
 
 // ImportDirective can be used to preserve timestamps and authorship information
@@ -1014,3 +1023,28 @@ message UnlockRequest {
 }
 
 message UnlockResponse {}
+
+message GetWithheldRequest {}
+
+message GetWithheldResponse {
+  repeated ScheduledDocument items = 1;
+}
+
+message ScheduledDocument {
+  // UUID is the ID of the scheduled document.
+  string uuid            = 1;
+  // Type of the scheduled document.
+  string type            = 2;
+  // StatusID is the last withheld status ID.
+  int64 status_id        = 3;
+  // DocumentVersion is the last version that was set as withheld.
+  int64 document_version = 4;
+  // PlanningItem UUID.
+  string planning_item   = 5;
+  // Assignment ID.
+  string assignment      = 6;
+  // Publish timestamp as RFC3339 set in the assignment.
+  string publish         = 7;
+  // ScheduledBy is the sub of the user that set the withheld status.
+  string scheduled_by    = 8;
+}
