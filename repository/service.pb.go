@@ -3612,7 +3612,9 @@ type UpdateRequest struct {
 	// IfStatusHeads is used to only perform the update if the status heads match.
 	IfStatusHeads map[string]int64 `protobuf:"bytes,11,rep,name=if_status_heads,json=ifStatusHeads,proto3" json:"if_status_heads,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	// AttachObjects is used to attach uploaded objects to a document. This must
-	// be done in combination with a document create or update.
+	// be done in combination with a document create or update. The key is the
+	// object name, f.ex. "image" or "audio", and the value is an upload ID. See
+	// CreateUpload().
 	AttachObjects map[string]string `protobuf:"bytes,12,rep,name=attach_objects,json=attachObjects,proto3" json:"attach_objects,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// DetatchObjects is used to detach uploaded objects from a document. This
 	// must be done in combination with a document create or update.

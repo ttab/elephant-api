@@ -610,7 +610,9 @@ message UpdateRequest {
   // IfStatusHeads is used to only perform the update if the status heads match.
   map<string, int64> if_status_heads = 11;
   // AttachObjects is used to attach uploaded objects to a document. This must
-  // be done in combination with a document create or update.
+  // be done in combination with a document create or update. The key is the
+  // object name, f.ex. "image" or "audio", and the value is an upload ID. See
+  // CreateUpload().
   map<string, string> attach_objects = 12;
   // DetatchObjects is used to detach uploaded objects from a document. This
   // must be done in combination with a document create or update.
