@@ -60,6 +60,8 @@ service Documents {
   // CreateUpload is used to start the process of uploading objects that then
   // can be attached to a document.
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
+  // GetAttachments returns download links for the requested attachments.
+  rpc GetAttachments(GetAttachmentsRequest) returns (GetAttachmentsResponse);
 }
 
 service Schemas {
@@ -1089,4 +1091,32 @@ message CreateUploadResponse {
   string id  = 1;
   // URL to post the object content to.
   string url = 2;
+}
+
+message GetAttachmentsRequest {
+  // Documents to get attachments for.
+  repeated string documents = 1;
+  // Attachment name to get information for.
+  string attachment_name    = 2;
+  // DownloadLink should be set to true to generate a download link.
+  bool download_link        = 3;
+}
+
+message GetAttachmentsResponse {
+  repeated AttachmentDetails attachments = 1;
+}
+
+message AttachmentDetails {
+  // Document is the UUID of the document the object is attached to.
+  string document      = 1;
+  // Name of the attachment.
+  string name          = 2;
+  // Version of the attachment.
+  int64 version        = 3;
+  // DownloadLink that can be used to fetch the object contents, if requested.
+  string download_link = 4;
+  // Filename is the name of the file the object represents.
+  string filename      = 5;
+  // ContentType is the MIME type of the object.
+  string content_type  = 6;
 }

@@ -17,6 +17,35 @@
         },
         "type": "object"
       },
+      "elephant.repository.AttachmentDetails": {
+        "properties": {
+          "content_type": {
+            "description": "ContentType is the MIME type of the object.",
+            "type": "string"
+          },
+          "document": {
+            "description": "Document is the UUID of the document the object is attached to.",
+            "type": "string"
+          },
+          "download_link": {
+            "description": "DownloadLink that can be used to fetch the object contents, if requested.",
+            "type": "string"
+          },
+          "filename": {
+            "description": "Filename is the name of the file the object represents.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the attachment.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version of the attachment.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.AttachmentRef": {
         "properties": {
           "name": {
@@ -582,6 +611,37 @@
           "schemas": {
             "items": {
               "$ref": "#/components/schemas/elephant.repository.Schema"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetAttachmentsRequest": {
+        "properties": {
+          "attachment_name": {
+            "description": "Attachment name to get information for.",
+            "type": "string"
+          },
+          "documents": {
+            "description": "Documents to get attachments for.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "download_link": {
+            "description": "DownloadLink should be set to true to generate a download link.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetAttachmentsResponse": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.AttachmentDetails"
             },
             "type": "array"
           }
@@ -2358,6 +2418,44 @@
           }
         ],
         "summary": "Get",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetAttachments": {
+      "post": {
+        "description": "GetAttachments returns download links for the requested attachments.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetAttachmentsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetAttachmentsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetAttachments",
         "tags": [
           "Documents"
         ]
