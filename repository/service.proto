@@ -814,6 +814,8 @@ message DocumentMeta {
   string creator_uri         = 11;
   // UpdaterURI is the identity of the party that last updated the document.
   string updater_uri         = 12;
+  // Attachments are the names of the attached objects (files) for a document.
+  repeated string attachments = 13;
 }
 
 message Status {
