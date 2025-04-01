@@ -445,6 +445,20 @@
             },
             "type": "array"
           },
+          "attached_objects": {
+            "description": "AttachedObjects is set when obects (files) were attached together with a document update.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "detached_objects": {
+            "description": "DetachedObjects is set when attached objects (files) were removed in a document update.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "event": {
             "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\", \"restore_finished\".",
             "type": "string"
@@ -2021,7 +2035,7 @@
   },
   "info": {
     "title": "repository API",
-    "version": "v0.17.17-1-g4c5f71f"
+    "version": "v0.17.17-2-g9b1de79"
   },
   "openapi": "3.0.0",
   "paths": {
