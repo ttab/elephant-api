@@ -815,7 +815,14 @@ message DocumentMeta {
   // UpdaterURI is the identity of the party that last updated the document.
   string updater_uri         = 12;
   // Attachments are the names of the attached objects (files) for a document.
-  repeated string attachments = 13;
+  repeated AttachmentRef attachments = 13;
+}
+
+message AttachmentRef {
+  // Name of the attachment.
+  string name   = 1;
+  // Version is the current version of the attachment.
+  int64 version = 2;
 }
 
 message Status {
