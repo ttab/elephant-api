@@ -501,6 +501,10 @@
             },
             "type": "array"
           },
+          "delete_record_id": {
+            "description": "DeleteRecordId is the ID of the delete record if this was a delete event.",
+            "type": "integer"
+          },
           "detached_objects": {
             "description": "DetachedObjects is set when attached objects (files) were removed in a document update.",
             "items": {

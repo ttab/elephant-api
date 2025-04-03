@@ -295,6 +295,8 @@ message EventlogItem {
   // DetachedObjects is set when attached objects (files) were removed in a
   // document update.
   repeated string detached_objects = 19;
+  // DeleteRecordId is the ID of the delete record if this was a delete event.
+  int64 delete_record_id           = 20;
 }
 
 message RunReportRequest {
