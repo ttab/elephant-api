@@ -17,6 +17,48 @@
         },
         "type": "object"
       },
+      "elephant.repository.AttachmentDetails": {
+        "properties": {
+          "content_type": {
+            "description": "ContentType is the MIME type of the object.",
+            "type": "string"
+          },
+          "document": {
+            "description": "Document is the UUID of the document the object is attached to.",
+            "type": "string"
+          },
+          "download_link": {
+            "description": "DownloadLink that can be used to fetch the object contents, if requested.",
+            "type": "string"
+          },
+          "filename": {
+            "description": "Filename is the name of the file the object represents.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the attachment.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version of the attachment.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.AttachmentRef": {
+        "properties": {
+          "name": {
+            "description": "Name of the attachment.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version is the current version of the attachment.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.BulkGetItem": {
         "properties": {
           "document": {
@@ -96,6 +138,39 @@
         "type": "object"
       },
       "elephant.repository.CreateStatusRuleResponse": {
+        "type": "object"
+      },
+      "elephant.repository.CreateUploadRequest": {
+        "properties": {
+          "content_type": {
+            "description": "ContentType is the type of the file as a mimetype.",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Meta can be used to set arbitrary key-value data on an upload.",
+            "type": "object"
+          },
+          "name": {
+            "description": "Name of the uploaded file, this should be the basename of the file.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.CreateUploadResponse": {
+        "properties": {
+          "id": {
+            "description": "ID of the created upload.",
+            "type": "string"
+          },
+          "url": {
+            "description": "URL to post the object content to.",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "elephant.repository.DeleteDocumentRequest": {
@@ -242,6 +317,13 @@
             "description": "ACL is an ACL list controlling access to the document.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.ACLEntry"
+            },
+            "type": "array"
+          },
+          "attachments": {
+            "description": "Attachments are the names of the attached objects (files) for a document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.AttachmentRef"
             },
             "type": "array"
           },
@@ -412,6 +494,24 @@
             },
             "type": "array"
           },
+          "attached_objects": {
+            "description": "AttachedObjects is set when obects (files) were attached together with a document update.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "delete_record_id": {
+            "description": "DeleteRecordId is the ID of the delete record if this was a delete event.",
+            "type": "integer"
+          },
+          "detached_objects": {
+            "description": "DetachedObjects is set when attached objects (files) were removed in a document update.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "event": {
             "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\", \"restore_finished\".",
             "type": "string"
@@ -515,6 +615,37 @@
           "schemas": {
             "items": {
               "$ref": "#/components/schemas/elephant.repository.Schema"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetAttachmentsRequest": {
+        "properties": {
+          "attachment_name": {
+            "description": "Attachment name to get information for.",
+            "type": "string"
+          },
+          "documents": {
+            "description": "Documents to get attachments for.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "download_link": {
+            "description": "DownloadLink should be set to true to generate a download link.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetAttachmentsResponse": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.AttachmentDetails"
             },
             "type": "array"
           }
@@ -1704,6 +1835,20 @@
             },
             "type": "array"
           },
+          "attach_objects": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "AttachObjects is used to attach uploaded objects to a document. This must be done in combination with a document create or update. The key is the object name, f.ex. \"image\" or \"audio\", and the value is an upload ID. See CreateUpload().",
+            "type": "object"
+          },
+          "detach_objects": {
+            "description": "DetatchObjects is used to detach uploaded objects from a document. This must be done in combination with a document create or update.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "document": {
             "$ref": "#/components/schemas/newsdoc.Document"
           },
@@ -2092,6 +2237,44 @@
         ]
       }
     },
+    "/twirp/elephant.repository.Documents/CreateUpload": {
+      "post": {
+        "description": "CreateUpload is used to start the process of uploading objects that then can be attached to a document.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.CreateUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.CreateUploadResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "CreateUpload",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Documents/Delete": {
       "post": {
         "description": "Delete deletes a document and all its associated data.",
@@ -2239,6 +2422,44 @@
           }
         ],
         "summary": "Get",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetAttachments": {
+      "post": {
+        "description": "GetAttachments returns download links for the requested attachments.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetAttachmentsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetAttachmentsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetAttachments",
         "tags": [
           "Documents"
         ]

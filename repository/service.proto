@@ -57,6 +57,11 @@ service Documents {
   // not a complete list, but a list of the next N documents that are considered
   // eligible for publishing.
   rpc GetWithheld(GetWithheldRequest) returns (GetWithheldResponse);
+  // CreateUpload is used to start the process of uploading objects that then
+  // can be attached to a document.
+  rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
+  // GetAttachments returns download links for the requested attachments.
+  rpc GetAttachments(GetAttachmentsRequest) returns (GetAttachmentsResponse);
 }
 
 service Schemas {
@@ -283,7 +288,15 @@ message EventlogItem {
   string workflow_checkpoint = 16;
   // MainDocumentType is the type of the main document if the document is a
   // metadata document.
-  string main_document_type = 17;
+  string main_document_type  = 17;
+  // AttachedObjects contains the object names, f.ex. "image" or "audio", when
+  // when objects (files) were attached together with a document update.
+  repeated string attached_objects = 18;
+  // DetachedObjects contains the object names, f.ex. "image" or "audio", when
+  // when objects (files) were detached in a document update.
+  repeated string detached_objects = 19;
+  // DeleteRecordId is the ID of the delete record if this was a delete event.
+  int64 delete_record_id           = 20;
 }
 
 message RunReportRequest {
@@ -606,6 +619,14 @@ message UpdateRequest {
   string if_workflow_state         = 10;
   // IfStatusHeads is used to only perform the update if the status heads match.
   map<string, int64> if_status_heads = 11;
+  // AttachObjects is used to attach uploaded objects to a document. This must
+  // be done in combination with a document create or update. The key is the
+  // object name, f.ex. "image" or "audio", and the value is an upload ID. See
+  // CreateUpload().
+  map<string, string> attach_objects = 12;
+  // DetatchObjects is used to detach uploaded objects from a document. This
+  // must be done in combination with a document create or update.
+  repeated string detach_objects = 13;
 }
 
 // ImportDirective can be used to preserve timestamps and authorship information
@@ -797,6 +818,15 @@ message DocumentMeta {
   string creator_uri         = 11;
   // UpdaterURI is the identity of the party that last updated the document.
   string updater_uri         = 12;
+  // Attachments are the names of the attached objects (files) for a document.
+  repeated AttachmentRef attachments = 13;
+}
+
+message AttachmentRef {
+  // Name of the attachment.
+  string name   = 1;
+  // Version is the current version of the attachment.
+  int64 version = 2;
 }
 
 message Status {
@@ -1047,4 +1077,48 @@ message ScheduledDocument {
   string publish         = 7;
   // ScheduledBy is the sub of the user that set the withheld status.
   string scheduled_by    = 8;
+}
+
+message CreateUploadRequest {
+  // Name of the uploaded file, this should be the basename of the file.
+  string name             = 1;
+  // ContentType is the type of the file as a mimetype.
+  string content_type     = 2;
+  // Meta can be used to set arbitrary key-value data on an upload.
+  map<string,string> meta = 3;
+}
+
+message CreateUploadResponse {
+  // ID of the created upload.
+  string id  = 1;
+  // URL to post the object content to.
+  string url = 2;
+}
+
+message GetAttachmentsRequest {
+  // Documents to get attachments for.
+  repeated string documents = 1;
+  // Attachment name to get information for.
+  string attachment_name    = 2;
+  // DownloadLink should be set to true to generate a download link.
+  bool download_link        = 3;
+}
+
+message GetAttachmentsResponse {
+  repeated AttachmentDetails attachments = 1;
+}
+
+message AttachmentDetails {
+  // Document is the UUID of the document the object is attached to.
+  string document      = 1;
+  // Name of the attachment.
+  string name          = 2;
+  // Version of the attachment.
+  int64 version        = 3;
+  // DownloadLink that can be used to fetch the object contents, if requested.
+  string download_link = 4;
+  // Filename is the name of the file the object represents.
+  string filename      = 5;
+  // ContentType is the MIME type of the object.
+  string content_type  = 6;
 }
