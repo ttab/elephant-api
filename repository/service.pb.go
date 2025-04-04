@@ -996,11 +996,11 @@ type EventlogItem struct {
 	// MainDocumentType is the type of the main document if the document is a
 	// metadata document.
 	MainDocumentType string `protobuf:"bytes,17,opt,name=main_document_type,json=mainDocumentType,proto3" json:"main_document_type,omitempty"`
-	// AttachedObjects is set when obects (files) were attached together with a
-	// document update.
+	// AttachedObjects contains the object names, f.ex. "image" or "audio", when
+	// when objects (files) were attached together with a document update.
 	AttachedObjects []string `protobuf:"bytes,18,rep,name=attached_objects,json=attachedObjects,proto3" json:"attached_objects,omitempty"`
-	// DetachedObjects is set when attached objects (files) were removed in a
-	// document update.
+	// DetachedObjects contains the object names, f.ex. "image" or "audio", when
+	// when objects (files) were detached in a document update.
 	DetachedObjects []string `protobuf:"bytes,19,rep,name=detached_objects,json=detachedObjects,proto3" json:"detached_objects,omitempty"`
 	// DeleteRecordId is the ID of the delete record if this was a delete event.
 	DeleteRecordId int64 `protobuf:"varint,20,opt,name=delete_record_id,json=deleteRecordId,proto3" json:"delete_record_id,omitempty"`

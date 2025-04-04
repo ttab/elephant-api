@@ -495,7 +495,7 @@
             "type": "array"
           },
           "attached_objects": {
-            "description": "AttachedObjects is set when obects (files) were attached together with a document update.",
+            "description": "AttachedObjects contains the object names, f.ex. \"image\" or \"audio\", when when objects (files) were attached together with a document update.",
             "items": {
               "type": "string"
             },
@@ -506,7 +506,7 @@
             "type": "integer"
           },
           "detached_objects": {
-            "description": "DetachedObjects is set when attached objects (files) were removed in a document update.",
+            "description": "DetachedObjects contains the object names, f.ex. \"image\" or \"audio\", when when objects (files) were detached in a document update.",
             "items": {
               "type": "string"
             },
@@ -2119,7 +2119,7 @@
   },
   "info": {
     "title": "repository API",
-    "version": "v0.17.17"
+    "version": "v0.17.18"
   },
   "openapi": "3.0.0",
   "paths": {
