@@ -263,17 +263,6 @@
         },
         "type": "object"
       },
-      "elephant.repository.DeleteReportRequest": {
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.DeleteReportResponse": {
-        "type": "object"
-      },
       "elephant.repository.DeleteStatusRuleRequest": {
         "properties": {
           "name": {
@@ -929,28 +918,6 @@
         },
         "type": "object"
       },
-      "elephant.repository.GetReportRequest": {
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.GetReportResponse": {
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "next_execution": {
-            "type": "string"
-          },
-          "report": {
-            "$ref": "#/components/schemas/elephant.repository.Report"
-          }
-        },
-        "type": "object"
-      },
       "elephant.repository.GetSchemaRequest": {
         "properties": {
           "name": {
@@ -1180,20 +1147,6 @@
         },
         "type": "object"
       },
-      "elephant.repository.ListReportsRequest": {
-        "type": "object"
-      },
-      "elephant.repository.ListReportsResponse": {
-        "properties": {
-          "reports": {
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.ReportListItem"
-            },
-            "type": "array"
-          }
-        },
-        "type": "object"
-      },
       "elephant.repository.Lock": {
         "properties": {
           "app": {
@@ -1407,94 +1360,6 @@
       "elephant.repository.RegisterSchemaResponse": {
         "type": "object"
       },
-      "elephant.repository.Report": {
-        "properties": {
-          "cron_expression": {
-            "type": "string"
-          },
-          "cron_timezone": {
-            "description": "(default UTC)",
-            "type": "string"
-          },
-          "generate_sheet": {
-            "type": "boolean"
-          },
-          "name": {
-            "type": "string"
-          },
-          "queries": {
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.ReportQuery"
-            },
-            "type": "array"
-          },
-          "slack_channels": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "title": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.ReportListItem": {
-        "properties": {
-          "cron_expression": {
-            "type": "string"
-          },
-          "cron_timezone": {
-            "description": "(default UTC)",
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.ReportQuery": {
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "sql": {
-            "type": "string"
-          },
-          "summarise": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
-          },
-          "value_processing": {
-            "items": {
-              "$ref": "#/components/schemas/elephant.repository.ReportValue"
-            },
-            "type": "array"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.ReportValue": {
-        "properties": {
-          "column": {
-            "type": "string"
-          },
-          "processors": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "type": "object"
-      },
       "elephant.repository.RestoreRequest": {
         "properties": {
           "acl": {
@@ -1516,28 +1381,6 @@
         "type": "object"
       },
       "elephant.repository.RestoreResponse": {
-        "type": "object"
-      },
-      "elephant.repository.RunReportRequest": {
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.RunReportResponse": {
-        "properties": {
-          "spreadsheet": {
-            "type": "string"
-          },
-          "tables": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
         "type": "object"
       },
       "elephant.repository.ScheduledDocument": {
@@ -1738,28 +1581,6 @@
         },
         "type": "object"
       },
-      "elephant.repository.TestReportRequest": {
-        "properties": {
-          "report": {
-            "$ref": "#/components/schemas/elephant.repository.Report"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.TestReportResponse": {
-        "properties": {
-          "spreadsheet": {
-            "type": "string"
-          },
-          "tables": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "type": "object"
-      },
       "elephant.repository.UnlockRequest": {
         "properties": {
           "token": {
@@ -1804,25 +1625,6 @@
         "type": "object"
       },
       "elephant.repository.UpdatePermissionsResponse": {
-        "type": "object"
-      },
-      "elephant.repository.UpdateReportRequest": {
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "report": {
-            "$ref": "#/components/schemas/elephant.repository.Report"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.UpdateReportResponse": {
-        "properties": {
-          "next_execution": {
-            "type": "string"
-          }
-        },
         "type": "object"
       },
       "elephant.repository.UpdateRequest": {
@@ -3225,234 +3027,6 @@
         ]
       }
     },
-    "/twirp/elephant.repository.Reports/Delete": {
-      "post": {
-        "description": "Delete a report.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.DeleteReportRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.DeleteReportResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Delete",
-        "tags": [
-          "Reports"
-        ]
-      }
-    },
-    "/twirp/elephant.repository.Reports/Get": {
-      "post": {
-        "description": "Get a report.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.GetReportRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.GetReportResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get",
-        "tags": [
-          "Reports"
-        ]
-      }
-    },
-    "/twirp/elephant.repository.Reports/List": {
-      "post": {
-        "description": "List all reports.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.ListReportsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.ListReportsResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "List",
-        "tags": [
-          "Reports"
-        ]
-      }
-    },
-    "/twirp/elephant.repository.Reports/Run": {
-      "post": {
-        "description": "Run a report. This will run the report and return the results instead of sending it to any outputs.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.RunReportRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.RunReportResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Run",
-        "tags": [
-          "Reports"
-        ]
-      }
-    },
-    "/twirp/elephant.repository.Reports/Test": {
-      "post": {
-        "description": "Test a report by runing it without saving.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.TestReportRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.TestReportResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Test",
-        "tags": [
-          "Reports"
-        ]
-      }
-    },
-    "/twirp/elephant.repository.Reports/Update": {
-      "post": {
-        "description": "Update or create a report.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.UpdateReportRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.UpdateReportResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Update",
-        "tags": [
-          "Reports"
-        ]
-      }
-    },
     "/twirp/elephant.repository.Schemas/Get": {
       "post": {
         "description": "Get retrieves a schema.",
@@ -4079,9 +3653,6 @@
     },
     {
       "name": "Workflows"
-    },
-    {
-      "name": "Reports"
     },
     {
       "name": "Metrics"
