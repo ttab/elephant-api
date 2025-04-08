@@ -103,22 +103,6 @@ service Workflows {
   rpc DeleteWorkflow(DeleteWorkflowRequest) returns (DeleteWorkflowResponse);
 }
 
-service Reports {
-  // List all reports.
-  rpc List(ListReportsRequest) returns (ListReportsResponse);
-  // Update or create a report.
-  rpc Update(UpdateReportRequest) returns (UpdateReportResponse);
-  // Get a report.
-  rpc Get(GetReportRequest) returns (GetReportResponse);
-  // Delete a report.
-  rpc Delete(DeleteReportRequest) returns (DeleteReportResponse);
-  // Run a report. This will run the report and return the results instead of
-  // sending it to any outputs.
-  rpc Run(RunReportRequest) returns (RunReportResponse);
-  // Test a report by runing it without saving.
-  rpc Test(TestReportRequest) returns (TestReportResponse);
-}
-
 service Metrics {
   // Register a metric kind
   rpc RegisterKind(RegisterMetricKindRequest) returns (RegisterMetricKindResponse);
@@ -297,84 +281,6 @@ message EventlogItem {
   repeated string detached_objects = 19;
   // DeleteRecordId is the ID of the delete record if this was a delete event.
   int64 delete_record_id           = 20;
-}
-
-message RunReportRequest {
-  string name = 1;
-}
-
-message RunReportResponse {
-  repeated string tables = 1;
-  bytes spreadsheet = 2;
-}
-
-message TestReportRequest {
-  Report report = 1;
-}
-
-message TestReportResponse {
-  repeated string tables = 1;
-  bytes spreadsheet = 2;
-}
-
-message DeleteReportRequest {
-  string name = 1;
-}
-
-message DeleteReportResponse {}
-
-message GetReportRequest {
-  string name = 1;
-}
-
-message GetReportResponse {
-  Report report = 1;
-  bool enabled = 2;
-  string next_execution = 3;
-}
-
-message UpdateReportRequest {
-  Report report = 1;
-  bool enabled = 2;
-}
-
-message ListReportsRequest {}
-
-message ListReportsResponse {
-  repeated ReportListItem reports = 1;
-}
-
-message ReportListItem {
-  string name = 1;
-  string title = 2;
-  string cron_expression = 3;
-  string cron_timezone = 4; // (default UTC)
-}
-
-message Report {
-  string name = 1;
-  string title = 2;
-  bool generate_sheet = 3;
-  string cron_expression = 4;
-  string cron_timezone = 7; // (default UTC)
-  repeated string slack_channels = 5;
-  repeated ReportQuery queries = 6;
-}
-
-message ReportQuery {
-  string name = 1;
-  repeated int32 summarise = 2;
-  string sql = 3;
-  repeated ReportValue value_processing = 4;
-}
-
-message ReportValue {
-  string column = 1;
-  repeated string processors = 2;
-}
-
-message UpdateReportResponse {
-  string next_execution = 1;
 }
 
 message GetStatusRulesRequest {}
