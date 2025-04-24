@@ -700,6 +700,10 @@
           "meta_document": {
             "$ref": "#/components/schemas/elephant.repository.GetMetaDoc"
           },
+          "meta_document_version": {
+            "description": "MetaDocumentVersion is used to fetch a specific version of meta document. Can not be used with status. If status is specified, the version the meta document had at the time the status was set is returned. If ommited and status is not used, the latest meta document version is returned.",
+            "type": "integer"
+          },
           "status": {
             "description": "Status is used to fetch the version of the document references by the last status update. Can be used instead of specifying a version.",
             "type": "string"
