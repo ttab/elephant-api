@@ -677,6 +677,36 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetDeliverableInfoRequest": {
+        "properties": {
+          "uuid": {
+            "description": "UUID of the deliverable.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetDeliverableInfoResponse": {
+        "properties": {
+          "assignment_uuid": {
+            "description": "UUID of the related assignment.",
+            "type": "string"
+          },
+          "event_uuid": {
+            "description": "UUID of the related event.",
+            "type": "string"
+          },
+          "has_planning_info": {
+            "description": "Indicates whether the deliverable has planning information.",
+            "type": "boolean"
+          },
+          "planning_uuid": {
+            "description": "UUID of the related planning item.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetDeprecationsRequest": {
         "type": "object"
       },
@@ -2266,6 +2296,44 @@
           }
         ],
         "summary": "GetAttachments",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetDeliverableInfo": {
+      "post": {
+        "description": "GetDeliverableInfo returns available information related to the deliverable.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetDeliverableInfoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetDeliverableInfoResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetDeliverableInfo",
         "tags": [
           "Documents"
         ]

@@ -57,6 +57,8 @@ service Documents {
   // not a complete list, but a list of the next N documents that are considered
   // eligible for publishing.
   rpc GetWithheld(GetWithheldRequest) returns (GetWithheldResponse);
+  // GetDeliverableInfo returns available information related to the deliverable.
+  rpc GetDeliverableInfo(GetDeliverableInfoRequest) returns (GetDeliverableInfoResponse);
   // CreateUpload is used to start the process of uploading objects that then
   // can be attached to a document.
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
@@ -988,6 +990,22 @@ message ScheduledDocument {
   string publish         = 7;
   // ScheduledBy is the sub of the user that set the withheld status.
   string scheduled_by    = 8;
+}
+
+message GetDeliverableInfoRequest {
+  // UUID of the deliverable.
+  string uuid = 1;
+}
+
+message GetDeliverableInfoResponse {
+  // Indicates whether the deliverable has planning information.
+  bool has_planning_info = 1;
+  // UUID of the related planning item.
+  string planning_uuid   = 2;
+  // UUID of the related assignment.
+  string assignment_uuid = 3;
+  // UUID of the related event.
+  string event_uuid      = 4;
 }
 
 message CreateUploadRequest {
