@@ -397,20 +397,25 @@ enum GetMetaDoc {
 
 message GetDocumentRequest {
   // UUID of the document to get.
-  string uuid                = 1;
+  string uuid                 = 1;
   // Version to get, omit to get latest (or use status).
-  int64 version              = 2;
+  int64 version               = 2;
   // Status is used to fetch the version of the document references by the last
   // status update. Can be used instead of specifying a version.
-  string status              = 3;
+  string status               = 3;
   // Lock will lock the document for updates. This only affects the creation of
   // new versions of the document, statuses can still be updated.
-  bool lock                  = 4;
+  bool lock                   = 4;
   // MetaDocument controls the inclusion of associated meta
   // documents. "META_INCLUDE" will include the document if it
   // exists. "META_ONLY" will only return the meta document, and will return a
   // not found error if it doesn't exist.
-  GetMetaDoc meta_document   = 5;
+  GetMetaDoc meta_document    = 5;
+  // MetaDocumentVersion is used to fetch a specific version of meta document.
+  // Can not be used with status. If status is specified,
+  // the version the meta document had at the time the status was set is returned.
+  // If ommited and status is not used, the latest meta document version is returned.
+  int64 meta_document_version = 6;
 }
 
 message GetDocumentResponse {
