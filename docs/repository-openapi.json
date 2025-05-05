@@ -1010,12 +1010,8 @@
             "description": "GetMeta can be used to load any set status metadata.",
             "type": "boolean"
           },
-          "get_workflows": {
-            "description": "GetWorkflows will return the workflow status in addition to statuses.",
-            "type": "boolean"
-          },
           "statuses": {
-            "description": "Statuses to return information for.",
+            "description": "Statuses to return information for. Optional, omit to only return workflow state.",
             "items": {
               "type": "string"
             },

@@ -159,12 +159,11 @@ message GetNilStatusesResponse {
 message GetStatusOverviewRequest {
   // UUIDs to get statuses for.
   repeated string uuids    = 1;
-  // Statuses to return information for.
+  // Statuses to return information for. Optional, omit to only return workflow
+  // state.
   repeated string statuses = 2;
   // GetMeta can be used to load any set status metadata.
   bool get_meta            = 3;
-  // GetWorkflows will return the workflow status in addition to statuses.
-  bool get_workflows       = 4;
 }
 
 message GetStatusOverviewResponse {
