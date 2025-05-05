@@ -1010,6 +1010,10 @@
             "description": "GetMeta can be used to load any set status metadata.",
             "type": "boolean"
           },
+          "get_workflows": {
+            "description": "GetWorkflows will return the workflow status in addition to statuses.",
+            "type": "boolean"
+          },
           "statuses": {
             "description": "Statuses to return information for.",
             "items": {
@@ -1555,6 +1559,14 @@
           "version": {
             "description": "Version the document is at.",
             "type": "integer"
+          },
+          "workflow_checkpoint": {
+            "description": "WorkflowCheckpoint that the document reached most recently.",
+            "type": "string"
+          },
+          "workflow_state": {
+            "description": "WorkflowState that the document is in.",
+            "type": "string"
           }
         },
         "type": "object"

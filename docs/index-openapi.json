@@ -383,11 +383,11 @@
       "elephant.index.PollSubscriptionRequest": {
         "properties": {
           "batch_delay_ms": {
-            "description": "BatchDelayMS is the number of milliseconds to wait for more items after the first.",
+            "description": "BatchDelayMS is the number of milliseconds to wait for more items after the first. Optional, defaults to 200ms.",
             "type": "integer"
           },
           "max_wait_ms": {
-            "description": "MaxWaitMS is the maximum time to wait before returning an empty response.",
+            "description": "MaxWaitMS is the maximum time to wait before returning an empty response. Optional, defaults to 10s.",
             "type": "integer"
           },
           "subscriptions": {
