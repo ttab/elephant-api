@@ -1011,7 +1011,7 @@
             "type": "boolean"
           },
           "statuses": {
-            "description": "Statuses to return information for.",
+            "description": "Statuses to return information for. Optional, omit to only return workflow state.",
             "items": {
               "type": "string"
             },
@@ -1555,6 +1555,14 @@
           "version": {
             "description": "Version the document is at.",
             "type": "integer"
+          },
+          "workflow_checkpoint": {
+            "description": "WorkflowCheckpoint that the document reached most recently.",
+            "type": "string"
+          },
+          "workflow_state": {
+            "description": "WorkflowState that the document is in.",
+            "type": "string"
           }
         },
         "type": "object"

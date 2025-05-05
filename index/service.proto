@@ -342,9 +342,11 @@ message MappingFieldV1 {
 message PollSubscriptionRequest {
   // Subscriptions to poll.
   repeated SubscriptionReference subscriptions = 1;
-  // MaxWaitMS is the maximum time to wait before returning an empty response.
+  // MaxWaitMS is the maximum time to wait before returning an empty
+  // response. Optional, defaults to 10s.
   int64 max_wait_ms    = 2;
-  // BatchDelayMS is the number of milliseconds to wait for more items after the first.
+  // BatchDelayMS is the number of milliseconds to wait for more items after the
+  // first. Optional, defaults to 200ms.
   int64 batch_delay_ms = 3;
 }
 

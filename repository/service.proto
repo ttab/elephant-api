@@ -159,7 +159,8 @@ message GetNilStatusesResponse {
 message GetStatusOverviewRequest {
   // UUIDs to get statuses for.
   repeated string uuids    = 1;
-  // Statuses to return information for.
+  // Statuses to return information for. Optional, omit to only return workflow
+  // state.
   repeated string statuses = 2;
   // GetMeta can be used to load any set status metadata.
   bool get_meta            = 3;
@@ -179,6 +180,11 @@ message StatusOverviewItem {
   string modified = 3;
   // Heads are the last statuses.
   map<string, Status> heads = 4;
+  // WorkflowState that the document is in.
+  string workflow_state      = 5;
+  // WorkflowCheckpoint that the document reached most recently.
+  string workflow_checkpoint = 6;
+
 }
 
 message GetPermissionsRequest {

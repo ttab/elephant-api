@@ -2676,9 +2676,11 @@ type PollSubscriptionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Subscriptions to poll.
 	Subscriptions []*SubscriptionReference `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
-	// MaxWaitMS is the maximum time to wait before returning an empty response.
+	// MaxWaitMS is the maximum time to wait before returning an empty
+	// response. Optional, defaults to 10s.
 	MaxWaitMs int64 `protobuf:"varint,2,opt,name=max_wait_ms,json=maxWaitMs,proto3" json:"max_wait_ms,omitempty"`
-	// BatchDelayMS is the number of milliseconds to wait for more items after the first.
+	// BatchDelayMS is the number of milliseconds to wait for more items after the
+	// first. Optional, defaults to 200ms.
 	BatchDelayMs  int64 `protobuf:"varint,3,opt,name=batch_delay_ms,json=batchDelayMs,proto3" json:"batch_delay_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
