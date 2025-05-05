@@ -163,6 +163,8 @@ message GetStatusOverviewRequest {
   repeated string statuses = 2;
   // GetMeta can be used to load any set status metadata.
   bool get_meta            = 3;
+  // GetWorkflows will return the workflow status in addition to statuses.
+  bool get_workflows       = 4;
 }
 
 message GetStatusOverviewResponse {
@@ -179,6 +181,11 @@ message StatusOverviewItem {
   string modified = 3;
   // Heads are the last statuses.
   map<string, Status> heads = 4;
+  // WorkflowState that the document is in.
+  string workflow_state      = 5;
+  // WorkflowCheckpoint that the document reached most recently.
+  string workflow_checkpoint = 6;
+
 }
 
 message GetPermissionsRequest {
