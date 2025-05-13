@@ -381,6 +381,28 @@
         },
         "type": "object"
       },
+      "elephant.index.MultiSearchRequest": {
+        "properties": {
+          "queries": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryRequestV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.MultiSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryResponseV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.PartialReindexRequest": {
         "properties": {
           "index_set": {
@@ -1288,6 +1310,43 @@
           }
         ],
         "summary": "GetMappings",
+        "tags": [
+          "SearchV1"
+        ]
+      }
+    },
+    "/twirp/elephant.index.SearchV1/MultiSearch": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.MultiSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.MultiSearchResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "MultiSearch",
         "tags": [
           "SearchV1"
         ]

@@ -31,6 +31,7 @@ service Management {
 
 service SearchV1 {
   rpc Query(QueryRequestV1) returns (QueryResponseV1);
+  rpc MultiSearch(MultiSearchRequest) returns (MultiSearchResponse);
   rpc GetMappings(GetMappingsRequestV1) returns (GetMappingsResponseV1);
   rpc PollSubscription(PollSubscriptionRequest) returns (PollSubscriptionResponse);
   rpc EndSubscription(EndSubscriptionRequest) returns (EndSubscriptionResponse);
@@ -165,6 +166,15 @@ message IndexSet {
   // Position in the repository content log.
   int64 position = 5;
 }
+
+message MultiSearchRequest {
+  repeated QueryRequestV1 queries = 1;
+}
+
+message MultiSearchResponse {
+  repeated QueryResponseV1 results = 1;
+}
+
 
 message QueryRequestV1 {
   string document_type         = 1;
