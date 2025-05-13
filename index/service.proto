@@ -253,6 +253,18 @@ message MultiMatchQueryV1 {
   // https://opensearch.org/docs/latest/query-dsl/minimum-should-match/
   string minimum_should_match = 6;
   float tie_breaker      = 7;
+  // PrefixLength is the number of beginning characters left unchanged for fuzzy
+  // matching. Optional, defaults to 0.
+  int64 prefix_length    = 8;
+  // Fuzziness is the maximum edit distance allowed for matching.
+  Fuzziness fuzziness    = 9;
+}
+
+// Fuzziness has more ways to be specified, implementing that when we need it.
+message Fuzziness {
+  // Edits is the maximum allowed Levenshtein Edit Distance (or number of
+  // edits).
+  int64 edits = 1;
 }
 
 message MatchPhraseQueryV1 {
