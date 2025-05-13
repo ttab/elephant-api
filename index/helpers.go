@@ -14,19 +14,12 @@ func (x *HitV1) GetField(name string) string {
 }
 
 func (x *HitV1) GetFieldValues(name string) []string {
-	v := x.Fields[name]
-
-	if len(v.Values) == 0 {
+	v, ok := x.Fields[name]
+	if !ok {
 		return nil
 	}
 
-	s := make([]string, len(v.Values))
-
-	for i := range v.Values {
-		s[i] = v.Values[i]
-	}
-
-	return s
+	return v.Values
 }
 
 // Helper functions for creating QueryV1 objects from the concrete types.
