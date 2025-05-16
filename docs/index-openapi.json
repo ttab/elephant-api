@@ -9,6 +9,9 @@
             },
             "type": "array"
           },
+          "minimum_should_match": {
+            "type": "integer"
+          },
           "must": {
             "items": {
               "$ref": "#/components/schemas/elephant.index.QueryV1"
@@ -109,6 +112,16 @@
               "type": "string"
             },
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.Fuzziness": {
+        "description": "Fuzziness has more ways to be specified, implementing that when we need it.",
+        "properties": {
+          "edits": {
+            "description": "Edits is the maximum allowed Levenshtein Edit Distance (or number of edits).",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -347,9 +360,16 @@
             },
             "type": "array"
           },
+          "fuzziness": {
+            "$ref": "#/components/schemas/elephant.index.Fuzziness"
+          },
           "minimum_should_match": {
             "description": "MinimumShouldMatch if the query string contains multiple search terms and you use the or operator, the number of terms that need to match for the document to be considered a match. See https://opensearch.org/docs/latest/query-dsl/minimum-should-match/",
             "type": "string"
+          },
+          "prefix_length": {
+            "description": "PrefixLength is the number of beginning characters left unchanged for fuzzy matching. Optional, defaults to 0.",
+            "type": "integer"
           },
           "query": {
             "type": "string"
@@ -360,6 +380,28 @@
           "type": {
             "description": "Type is the multi-match query type. Valid values are best_fields, most_fields, cross_fields, phrase, phrase_prefix, bool_prefix. Default is best_fields.",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.MultiSearchRequest": {
+        "properties": {
+          "queries": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryRequestV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.MultiSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.index.QueryResponseV1"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -389,6 +431,10 @@
           "max_wait_ms": {
             "description": "MaxWaitMS is the maximum time to wait before returning an empty response. Optional, defaults to 10s.",
             "type": "integer"
+          },
+          "notify_only": {
+            "description": "NotifyOnly will skip loading any data to include with the hits.",
+            "type": "boolean"
           },
           "subscriptions": {
             "description": "Subscriptions to poll.",
@@ -1271,6 +1317,43 @@
           }
         ],
         "summary": "GetMappings",
+        "tags": [
+          "SearchV1"
+        ]
+      }
+    },
+    "/twirp/elephant.index.SearchV1/MultiSearch": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.MultiSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.MultiSearchResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "MultiSearch",
         "tags": [
           "SearchV1"
         ]

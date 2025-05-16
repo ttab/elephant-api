@@ -31,6 +31,7 @@ service Management {
 
 service SearchV1 {
   rpc Query(QueryRequestV1) returns (QueryResponseV1);
+  rpc MultiSearch(MultiSearchRequest) returns (MultiSearchResponse);
   rpc GetMappings(GetMappingsRequestV1) returns (GetMappingsResponseV1);
   rpc PollSubscription(PollSubscriptionRequest) returns (PollSubscriptionResponse);
   rpc EndSubscription(EndSubscriptionRequest) returns (EndSubscriptionResponse);
@@ -166,6 +167,15 @@ message IndexSet {
   int64 position = 5;
 }
 
+message MultiSearchRequest {
+  repeated QueryRequestV1 queries = 1;
+}
+
+message MultiSearchResponse {
+  repeated QueryResponseV1 results = 1;
+}
+
+
 message QueryRequestV1 {
   string document_type         = 1;
   string language              = 2;
@@ -203,10 +213,11 @@ message QueryV1 {
 }
 
 message BoolQueryV1 {
-  repeated QueryV1 must     = 1;
-  repeated QueryV1 must_not = 2;
-  repeated QueryV1 should   = 3;
-  repeated QueryV1 filter   = 4;
+  repeated QueryV1 must      = 1;
+  repeated QueryV1 must_not  = 2;
+  repeated QueryV1 should    = 3;
+  repeated QueryV1 filter    = 4;
+  int64 minimum_should_match = 5;
 }
 
 message RangeQueryV1 {
@@ -253,6 +264,18 @@ message MultiMatchQueryV1 {
   // https://opensearch.org/docs/latest/query-dsl/minimum-should-match/
   string minimum_should_match = 6;
   float tie_breaker      = 7;
+  // PrefixLength is the number of beginning characters left unchanged for fuzzy
+  // matching. Optional, defaults to 0.
+  int64 prefix_length    = 8;
+  // Fuzziness is the maximum edit distance allowed for matching.
+  Fuzziness fuzziness    = 9;
+}
+
+// Fuzziness has more ways to be specified, implementing that when we need it.
+message Fuzziness {
+  // Edits is the maximum allowed Levenshtein Edit Distance (or number of
+  // edits).
+  int64 edits = 1;
 }
 
 message MatchPhraseQueryV1 {
@@ -348,6 +371,8 @@ message PollSubscriptionRequest {
   // BatchDelayMS is the number of milliseconds to wait for more items after the
   // first. Optional, defaults to 200ms.
   int64 batch_delay_ms = 3;
+  // NotifyOnly will skip loading any data to include with the hits.
+  bool notify_only     = 4;
 }
 
 message SubscriptionReference {
