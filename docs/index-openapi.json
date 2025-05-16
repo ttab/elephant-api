@@ -9,6 +9,9 @@
             },
             "type": "array"
           },
+          "minimum_should_match": {
+            "type": "integer"
+          },
           "must": {
             "items": {
               "$ref": "#/components/schemas/elephant.index.QueryV1"
@@ -428,6 +431,10 @@
           "max_wait_ms": {
             "description": "MaxWaitMS is the maximum time to wait before returning an empty response. Optional, defaults to 10s.",
             "type": "integer"
+          },
+          "notify_only": {
+            "description": "NotifyOnly will skip loading any data to include with the hits.",
+            "type": "boolean"
           },
           "subscriptions": {
             "description": "Subscriptions to poll.",
