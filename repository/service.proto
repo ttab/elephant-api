@@ -815,7 +815,8 @@ message GetMetaTypesResponse {
 }
 
 message MetaTypeInfo {
-  repeated string used_by = 1;
+  string name             = 1;
+  repeated string used_by = 2;
 }
 
 message RegisterSchemaRequest {

@@ -1305,6 +1305,9 @@
       },
       "elephant.repository.MetaTypeInfo": {
         "properties": {
+          "name": {
+            "type": "string"
+          },
           "used_by": {
             "items": {
               "type": "string"
