@@ -591,9 +591,15 @@
             "additionalProperties": {
               "type": "string"
             },
+            "description": "Known schema versions that the client already has. Optional.",
             "type": "object"
           },
+          "only_changed": {
+            "description": "OnlyChanged only returns the schemas that have been changed.",
+            "type": "boolean"
+          },
           "wait_seconds": {
+            "description": "WaitSeconds is the maximum number of seconds to wait for changes, defaults to 10 seconds. Optional.",
             "type": "integer"
           }
         },
@@ -601,11 +607,23 @@
       },
       "elephant.repository.GetAllActiveSchemasResponse": {
         "properties": {
+          "removed": {
+            "description": "Removed schemas.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "schemas": {
+            "description": "Schemas that currently are active.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.Schema"
             },
             "type": "array"
+          },
+          "unchanged": {
+            "description": "Unchanged is set to true if no changes were done compared to known schema versions.",
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -856,6 +874,20 @@
         "properties": {
           "meta": {
             "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetMetaTypesRequest": {
+        "type": "object"
+      },
+      "elephant.repository.GetMetaTypesResponse": {
+        "properties": {
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.MetaTypeInfo"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -1148,6 +1180,21 @@
         },
         "type": "object"
       },
+      "elephant.repository.ListActiveSchemasRequest": {
+        "type": "object"
+      },
+      "elephant.repository.ListActiveSchemasResponse": {
+        "properties": {
+          "schemas": {
+            "description": "Schemas without the spec populated",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Schema"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.ListDeletedRequest": {
         "properties": {
           "before_date": {
@@ -1252,6 +1299,17 @@
           "version": {
             "description": "Version is the version of the returned document.",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.MetaTypeInfo": {
+        "properties": {
+          "used_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -1553,7 +1611,7 @@
             "type": "string"
           },
           "version": {
-            "description": "Version the document is at.",
+            "description": "Version is the current version (last written version) of the document.",
             "type": "integer"
           },
           "workflow_checkpoint": {
@@ -3216,6 +3274,82 @@
           }
         ],
         "summary": "GetDeprecations",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/GetMetaTypes": {
+      "post": {
+        "description": "GetMetaTypes lists the registered meta types.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetMetaTypesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetMetaTypesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetMetaTypes",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/ListActive": {
+      "post": {
+        "description": "ListActiveSchemas lists the currently active schemas.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.ListActiveSchemasRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.ListActiveSchemasResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListActive",
         "tags": [
           "Schemas"
         ]
