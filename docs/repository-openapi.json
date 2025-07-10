@@ -167,7 +167,7 @@
             "type": "string"
           },
           "url": {
-            "description": "URL to post the object content to.",
+            "description": "URL to PUT the object content to.",
             "type": "string"
           }
         },
@@ -789,6 +789,21 @@
           "version": {
             "description": "Version is the version of the returned document.",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetDocumentTypesRequest": {
+        "type": "object"
+      },
+      "elephant.repository.GetDocumentTypesResponse": {
+        "properties": {
+          "types": {
+            "description": "Types that have been defined in the schema.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -2024,7 +2039,7 @@
   },
   "info": {
     "title": "repository API",
-    "version": "v0.17.22"
+    "version": "v0.17.24-pre3"
   },
   "openapi": "3.0.0",
   "paths": {
@@ -3277,6 +3292,44 @@
           }
         ],
         "summary": "GetDeprecations",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/GetDocumentTypes": {
+      "post": {
+        "description": "GetDocumentTypes lists the defined document types.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetDocumentTypesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetDocumentTypesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetDocumentTypes",
         "tags": [
           "Schemas"
         ]

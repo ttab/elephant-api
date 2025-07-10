@@ -87,6 +87,8 @@ service Schemas {
   rpc UpdateDeprecation(UpdateDeprecationRequest) returns (UpdateDeprecationResponse);
   // GetMetaTypes lists the registered meta types.
   rpc GetMetaTypes(GetMetaTypesRequest) returns (GetMetaTypesResponse);
+  // GetDocumentTypes lists the defined document types.
+  rpc GetDocumentTypes(GetDocumentTypesRequest) returns (GetDocumentTypesResponse);
 }
 
 service Workflows {
@@ -814,6 +816,13 @@ message GetMetaTypesResponse {
   repeated MetaTypeInfo types = 1;
 }
 
+message GetDocumentTypesRequest {}
+
+message GetDocumentTypesResponse {
+  // Types that have been defined in the schema.
+  repeated string types = 1;
+}
+
 message MetaTypeInfo {
   string name             = 1;
   repeated string used_by = 2;
@@ -1059,7 +1068,7 @@ message CreateUploadRequest {
 message CreateUploadResponse {
   // ID of the created upload.
   string id  = 1;
-  // URL to post the object content to.
+  // URL to PUT the object content to.
   string url = 2;
 }
 
