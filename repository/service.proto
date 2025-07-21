@@ -75,6 +75,8 @@ service Schemas {
   rpc Get(GetSchemaRequest) returns (GetSchemaResponse);
   // GetAllActiveSchemas returns the currently active schemas.
   rpc GetAllActive(GetAllActiveSchemasRequest) returns (GetAllActiveSchemasResponse);
+  // ListActiveSchemas lists the currently active schemas.
+  rpc ListActive(ListActiveSchemasRequest) returns (ListActiveSchemasResponse);
   // RegisterMetaType registers a type that can be used for meta documents.
   rpc RegisterMetaType(RegisterMetaTypeRequest) returns (RegisterMetaTypeResponse);
   // RegisterMetaTypeUse registers a meta type for use with a main type.
@@ -83,6 +85,10 @@ service Schemas {
   rpc GetDeprecations(GetDeprecationsRequest) returns (GetDeprecationsResponse);
   // UpdateDeprecation creates or updates a deprecation.
   rpc UpdateDeprecation(UpdateDeprecationRequest) returns (UpdateDeprecationResponse);
+  // GetMetaTypes lists the registered meta types.
+  rpc GetMetaTypes(GetMetaTypesRequest) returns (GetMetaTypesResponse);
+  // GetDocumentTypes lists the defined document types.
+  rpc GetDocumentTypes(GetDocumentTypesRequest) returns (GetDocumentTypesResponse);
 }
 
 service Workflows {
@@ -173,7 +179,7 @@ message GetStatusOverviewResponse {
 message StatusOverviewItem {
   // UUID of the document.
   string uuid     = 1;
-  // Version the document is at.
+  // Version is the current version (last written version) of the document.
   int64 version   = 2;
   // Modified timestamp is the RFC3339 timestamp for the last change that
   // affected the document.
@@ -804,6 +810,24 @@ message RegisterMetaTypeUseRequest {
 
 message RegisterMetaTypeUseResponse {}
 
+message GetMetaTypesRequest {}
+
+message GetMetaTypesResponse {
+  repeated MetaTypeInfo types = 1;
+}
+
+message GetDocumentTypesRequest {}
+
+message GetDocumentTypesResponse {
+  // Types that have been defined in the schema.
+  repeated string types = 1;
+}
+
+message MetaTypeInfo {
+  string name             = 1;
+  repeated string used_by = 2;
+}
+
 message RegisterSchemaRequest {
   // Schema to register. The spec can be omitted if a schema URL is passed.
   Schema schema = 1;
@@ -845,18 +869,36 @@ message GetSchemaResponse {
 }
 
 message GetAllActiveSchemasRequest {
-  int64 wait_seconds = 1;
+  // WaitSeconds is the maximum number of seconds to wait for changes, defaults
+  // to 10 seconds. Optional.
+  int64 wait_seconds        = 1;
+  // Known schema versions that the client already has. Optional.
   map<string, string> known = 2;
+  // OnlyChanged only returns the schemas that have been changed.
+  bool only_changed         = 3;
 }
 
 message GetAllActiveSchemasResponse {
+  // Schemas that currently are active.
+  repeated Schema schemas = 1;
+  // Unchanged is set to true if no changes were done compared to known schema
+  // versions.
+  bool unchanged          = 2;
+  // Removed schemas.
+  repeated string removed = 3;
+}
+
+message ListActiveSchemasRequest {}
+
+message ListActiveSchemasResponse {
+  // Schemas without the spec populated
   repeated Schema schemas = 1;
 }
 
 message Schema {
-  string name = 1;
+  string name    = 1;
   string version = 2;
-  string spec = 3;
+  string spec    = 3;
 }
 
 message GetDeprecationsRequest{}
@@ -1026,7 +1068,7 @@ message CreateUploadRequest {
 message CreateUploadResponse {
   // ID of the created upload.
   string id  = 1;
-  // URL to post the object content to.
+  // URL to PUT the object content to.
   string url = 2;
 }
 

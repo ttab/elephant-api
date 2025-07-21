@@ -940,7 +940,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.17.22"
+    "version": "v0.17.24"
   },
   "openapi": "3.0.0",
   "paths": {
