@@ -1,0 +1,89 @@
+{
+  "components": {
+    "schemas": {
+      "elephant.replicant.SendDocumentRequest": {
+        "properties": {
+          "force": {
+            "type": "boolean"
+          },
+          "uuid": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.replicant.SendDocumentResponse": {
+        "properties": {
+          "target_version": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "replicant API",
+    "version": "v0.17.24"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/twirp/elephant.replicant.Replication/SendDocument": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.replicant.SendDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.replicant.SendDocumentResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SendDocument",
+        "tags": [
+          "Replication"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://replicant.api.tt.se"
+    },
+    {
+      "url": "https://replicant.api.stage.tt.se"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Replication"
+    }
+  ]
+}

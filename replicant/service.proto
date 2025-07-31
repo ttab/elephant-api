@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package elephant.replicant;
+
+option go_package = "github.com/ttab/elephant-api/replicant";
+
+service Replication {
+  rpc SendDocument(SendDocumentRequest) returns (SendDocumentResponse);
+}
+
+message SendDocumentRequest {
+  string uuid = 1;
+  bool force  = 2;
+}
+
+message SendDocumentResponse {
+  int64 target_version = 1;
+}
