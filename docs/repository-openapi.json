@@ -350,6 +350,10 @@
             "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
             "type": "string"
           },
+          "nonce": {
+            "description": "Nonce is the unique nonce for this document. If the document is deleted and recreated with the same ID it will still have a unique nonce.",
+            "type": "string"
+          },
           "updater_uri": {
             "description": "UpdaterURI is the identity of the party that last updated the document.",
             "type": "string"
@@ -500,6 +504,10 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "document_nonce": {
+            "description": "DocumentNonce is the unique nonce for this document. If the document is deleted and recreated with the same ID it will still have a unique nonce.",
+            "type": "string"
           },
           "event": {
             "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\", \"restore_finished\".",
