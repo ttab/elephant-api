@@ -295,6 +295,9 @@ message EventlogItem {
   repeated string detached_objects = 19;
   // DeleteRecordId is the ID of the delete record if this was a delete event.
   int64 delete_record_id           = 20;
+  // DocumentNonce is the unique nonce for this document. If the document is deleted and
+  // recreated with the same ID it will still have a unique nonce.
+  string document_nonce            = 21;
 }
 
 message GetStatusRulesRequest {}
@@ -745,6 +748,9 @@ message DocumentMeta {
   string updater_uri         = 12;
   // Attachments are the names of the attached objects (files) for a document.
   repeated AttachmentRef attachments = 13;
+  // Nonce is the unique nonce for this document. If the document is deleted and
+  // recreated with the same ID it will still have a unique nonce.
+  string nonce                       = 14;
 }
 
 message AttachmentRef {
