@@ -190,7 +190,10 @@ message StatusOverviewItem {
   string workflow_state      = 5;
   // WorkflowCheckpoint that the document reached most recently.
   string workflow_checkpoint = 6;
-
+  // CreatorURI is the URI of the subject that created the document.
+  string creator_uri         = 7;
+  // UpdaterURI is the URI of the subject that last updated the document.
+  string updater_uri         = 8;
 }
 
 message GetPermissionsRequest {

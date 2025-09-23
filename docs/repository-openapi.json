@@ -1621,6 +1621,10 @@
       },
       "elephant.repository.StatusOverviewItem": {
         "properties": {
+          "creator_uri": {
+            "description": "CreatorURI is the URI of the subject that created the document.",
+            "type": "string"
+          },
           "heads": {
             "additionalProperties": {
               "$ref": "#/components/schemas/elephant.repository.Status"
@@ -1630,6 +1634,10 @@
           },
           "modified": {
             "description": "Modified timestamp is the RFC3339 timestamp for the last change that affected the document.",
+            "type": "string"
+          },
+          "updater_uri": {
+            "description": "UpdaterURI is the URI of the subject that last updated the document.",
             "type": "string"
           },
           "uuid": {
