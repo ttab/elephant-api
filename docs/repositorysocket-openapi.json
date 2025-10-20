@@ -1959,6 +1959,146 @@
         },
         "type": "object"
       },
+      "elephant.repositorysocket.CallCloseDocumentSet": {
+        "description": "CallCloseDocumentSet is used to stop recieving updates for a document set.",
+        "properties": {
+          "set_name": {
+            "description": "SetName is the name of the document set to close.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.CallGetDocuments": {
+        "description": "CallGetDocuments is used to fetch and optionally subscribe to a set of documents.",
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.DocumentFilter"
+          },
+          "from_time": {
+            "description": "FromTime is the inclusive start time range to get documents for.",
+            "type": "string"
+          },
+          "set_name": {
+            "description": "SetName is the name of the document set. Required when subscribing.",
+            "type": "string"
+          },
+          "subscribe": {
+            "description": "Subscribe should be set to true to get notified when the document set changes.",
+            "type": "boolean"
+          },
+          "to_time": {
+            "description": "FromTime is the exclusive end of the time range to get documents for.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Type of the documents to get.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.DocumentFilter": {
+        "properties": {
+          "and": {
+            "description": "And filters that all must be true.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repositorysocket.DocumentFilter"
+            },
+            "type": "array"
+          },
+          "expression": {
+            "description": "Expression used to extract values from the document.",
+            "type": "string"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.FilterOperator"
+          },
+          "or": {
+            "description": "Or filters of which at least one must be true.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repositorysocket.DocumentFilter"
+            },
+            "type": "array"
+          },
+          "values": {
+            "description": "Values to compare to the extracted values.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repositorysocket.FilterValues"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.DocumentState": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.FilterOperator": {
+        "enum": [
+          "FILTER_OP_UNKNOWN",
+          "FILTER_OP_ANY",
+          "FILTER_OP_ALL",
+          "FILTER_OP_NONE"
+        ],
+        "type": "string"
+      },
+      "elephant.repositorysocket.FilterValues": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.RespDocumentUpdate": {
+        "description": "RespDocumentUpdate is emitted when a write operation has affected a document in a set.",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "event": {
+            "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+          },
+          "set_name": {
+            "description": "SetName is the name of the set that result is for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.RespGetDocumentsBatch": {
+        "description": "RespGetDocumentsBatch is emitted in response to a CallGetDocuments message. Multiple batch messages can be emitted for a single get documents call.",
+        "properties": {
+          "documents": {
+            "description": "Documents is a batch of documents that are included in the set.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repositorysocket.DocumentState"
+            },
+            "type": "array"
+          },
+          "final_batch": {
+            "description": "FinalBatch is set to true for the last batch in the response.",
+            "type": "boolean"
+          },
+          "set_name": {
+            "description": "SetName is the name of the set that result is for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "newsdoc.Block": {
         "description": "Block is the building block for data embedded in documents. It is used for both content, links and metadata. Blocks have can be nested, but that's nothing to strive for, keep it simple.",
         "properties": {
@@ -2102,7 +2242,7 @@
     }
   },
   "info": {
-    "title": "repository API",
+    "title": "repositorysocket API",
     "version": "v0.19.0"
   },
   "openapi": "3.0.0",
@@ -4048,10 +4188,10 @@
   },
   "servers": [
     {
-      "url": "https://repository.api.tt.se"
+      "url": "https://repositorysocket.api.tt.se"
     },
     {
-      "url": "https://repository.api.stage.tt.se"
+      "url": "https://repositorysocket.api.stage.tt.se"
     }
   ],
   "tags": [

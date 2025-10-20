@@ -64,6 +64,10 @@ service Documents {
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
   // GetAttachments returns download links for the requested attachments.
   rpc GetAttachments(GetAttachmentsRequest) returns (GetAttachmentsResponse);
+  // ConfigureType configures a document type.
+  rpc ConfigureType(ConfigureTypeRequest) returns (ConfigureTypeResponse);
+  // GetTypeConfiguration returns the current configuration for a type.
+  rpc GetTypeConfiguration(GetTypeConfigurationRequest) returns (GetTypeConfigurationResponse);
 }
 
 service Schemas {
@@ -1107,4 +1111,33 @@ message AttachmentDetails {
   string filename      = 5;
   // ContentType is the MIME type of the object.
   string content_type  = 6;
+}
+
+message ConfigureTypeRequest {
+  // Type to configure.
+  string type                     = 1;
+  // Configuration for the type.
+  TypeConfiguration configuration = 2;
+}
+
+message TypeConfiguration {
+  // Set to true if this is a collection of documents that are bounded (limited
+  // in size). Bounded collections can be fetched by type and language in one
+  // go.
+  bool bounded_collection          = 1;
+  // TimeExpressions are newsdoc value extraction expressions used for
+  // extracting time ranges from documents.
+  repeated string time_expressions = 2;
+}
+
+message ConfigureTypeResponse {}
+
+message GetTypeConfigurationRequest {
+  // Type to get configuration for.
+  string type = 1;
+}
+
+message GetTypeConfigurationResponse {
+  // Configuration of the type.
+  TypeConfiguration configuration = 1;
 }
