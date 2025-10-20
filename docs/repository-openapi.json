@@ -1754,11 +1754,28 @@
             "type": "boolean"
           },
           "time_expressions": {
-            "description": "TimeExpressions are newsdoc value extraction expressions used for extracting time ranges from documents.",
+            "description": "TimeExpressions are used for extracting time ranges from documents.",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/elephant.repository.TypeTimeExpression"
             },
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.TypeTimeExpression": {
+        "properties": {
+          "expression": {
+            "description": "Expression is a newsdoc value extraction expression.",
+            "type": "string"
+          },
+          "layout": {
+            "description": "Layout is the time/date format to use when parsing. Optional, defaults to RFC3339 or ISO 8601 for values annotated as dates.",
+            "type": "string"
+          },
+          "timezone": {
+            "description": "Timezone is the timezone the time should be parsed in. Optional, most timestamps should include timezone information, if they don't, parsing will fall back to the default timezone that the repository has been configured with.",
+            "type": "string"
           }
         },
         "type": "object"
