@@ -525,7 +525,7 @@
             "type": "string"
           },
           "event": {
-            "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\", \"restore_finished\".",
+            "description": "Event type, one of: \"document\", \"status\", \"acl\", \"delete_document\", \"restore_finished\", \"workflow\".",
             "type": "string"
           },
           "id": {
@@ -561,7 +561,7 @@
             "type": "string"
           },
           "timespans": {
-            "description": "Timespans are the timespans that were extracted from a document update.",
+            "description": "Timespans are the timespans that were extracted from a document update and from the assignment if this document is a deliverable. Only present for \"document\" and \"workflow\" events.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.Timespan"
             },

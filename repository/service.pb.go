@@ -998,7 +998,7 @@ type EventlogItem struct {
 	// Id of the event.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Event type, one of: "document", "status", "acl", "delete_document",
-	// "restore_finished".
+	// "restore_finished", "workflow".
 	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 	// Uuid of the document that was affected.
 	Uuid string `protobuf:"bytes,3,opt,name=uuid,proto3" json:"uuid,omitempty"`
@@ -1041,10 +1041,12 @@ type EventlogItem struct {
 	DetachedObjects []string `protobuf:"bytes,19,rep,name=detached_objects,json=detachedObjects,proto3" json:"detached_objects,omitempty"`
 	// DeleteRecordId is the ID of the delete record if this was a delete event.
 	DeleteRecordId int64 `protobuf:"varint,20,opt,name=delete_record_id,json=deleteRecordId,proto3" json:"delete_record_id,omitempty"`
-	// DocumentNonce is the unique nonce for this document. If the document is deleted and
-	// recreated with the same ID it will still have a unique nonce.
+	// DocumentNonce is the unique nonce for this document. If the document is
+	// deleted and recreated with the same ID it will still have a unique nonce.
 	DocumentNonce string `protobuf:"bytes,21,opt,name=document_nonce,json=documentNonce,proto3" json:"document_nonce,omitempty"`
-	// Timespans are the timespans that were extracted from a document update.
+	// Timespans are the timespans that were extracted from a document update and
+	// from the assignment if this document is a deliverable. Only present for
+	// "document" and "workflow" events.
 	Timespans     []*Timespan `protobuf:"bytes,22,rep,name=timespans,proto3" json:"timespans,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
