@@ -305,6 +305,13 @@ message EventlogItem {
   // DocumentNonce is the unique nonce for this document. If the document is deleted and
   // recreated with the same ID it will still have a unique nonce.
   string document_nonce            = 21;
+  // Timespans are the timespans that were extracted from a document update.
+  repeated Timespan timespans      = 22;
+}
+
+message Timespan {
+  string from = 1;
+  string to   = 2;
 }
 
 message GetStatusRulesRequest {}
