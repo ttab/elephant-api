@@ -64,10 +64,6 @@ service Documents {
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
   // GetAttachments returns download links for the requested attachments.
   rpc GetAttachments(GetAttachmentsRequest) returns (GetAttachmentsResponse);
-  // ConfigureType configures a document type.
-  rpc ConfigureType(ConfigureTypeRequest) returns (ConfigureTypeResponse);
-  // GetTypeConfiguration returns the current configuration for a type.
-  rpc GetTypeConfiguration(GetTypeConfigurationRequest) returns (GetTypeConfigurationResponse);
 }
 
 service Schemas {
@@ -93,6 +89,10 @@ service Schemas {
   rpc GetMetaTypes(GetMetaTypesRequest) returns (GetMetaTypesResponse);
   // GetDocumentTypes lists the defined document types.
   rpc GetDocumentTypes(GetDocumentTypesRequest) returns (GetDocumentTypesResponse);
+  // ConfigureType configures a document type.
+  rpc ConfigureType(ConfigureTypeRequest) returns (ConfigureTypeResponse);
+  // GetTypeConfiguration returns the current configuration for a type.
+  rpc GetTypeConfiguration(GetTypeConfigurationRequest) returns (GetTypeConfigurationResponse);
 }
 
 service Workflows {

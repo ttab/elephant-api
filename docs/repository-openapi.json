@@ -2238,44 +2238,6 @@
         ]
       }
     },
-    "/twirp/elephant.repository.Documents/ConfigureType": {
-      "post": {
-        "description": "ConfigureType configures a document type.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.ConfigureTypeRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.ConfigureTypeResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "ConfigureType",
-        "tags": [
-          "Documents"
-        ]
-      }
-    },
     "/twirp/elephant.repository.Documents/CreateUpload": {
       "post": {
         "description": "CreateUpload is used to start the process of uploading objects that then can be attached to a document.",
@@ -2808,44 +2770,6 @@
         ]
       }
     },
-    "/twirp/elephant.repository.Documents/GetTypeConfiguration": {
-      "post": {
-        "description": "GetTypeConfiguration returns the current configuration for a type.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/elephant.repository.GetTypeConfigurationRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.GetTypeConfigurationResponse"
-                }
-              }
-            },
-            "description": "Method response"
-          },
-          "default": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "GetTypeConfiguration",
-        "tags": [
-          "Documents"
-        ]
-      }
-    },
     "/twirp/elephant.repository.Documents/GetWithheld": {
       "post": {
         "description": "GetWithheld returns the next upcoming scheduled publish actions. This is not a complete list, but a list of the next N documents that are considered eligible for publishing.",
@@ -3340,6 +3264,44 @@
         ]
       }
     },
+    "/twirp/elephant.repository.Schemas/ConfigureType": {
+      "post": {
+        "description": "ConfigureType configures a document type.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.ConfigureTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.ConfigureTypeResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ConfigureType",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
     "/twirp/elephant.repository.Schemas/Get": {
       "post": {
         "description": "Get retrieves a schema.",
@@ -3525,6 +3487,44 @@
           }
         ],
         "summary": "GetMetaTypes",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/GetTypeConfiguration": {
+      "post": {
+        "description": "GetTypeConfiguration returns the current configuration for a type.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetTypeConfigurationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetTypeConfigurationResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetTypeConfiguration",
         "tags": [
           "Schemas"
         ]
