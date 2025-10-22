@@ -359,6 +359,10 @@
           "uuid": {
             "description": "UUID of the document.",
             "type": "string"
+          },
+          "version": {
+            "description": "Version of the document.",
+            "type": "integer"
           }
         },
         "type": "object"

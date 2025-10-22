@@ -1186,11 +1186,13 @@ message GetMatchingResponse {
 
 message DocumentMatch {
   // UUID of the document.
-  string uuid = 1;
+  string uuid               = 1;
+  // Version of the document.
+  int64 version             = 2;
   // Document for the match.
-  newsdoc.Document document = 2;
+  newsdoc.Document document = 3;
   // Meta information for the match.
-  DocumentMeta     meta = 3;
+  DocumentMeta     meta     = 4;
 }
 
 enum FilterOperator {
