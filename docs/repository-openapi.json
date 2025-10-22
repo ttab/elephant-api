@@ -315,6 +315,54 @@
         },
         "type": "object"
       },
+      "elephant.repository.DocumentFilter": {
+        "properties": {
+          "and": {
+            "description": "And filters that all must be true.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
+            },
+            "type": "array"
+          },
+          "expression": {
+            "description": "Expression used to extract values from the document.",
+            "type": "string"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/elephant.repository.FilterOperator"
+          },
+          "or": {
+            "description": "Or filters of which at least one must be true.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
+            },
+            "type": "array"
+          },
+          "values": {
+            "description": "Values to compare to the extracted values.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.FilterValues"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.DocumentMatch": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
+          },
+          "uuid": {
+            "description": "UUID of the document.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.DocumentMeta": {
         "properties": {
           "acl": {
@@ -615,6 +663,26 @@
         },
         "type": "object"
       },
+      "elephant.repository.FilterOperator": {
+        "enum": [
+          "FILTER_OP_UNKNOWN",
+          "FILTER_OP_ANY",
+          "FILTER_OP_ALL",
+          "FILTER_OP_NONE"
+        ],
+        "type": "string"
+      },
+      "elephant.repository.FilterValues": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetAllActiveSchemasRequest": {
         "properties": {
           "known": {
@@ -892,6 +960,40 @@
           "versions": {
             "items": {
               "$ref": "#/components/schemas/elephant.repository.DocumentVersion"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetMatchingRequest": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
+          },
+          "include_documents": {
+            "description": "IncludeDocuments should be set to true to get the document for each match.",
+            "type": "boolean"
+          },
+          "include_meta": {
+            "description": "IncludeMeta should be set to true to include document meta.",
+            "type": "boolean"
+          },
+          "timespan": {
+            "$ref": "#/components/schemas/elephant.repository.Timespan"
+          },
+          "type": {
+            "description": "Type of the documents to get.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetMatchingResponse": {
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.DocumentMatch"
             },
             "type": "array"
           }
@@ -2555,6 +2657,44 @@
           }
         ],
         "summary": "GetHistory",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetMatching": {
+      "post": {
+        "description": "GetMatching returns documents matching the given criteria.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetMatchingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetMatchingResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetMatching",
         "tags": [
           "Documents"
         ]

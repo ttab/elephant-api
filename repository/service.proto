@@ -64,6 +64,8 @@ service Documents {
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
   // GetAttachments returns download links for the requested attachments.
   rpc GetAttachments(GetAttachmentsRequest) returns (GetAttachmentsResponse);
+  // GetMatching returns documents matching the given criteria.
+  rpc GetMatching(GetMatchingRequest) returns (GetMatchingResponse);
 }
 
 service Schemas {
@@ -1161,4 +1163,56 @@ message GetTypeConfigurationRequest {
 message GetTypeConfigurationResponse {
   // Configuration of the type.
   TypeConfiguration configuration = 1;
+}
+
+message GetMatchingRequest {
+  // Type of the documents to get.
+  string type                      = 1;
+  // Timespan is the inclusive time range to get documents for. Optional, this
+  // is only available for document types with time expressions and/or
+  // deliverables.
+  repository.Timespan timespan     = 2;
+  // Filter to apply to the documents.
+  repository.DocumentFilter filter = 3;
+  // IncludeDocuments should be set to true to get the document for each match.
+  bool include_documents           = 4;
+  // IncludeMeta should be set to true to include document meta.
+  bool include_meta                = 5;
+}
+
+message GetMatchingResponse {
+  repeated DocumentMatch matches = 1;
+}
+
+message DocumentMatch {
+  // UUID of the document.
+  string uuid = 1;
+  // Document for the match.
+  newsdoc.Document document = 2;
+  // Meta information for the match.
+  DocumentMeta     meta = 3;
+}
+
+enum FilterOperator {
+  FILTER_OP_UNKNOWN = 0;
+  FILTER_OP_ANY     = 1;
+  FILTER_OP_ALL     = 2;
+  FILTER_OP_NONE    = 3;
+}
+
+message DocumentFilter {
+  // Expression used to extract values from the document.
+  string expression            = 1;
+  // Operator to use when comparing the provided values to the extracted values.
+  FilterOperator operator      = 2;
+  // Values to compare to the extracted values.
+  repeated FilterValues values = 3;
+  // And filters that all must be true.
+  repeated DocumentFilter and  = 4;
+  // Or filters of which at least one must be true.
+  repeated DocumentFilter or   = 5;
+}
+
+message FilterValues {
+  map<string, string> values = 1;
 }

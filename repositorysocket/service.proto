@@ -17,13 +17,12 @@ message CallGetDocuments {
   bool subscribe   = 2;
   // Type of the documents to get.
   string type      = 3;
-  // FromTime is the inclusive start time range to get documents for.
-  string from_time = 4;
-  // FromTime is the exclusive end of the time range to get documents
-  // for.
-  string to_time   = 5;
+  // Timespan is the inclusive time range to get documents for. Optional, this
+  // is only available for document types with time expressions and/or
+  // deliverables.
+  repository.Timespan timespan     = 4;
   // Filter to apply to the documents.
-  DocumentFilter filter = 6;
+  repository.DocumentFilter filter = 5;
 }
 
 // CallCloseDocumentSet is used to stop recieving updates for a document set.
@@ -60,28 +59,4 @@ message RespDocumentUpdate {
   repository.EventlogItem event = 2;
   // Document is included for document update events.
   newsdoc.Document document     = 3;
-}
-
-enum FilterOperator {
-  FILTER_OP_UNKNOWN = 0;
-  FILTER_OP_ANY     = 1;
-  FILTER_OP_ALL     = 2;
-  FILTER_OP_NONE    = 3;
-}
-
-message DocumentFilter {
-  // Expression used to extract values from the document.
-  string expression            = 1;
-  // Operator to use when comparing the provided values to the extracted values.
-  FilterOperator operator      = 2;
-  // Values to compare to the extracted values.
-  repeated FilterValues values = 3;
-  // And filters that all must be true.
-  repeated DocumentFilter and  = 4;
-  // Or filters of which at least one must be true.
-  repeated DocumentFilter or   = 5;
-}
-
-message FilterValues {
-  map<string, string> values = 1;
 }
