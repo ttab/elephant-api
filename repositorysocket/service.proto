@@ -7,40 +7,84 @@ package elephant.repositorysocket;
 
 option go_package = "github.com/ttab/elephant-api/repositorysocket";
 
+// RespError is used to communicate errors.
+message RespError {
+  // CallID is the ID of the call that this is a response to.
+  string call_id       = 1;
+  // ErrorCode classifying the error.
+  string error_code    = 2;
+  // ErrorMessage describing the error.
+  string error_message = 3;
+}
+
+// RespSuccess is used to communicate that an operation was successful when no
+// further response data is necessary.
+message RespSuccess {
+  // CallID is the ID of the call that this is a response to.
+  string call_id = 1;
+}
+
+// CallAuthenticate is used to authenticate a connection. The socket will be
+// closed if the client fails to reauthenticate before the token expires. The
+// socket will also be closed if the user sub changes between authenticate
+// calls.
+//
+// Responds with RespSuccess if the connection is successfully authenticated.
+message CallAuthenticate {
+  // CallID uniquely identifies this call and will be referenced in the
+  // response.
+  string call_id = 1;
+  string token   = 2;
+}
+
 // CallGetDocuments is used to fetch and optionally subscribe to a set of
 // documents.
+//
+// Responds with a series of RespGetDocumentsBatch followed by
+// RespDocumentUpdate as changes occur.
 message CallGetDocuments {
+  // CallID uniquely identifies this call and will be referenced in the
+  // response.
+  string call_id   = 1;
   // SetName is the name of the document set. Required when subscribing.
-  string set_name  = 1;
+  string set_name  = 2;
   // Subscribe should be set to true to get notified when the document set
   // changes.
-  bool subscribe   = 2;
+  bool subscribe   = 3;
   // Type of the documents to get.
-  string type      = 3;
+  string type      = 4;
   // Timespan is the inclusive time range to get documents for. Optional, this
   // is only available for document types with time expressions and/or
   // deliverables.
-  repository.Timespan timespan     = 4;
+  repository.Timespan timespan     = 5;
   // Filter to apply to the documents.
-  repository.DocumentFilter filter = 5;
+  repository.DocumentFilter filter = 6;
 }
 
 // CallCloseDocumentSet is used to stop recieving updates for a document set.
+//
+// Responds with RespSuccess if the set was closed, or error code 'not_found' if
+// the document set is unknown.
 message CallCloseDocumentSet {
+  // CallID uniquely identifies this call and will be referenced in the
+  // response.
+  string call_id   = 1;
   // SetName is the name of the document set to close.
-  string set_name = 1;
+  string set_name  = 2;
 }
 
 // RespGetDocumentsBatch is emitted in response to a CallGetDocuments
 // message. Multiple batch messages can be emitted for a single get documents
 // call.
 message RespGetDocumentsBatch {
+  // CallID is the ID of the call that this is a response to.
+  string call_id                   = 1;
   // SetName is the name of the set that result is for.
-  string set_name                  = 1;
+  string set_name                  = 2;
   // Documents is a batch of documents that are included in the set.
-  repeated DocumentState documents = 2;
+  repeated DocumentState documents = 3;
   // FinalBatch is set to true for the last batch in the response.
-  bool final_batch                 = 3;
+  bool final_batch                 = 4;
 }
 
 message DocumentState {
@@ -53,10 +97,16 @@ message DocumentState {
 // RespDocumentUpdate is emitted when a write operation has affected a document
 // in a set.
 message RespDocumentUpdate {
+  // CallID is the ID of the call that this is a response to.
+  string call_id                = 1;
   // SetName is the name of the set that result is for.
-  string set_name               = 1;
+  string set_name               = 2;
   // Event is the change event for the document.
-  repository.EventlogItem event = 2;
-  // Document is included for document update events.
-  newsdoc.Document document     = 3;
+  repository.EventlogItem event = 3;
+  // Meta information about the document, only included if the document is newly
+  // added to the document set.
+  repository.DocumentMeta meta  = 4;
+  // Document is included for document update events or if the document is newly
+  // added to the document set.
+  newsdoc.Document document     = 5;
 }
