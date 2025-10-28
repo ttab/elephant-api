@@ -2100,26 +2100,36 @@
         },
         "type": "object"
       },
-      "elephant.repositorysocket.CallAuthenticate": {
-        "description": "CallAuthenticate is used to authenticate a connection. The socket will be closed if the client fails to reauthenticate before the token expires. The socket will also be closed if the user sub changes between authenticate calls.\n Responds with RespSuccess if the connection is successfully authenticated.",
+      "elephant.repositorysocket.Authenticate": {
+        "description": "Authenticate is used to authenticate a connection. The socket will be closed if the client fails to reauthenticate before the token expires. The socket will also be closed if the user sub changes between authenticate calls.\n Responds with RespSuccess if the connection is successfully authenticated.",
         "properties": {
-          "call_id": {
-            "description": "CallID uniquely identifies this call and will be referenced in the response.",
-            "type": "string"
-          },
           "token": {
             "type": "string"
           }
         },
         "type": "object"
       },
-      "elephant.repositorysocket.CallCloseDocumentSet": {
-        "description": "CallCloseDocumentSet is used to stop recieving updates for a document set.\n Responds with RespSuccess if the set was closed, or error code 'not_found' if the document set is unknown.",
+      "elephant.repositorysocket.Call": {
         "properties": {
+          "authenticate": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.Authenticate"
+          },
           "call_id": {
             "description": "CallID uniquely identifies this call and will be referenced in the response.",
             "type": "string"
           },
+          "close_document_set": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.CloseDocumentSet"
+          },
+          "get_documents": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.GetDocuments"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.CloseDocumentSet": {
+        "description": "CloseDocumentSet is used to stop recieving updates for a document set.\n Responds with RespSuccess if the set was closed, or error code 'not_found' if the document set is unknown.",
+        "properties": {
           "set_name": {
             "description": "SetName is the name of the document set to close.",
             "type": "string"
@@ -2127,13 +2137,78 @@
         },
         "type": "object"
       },
-      "elephant.repositorysocket.CallGetDocuments": {
-        "description": "CallGetDocuments is used to fetch and optionally subscribe to a set of documents.\n Responds with a series of RespGetDocumentsBatch followed by RespDocumentUpdate as changes occur.",
+      "elephant.repositorysocket.DocumentBatch": {
+        "description": "DocumentBatch is emitted in response to a CallGetDocuments message. Multiple batch messages can be emitted for a single get documents call.",
+        "properties": {
+          "documents": {
+            "description": "Documents is a batch of documents that are included in the set.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repositorysocket.DocumentState"
+            },
+            "type": "array"
+          },
+          "final_batch": {
+            "description": "FinalBatch is set to true for the last batch in the response.",
+            "type": "boolean"
+          },
+          "set_name": {
+            "description": "SetName is the name of the set that result is for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.DocumentState": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.DocumentUpdate": {
+        "description": "DocumentUpdate is emitted when a write operation has affected a document in a set.",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "event": {
+            "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
+          },
+          "set_name": {
+            "description": "SetName is the name of the set that result is for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.Error": {
+        "description": "Error is used to communicate errors.",
         "properties": {
           "call_id": {
-            "description": "CallID uniquely identifies this call and will be referenced in the response.",
+            "description": "CallID is the ID of the call that this is a response to.",
             "type": "string"
           },
+          "error_code": {
+            "description": "ErrorCode classifying the error.",
+            "type": "string"
+          },
+          "error_message": {
+            "description": "ErrorMessage describing the error.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.GetDocuments": {
+        "description": "GetDocuments is used to fetch and optionally subscribe to a set of documents.\n Responds with a series of RespGetDocumentsBatch followed by RespDocumentUpdate as changes occur.",
+        "properties": {
           "filter": {
             "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
           },
@@ -2155,89 +2230,20 @@
         },
         "type": "object"
       },
-      "elephant.repositorysocket.DocumentState": {
-        "properties": {
-          "document": {
-            "$ref": "#/components/schemas/newsdoc.Document"
-          },
-          "meta": {
-            "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repositorysocket.RespDocumentUpdate": {
-        "description": "RespDocumentUpdate is emitted when a write operation has affected a document in a set.",
+      "elephant.repositorysocket.Response": {
         "properties": {
           "call_id": {
             "description": "CallID is the ID of the call that this is a response to.",
             "type": "string"
           },
-          "document": {
-            "$ref": "#/components/schemas/newsdoc.Document"
+          "document_batch": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.DocumentBatch"
           },
-          "event": {
-            "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+          "document_update": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.DocumentUpdate"
           },
-          "meta": {
-            "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
-          },
-          "set_name": {
-            "description": "SetName is the name of the set that result is for.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repositorysocket.RespError": {
-        "description": "RespError is used to communicate errors.",
-        "properties": {
-          "call_id": {
-            "description": "CallID is the ID of the call that this is a response to.",
-            "type": "string"
-          },
-          "error_code": {
-            "description": "ErrorCode classifying the error.",
-            "type": "string"
-          },
-          "error_message": {
-            "description": "ErrorMessage describing the error.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repositorysocket.RespGetDocumentsBatch": {
-        "description": "RespGetDocumentsBatch is emitted in response to a CallGetDocuments message. Multiple batch messages can be emitted for a single get documents call.",
-        "properties": {
-          "call_id": {
-            "description": "CallID is the ID of the call that this is a response to.",
-            "type": "string"
-          },
-          "documents": {
-            "description": "Documents is a batch of documents that are included in the set.",
-            "items": {
-              "$ref": "#/components/schemas/elephant.repositorysocket.DocumentState"
-            },
-            "type": "array"
-          },
-          "final_batch": {
-            "description": "FinalBatch is set to true for the last batch in the response.",
-            "type": "boolean"
-          },
-          "set_name": {
-            "description": "SetName is the name of the set that result is for.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repositorysocket.RespSuccess": {
-        "description": "RespSuccess is used to communicate that an operation was successful when no further response data is necessary.",
-        "properties": {
-          "call_id": {
-            "description": "CallID is the ID of the call that this is a response to.",
-            "type": "string"
+          "error": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.Error"
           }
         },
         "type": "object"
