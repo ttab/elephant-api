@@ -1159,6 +1159,18 @@
         },
         "type": "object"
       },
+      "elephant.repository.GetSocketTokenRequest": {
+        "type": "object"
+      },
+      "elephant.repository.GetSocketTokenResponse": {
+        "properties": {
+          "token": {
+            "description": "Token that is unique for the calling user that can be used to open websocket API connections.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.GetStatusHistoryReponse": {
         "properties": {
           "statuses": {
@@ -2961,6 +2973,44 @@
           }
         ],
         "summary": "GetPermissions",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/GetSocketToken": {
+      "post": {
+        "description": "GetSocketToken returns a token that can be used to open socket connections.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetSocketTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetSocketTokenResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetSocketToken",
         "tags": [
           "Documents"
         ]

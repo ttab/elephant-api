@@ -66,6 +66,8 @@ service Documents {
   rpc GetAttachments(GetAttachmentsRequest) returns (GetAttachmentsResponse);
   // GetMatching returns documents matching the given criteria.
   rpc GetMatching(GetMatchingRequest) returns (GetMatchingResponse);
+  // GetSocketToken returns a token that can be used to open socket connections.
+  rpc GetSocketToken(GetSocketTokenRequest) returns (GetSocketTokenResponse);
 }
 
 service Schemas {
@@ -1217,4 +1219,12 @@ message DocumentFilter {
 
 message FilterValues {
   map<string, string> values = 1;
+}
+
+message GetSocketTokenRequest {}
+
+message GetSocketTokenResponse {
+  // Token that is unique for the calling user that can be used to open
+  // websocket API connections.
+  string token = 1;
 }
