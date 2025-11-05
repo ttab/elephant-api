@@ -2203,10 +2203,6 @@
       "elephant.repositorysocket.Error": {
         "description": "Error is used to communicate errors.",
         "properties": {
-          "call_id": {
-            "description": "CallID is the ID of the call that this is a response to.",
-            "type": "string"
-          },
           "error_code": {
             "description": "ErrorCode classifying the error.",
             "type": "string"
