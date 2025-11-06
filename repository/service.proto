@@ -1226,5 +1226,7 @@ message GetSocketTokenRequest {}
 message GetSocketTokenResponse {
   // Token that is unique for the calling user that can be used to open
   // websocket API connections.
-  string token = 1;
+  string token   = 1;
+  // Expires is the expiry time of the token as a RFC3339 timestamp.
+  string expires = 2;
 }

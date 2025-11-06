@@ -1164,6 +1164,10 @@
       },
       "elephant.repository.GetSocketTokenResponse": {
         "properties": {
+          "expires": {
+            "description": "Expires is the expiry time of the token as a RFC3339 timestamp.",
+            "type": "string"
+          },
           "token": {
             "description": "Token that is unique for the calling user that can be used to open websocket API connections.",
             "type": "string"
