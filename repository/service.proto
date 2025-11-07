@@ -1170,19 +1170,23 @@ message GetTypeConfigurationResponse {
 
 message GetMatchingRequest {
   // Type of the documents to get.
-  string type                      = 1;
+  string type                        = 1;
   // Timespan is the inclusive time range to get documents for. Optional, this
   // is only available for document types with time expressions and/or
   // deliverables.
-  repository.Timespan timespan     = 2;
+  repository.Timespan timespan       = 2;
   // Labels is a list of labels that the document must have to be included.
-  repeated string labels           = 3;
+  repeated string labels             = 3;
   // Filter to apply to the documents.
-  repository.DocumentFilter filter = 4;
+  repository.DocumentFilter filter   = 4;
   // IncludeDocuments should be set to true to get the document for each match.
-  bool include_documents           = 5;
+  bool include_documents             = 5;
   // IncludeMeta should be set to true to include document meta.
-  bool include_meta                = 6;
+  bool include_meta                  = 6;
+  // IncludeDependents will include documents with an UUID that matches the uuid
+  // of the newdoc extraction expression. Timespans, labels and filters will not
+  // be applied to dependents.
+  repeated string include_dependents = 7;
 }
 
 message GetMatchingResponse {

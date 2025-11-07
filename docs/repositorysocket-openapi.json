@@ -982,6 +982,13 @@
           "filter": {
             "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
           },
+          "include_dependents": {
+            "description": "IncludeDependents will include documents with an UUID that matches the uuid of the newdoc extraction expression. Timespans, labels and filters will not be applied to dependents.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "include_documents": {
             "description": "IncludeDocuments should be set to true to get the document for each match.",
             "type": "boolean"
@@ -2237,6 +2244,20 @@
         "properties": {
           "filter": {
             "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
+          },
+          "include_dependents": {
+            "description": "IncludeDependents will include documents with an UUID that matches the uuid of the newdoc extraction expression. Timespans, labels and filters will not be applied to dependents.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "labels": {
+            "description": "Labels are the labels that the documents must match.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "set_name": {
             "description": "SetName is the name of the document set. Required when subscribing.",
