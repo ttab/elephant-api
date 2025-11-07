@@ -584,6 +584,13 @@
             "description": "Id of the event.",
             "type": "integer"
           },
+          "labels": {
+            "description": "Labels are the labels that were extracted from the last document update.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "language": {
             "description": "Language of the affected document.",
             "type": "string"
@@ -613,7 +620,7 @@
             "type": "string"
           },
           "timespans": {
-            "description": "Timespans are the timespans that were extracted from a document update and from the assignment if this document is a deliverable. Only present for \"document\" and \"workflow\" events.",
+            "description": "Timespans are the timespans that were extracted from the last document update and from the assignment if this document is a deliverable.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.Timespan"
             },
@@ -982,6 +989,13 @@
           "include_meta": {
             "description": "IncludeMeta should be set to true to include document meta.",
             "type": "boolean"
+          },
+          "labels": {
+            "description": "Labels is a list of labels that the document must have to be included.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "timespan": {
             "$ref": "#/components/schemas/elephant.repository.Timespan"
