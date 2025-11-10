@@ -982,8 +982,8 @@
           "filter": {
             "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
           },
-          "include_dependents": {
-            "description": "IncludeDependents will include documents with an UUID that matches the uuid of the newdoc extraction expression. Timespans, labels and filters will not be applied to dependents.",
+          "include": {
+            "description": "Include will include documents with an UUID that matches the uuid of the newdoc extraction expression. Timespans, labels and filters will not be applied to included documents.",
             "items": {
               "type": "string"
             },
@@ -1380,6 +1380,19 @@
             "type": "string"
           },
           "originally_created": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.LabelExpression": {
+        "properties": {
+          "expression": {
+            "description": "Expression is a newsdoc value extraction expression.",
+            "type": "string"
+          },
+          "template": {
+            "description": "Template is the template that turns the extracted values into a label.",
             "type": "string"
           }
         },
@@ -1914,6 +1927,13 @@
             "description": "Set to true if this is a collection of documents that are bounded (limited in size). Bounded collections can be fetched by type and language in one go.",
             "type": "boolean"
           },
+          "label_expressions": {
+            "description": "LabelExpressions are used to extract labels from documents.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.LabelExpression"
+            },
+            "type": "array"
+          },
           "time_expressions": {
             "description": "TimeExpressions are used for extracting time ranges from documents.",
             "items": {
@@ -2245,8 +2265,8 @@
           "filter": {
             "$ref": "#/components/schemas/elephant.repository.DocumentFilter"
           },
-          "include_dependents": {
-            "description": "IncludeDependents will include documents with an UUID that matches the uuid of the newdoc extraction expression. Timespans, labels and filters will not be applied to dependents.",
+          "include": {
+            "description": "Include will include documents with an UUID that matches the uuid of the newdoc extraction expression. Timespans, labels and filters will not be applied to included documents.",
             "items": {
               "type": "string"
             },

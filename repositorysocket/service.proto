@@ -57,15 +57,15 @@ message GetDocuments {
   // Timespan is the inclusive time range to get documents for. Optional, this
   // is only available for document types with time expressions and/or
   // deliverables.
-  repository.Timespan timespan       = 4;
+  repository.Timespan timespan     = 4;
   // Labels are the labels that the documents must match.
-  repeated string labels             = 5;
+  repeated string labels           = 5;
   // Filter to apply to the documents.
-  repository.DocumentFilter filter   = 6;
-  // IncludeDependents will include documents with an UUID that matches the uuid
-  // of the newdoc extraction expression. Timespans, labels and filters will not
-  // be applied to dependents.
-  repeated string include_dependents = 7;
+  repository.DocumentFilter filter = 6;
+  // Include will include documents with an UUID that matches the uuid of the
+  // newdoc extraction expression. Timespans, labels and filters will not be
+  // applied to included documents.
+  repeated string include          = 7;
 }
 
 // CloseDocumentSet is used to stop recieving updates for a document set.

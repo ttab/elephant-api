@@ -1141,6 +1141,8 @@ message TypeConfiguration {
   bool bounded_collection                      = 1;
   // TimeExpressions are used for extracting time ranges from documents.
   repeated TypeTimeExpression time_expressions = 2;
+  // LabelExpressions are used to extract labels from documents.
+  repeated LabelExpression label_expressions   = 3;
 }
 
 message TypeTimeExpression {
@@ -1154,6 +1156,13 @@ message TypeTimeExpression {
   // fall back to the default timezone that the repository has been configured
   // with.
   string timezone   = 3;
+}
+
+message LabelExpression {
+  // Expression is a newsdoc value extraction expression.
+  string expression = 1;
+  // Template is the template that turns the extracted values into a label.
+  string template   = 2;
 }
 
 message ConfigureTypeResponse {}
@@ -1170,23 +1179,23 @@ message GetTypeConfigurationResponse {
 
 message GetMatchingRequest {
   // Type of the documents to get.
-  string type                        = 1;
+  string type              = 1;
   // Timespan is the inclusive time range to get documents for. Optional, this
   // is only available for document types with time expressions and/or
   // deliverables.
-  repository.Timespan timespan       = 2;
+  Timespan timespan        = 2;
   // Labels is a list of labels that the document must have to be included.
-  repeated string labels             = 3;
+  repeated string labels   = 3;
   // Filter to apply to the documents.
-  repository.DocumentFilter filter   = 4;
+  DocumentFilter filter    = 4;
   // IncludeDocuments should be set to true to get the document for each match.
-  bool include_documents             = 5;
+  bool include_documents   = 5;
   // IncludeMeta should be set to true to include document meta.
-  bool include_meta                  = 6;
-  // IncludeDependents will include documents with an UUID that matches the uuid
-  // of the newdoc extraction expression. Timespans, labels and filters will not
-  // be applied to dependents.
-  repeated string include_dependents = 7;
+  bool include_meta        = 6;
+  // Include will include documents with an UUID that matches the uuid of the
+  // newdoc extraction expression. Timespans, labels and filters will not be
+  // applied to included documents.
+  repeated string include  = 7;
 }
 
 message GetMatchingResponse {
