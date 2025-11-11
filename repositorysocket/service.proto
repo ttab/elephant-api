@@ -23,6 +23,8 @@ message Response {
   Error error                    = 2;
   DocumentBatch document_batch   = 3;
   DocumentUpdate document_update = 4;
+  InclusionBatch inclusion_batch = 5;
+  DocumentRemoved removed        = 6;
 }
 
 // Error is used to communicate errors.
@@ -108,4 +110,19 @@ message DocumentUpdate {
   // Document is included for document update events or if the document is newly
   // added to the document set.
   newsdoc.Document document     = 4;
+}
+
+// DocumentRemoved is emitted when a document is removed from the set.
+message DocumentRemoved {
+  string set_name      = 1;
+  string document_uuid = 2;
+}
+
+// InclusionBatch is emitted when documents are first included by documents in
+// the set.
+message InclusionBatch {
+  // SetName is the name of the set that result is for.
+  string set_name                  = 1;
+  // Documents is a batch of documents that are included in the set.
+  repeated DocumentState documents = 2;
 }

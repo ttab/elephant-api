@@ -2215,6 +2215,18 @@
         },
         "type": "object"
       },
+      "elephant.repositorysocket.DocumentRemoved": {
+        "description": "DocumentRemoved is emitted when a document is removed from the set.",
+        "properties": {
+          "document_uuid": {
+            "type": "string"
+          },
+          "set_name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repositorysocket.DocumentState": {
         "properties": {
           "document": {
@@ -2297,6 +2309,23 @@
         },
         "type": "object"
       },
+      "elephant.repositorysocket.InclusionBatch": {
+        "description": "InclusionBatch is emitted when documents are first included by documents in the set.",
+        "properties": {
+          "documents": {
+            "description": "Documents is a batch of documents that are included in the set.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repositorysocket.DocumentState"
+            },
+            "type": "array"
+          },
+          "set_name": {
+            "description": "SetName is the name of the set that result is for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repositorysocket.Response": {
         "properties": {
           "call_id": {
@@ -2311,6 +2340,12 @@
           },
           "error": {
             "$ref": "#/components/schemas/elephant.repositorysocket.Error"
+          },
+          "inclusion_batch": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.InclusionBatch"
+          },
+          "removed": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.DocumentRemoved"
           }
         },
         "type": "object"
