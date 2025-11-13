@@ -2295,10 +2295,6 @@
             "description": "SetName is the name of the document set. Required when subscribing.",
             "type": "string"
           },
-          "subscribe": {
-            "description": "Subscribe should be set to true to get notified when the document set changes.",
-            "type": "boolean"
-          },
           "timespan": {
             "$ref": "#/components/schemas/elephant.repository.Timespan"
           },

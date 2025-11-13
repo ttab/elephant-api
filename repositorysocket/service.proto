@@ -51,23 +51,20 @@ message Authenticate {
 message GetDocuments {
   // SetName is the name of the document set. Required when subscribing.
   string set_name  = 1;
-  // Subscribe should be set to true to get notified when the document set
-  // changes.
-  bool subscribe   = 2;
   // Type of the documents to get.
-  string type      = 3;
+  string type      = 2;
   // Timespan is the inclusive time range to get documents for. Optional, this
   // is only available for document types with time expressions and/or
   // deliverables.
-  repository.Timespan timespan     = 4;
+  repository.Timespan timespan     = 3;
   // Labels are the labels that the documents must match.
-  repeated string labels           = 5;
+  repeated string labels           = 4;
   // Filter to apply to the documents.
-  repository.DocumentFilter filter = 6;
+  repository.DocumentFilter filter = 5;
   // Include will include documents with an UUID that matches the uuid of the
   // newdoc extraction expression. Timespans, labels and filters will not be
   // applied to included documents.
-  repeated string include          = 7;
+  repeated string include          = 6;
 }
 
 // CloseDocumentSet is used to stop recieving updates for a document set.
