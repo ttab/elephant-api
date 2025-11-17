@@ -65,6 +65,9 @@ message GetDocuments {
   // newdoc extraction expression. Timespans, labels and filters will not be
   // applied to included documents.
   repeated string include          = 6;
+  // IncludeACLs should be set to true to include ACL update events in the
+  // stream of updates.
+  bool include_acls = 7;
 }
 
 // CloseDocumentSet is used to stop recieving updates for a document set.

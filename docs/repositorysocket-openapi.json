@@ -2288,6 +2288,10 @@
             },
             "type": "array"
           },
+          "include_acls": {
+            "description": "IncludeACLs should be set to true to include ACL update events in the stream of updates.",
+            "type": "boolean"
+          },
           "labels": {
             "description": "Labels are the labels that the documents must match.",
             "items": {
