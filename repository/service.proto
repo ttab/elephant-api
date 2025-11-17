@@ -772,6 +772,8 @@ message DocumentMeta {
   // Nonce is the unique nonce for this document. If the document is deleted and
   // recreated with the same ID it will still have a unique nonce.
   string nonce                       = 14;
+  // Type is the type of the document.
+  string type                        = 15;
 }
 
 message AttachmentRef {

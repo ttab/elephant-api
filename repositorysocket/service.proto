@@ -127,6 +127,5 @@ message InclusionBatch {
 // InclusionDocument is a document that was referenced by a document in the set.
 message InclusionDocument {
   string uuid         = 1;
-  string type         = 2;
-  DocumentState state = 3;
+  DocumentState state = 2;
 }

@@ -421,6 +421,10 @@
             "description": "Nonce is the unique nonce for this document. If the document is deleted and recreated with the same ID it will still have a unique nonce.",
             "type": "string"
           },
+          "type": {
+            "description": "Type is the type of the document.",
+            "type": "string"
+          },
           "updater_uri": {
             "description": "UpdaterURI is the identity of the party that last updated the document.",
             "type": "string"
