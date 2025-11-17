@@ -2311,12 +2311,27 @@
           "documents": {
             "description": "Documents is a batch of documents that are included in the set.",
             "items": {
-              "$ref": "#/components/schemas/elephant.repositorysocket.DocumentState"
+              "$ref": "#/components/schemas/elephant.repositorysocket.InclusionDocument"
             },
             "type": "array"
           },
           "set_name": {
             "description": "SetName is the name of the set that result is for.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.InclusionDocument": {
+        "description": "InclusionDocument is a document that was referenced by a document in the set.",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.DocumentState"
+          },
+          "type": {
+            "type": "string"
+          },
+          "uuid": {
             "type": "string"
           }
         },

@@ -119,7 +119,14 @@ message DocumentRemoved {
 // the set.
 message InclusionBatch {
   // SetName is the name of the set that result is for.
-  string set_name                  = 1;
+  string set_name = 1;
   // Documents is a batch of documents that are included in the set.
-  repeated DocumentState documents = 2;
+  repeated InclusionDocument documents = 2;
+}
+
+// InclusionDocument is a document that was referenced by a document in the set.
+message InclusionDocument {
+  string uuid         = 1;
+  string type         = 2;
+  DocumentState state = 3;
 }

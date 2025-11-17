@@ -684,7 +684,7 @@ type InclusionBatch struct {
 	// SetName is the name of the set that result is for.
 	SetName string `protobuf:"bytes,1,opt,name=set_name,json=setName,proto3" json:"set_name,omitempty"`
 	// Documents is a batch of documents that are included in the set.
-	Documents     []*DocumentState `protobuf:"bytes,2,rep,name=documents,proto3" json:"documents,omitempty"`
+	Documents     []*InclusionDocument `protobuf:"bytes,2,rep,name=documents,proto3" json:"documents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -726,9 +726,70 @@ func (x *InclusionBatch) GetSetName() string {
 	return ""
 }
 
-func (x *InclusionBatch) GetDocuments() []*DocumentState {
+func (x *InclusionBatch) GetDocuments() []*InclusionDocument {
 	if x != nil {
 		return x.Documents
+	}
+	return nil
+}
+
+// InclusionDocument is a document that was referenced by a document in the set.
+type InclusionDocument struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Uuid          string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	State         *DocumentState         `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InclusionDocument) Reset() {
+	*x = InclusionDocument{}
+	mi := &file_repositorysocket_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InclusionDocument) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InclusionDocument) ProtoMessage() {}
+
+func (x *InclusionDocument) ProtoReflect() protoreflect.Message {
+	mi := &file_repositorysocket_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InclusionDocument.ProtoReflect.Descriptor instead.
+func (*InclusionDocument) Descriptor() ([]byte, []int) {
+	return file_repositorysocket_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *InclusionDocument) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *InclusionDocument) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *InclusionDocument) GetState() *DocumentState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -845,18 +906,26 @@ var file_repositorysocket_service_proto_rawDesc = []byte{
 	0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x73, 0x65,
 	0x74, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x23, 0x0a, 0x0d, 0x64, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e,
 	0x74, 0x5f, 0x75, 0x75, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x64, 0x6f,
-	0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x55, 0x75, 0x69, 0x64, 0x22, 0x73, 0x0a, 0x0e, 0x49, 0x6e,
+	0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x55, 0x75, 0x69, 0x64, 0x22, 0x77, 0x0a, 0x0e, 0x49, 0x6e,
 	0x63, 0x6c, 0x75, 0x73, 0x69, 0x6f, 0x6e, 0x42, 0x61, 0x74, 0x63, 0x68, 0x12, 0x19, 0x0a, 0x08,
 	0x73, 0x65, 0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07,
-	0x73, 0x65, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x46, 0x0a, 0x09, 0x64, 0x6f, 0x63, 0x75, 0x6d,
-	0x65, 0x6e, 0x74, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x28, 0x2e, 0x65, 0x6c, 0x65,
+	0x73, 0x65, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x4a, 0x0a, 0x09, 0x64, 0x6f, 0x63, 0x75, 0x6d,
+	0x65, 0x6e, 0x74, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2c, 0x2e, 0x65, 0x6c, 0x65,
 	0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79,
-	0x73, 0x6f, 0x63, 0x6b, 0x65, 0x74, 0x2e, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x53,
-	0x74, 0x61, 0x74, 0x65, 0x52, 0x09, 0x64, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x42,
-	0x2f, 0x5a, 0x2d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x74, 0x74,
-	0x61, 0x62, 0x2f, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2d, 0x61, 0x70, 0x69, 0x2f,
-	0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x73, 0x6f, 0x63, 0x6b, 0x65, 0x74,
-	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x73, 0x6f, 0x63, 0x6b, 0x65, 0x74, 0x2e, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x73, 0x69, 0x6f, 0x6e,
+	0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x09, 0x64, 0x6f, 0x63, 0x75, 0x6d, 0x65,
+	0x6e, 0x74, 0x73, 0x22, 0x7b, 0x0a, 0x11, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x73, 0x69, 0x6f, 0x6e,
+	0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x75, 0x75, 0x69, 0x64,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x75, 0x75, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04,
+	0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65,
+	0x12, 0x3e, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x28, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6f, 0x73,
+	0x69, 0x74, 0x6f, 0x72, 0x79, 0x73, 0x6f, 0x63, 0x6b, 0x65, 0x74, 0x2e, 0x44, 0x6f, 0x63, 0x75,
+	0x6d, 0x65, 0x6e, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65,
+	0x42, 0x2f, 0x5a, 0x2d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x74,
+	0x74, 0x61, 0x62, 0x2f, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2d, 0x61, 0x70, 0x69,
+	0x2f, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x73, 0x6f, 0x63, 0x6b, 0x65,
+	0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -871,7 +940,7 @@ func file_repositorysocket_service_proto_rawDescGZIP() []byte {
 	return file_repositorysocket_service_proto_rawDescData
 }
 
-var file_repositorysocket_service_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_repositorysocket_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_repositorysocket_service_proto_goTypes = []any{
 	(*Call)(nil),                      // 0: elephant.repositorysocket.Call
 	(*Response)(nil),                  // 1: elephant.repositorysocket.Response
@@ -884,11 +953,12 @@ var file_repositorysocket_service_proto_goTypes = []any{
 	(*DocumentUpdate)(nil),            // 8: elephant.repositorysocket.DocumentUpdate
 	(*DocumentRemoved)(nil),           // 9: elephant.repositorysocket.DocumentRemoved
 	(*InclusionBatch)(nil),            // 10: elephant.repositorysocket.InclusionBatch
-	(*repository.Timespan)(nil),       // 11: elephant.repository.Timespan
-	(*repository.DocumentFilter)(nil), // 12: elephant.repository.DocumentFilter
-	(*repository.DocumentMeta)(nil),   // 13: elephant.repository.DocumentMeta
-	(*newsdoc.Document)(nil),          // 14: newsdoc.Document
-	(*repository.EventlogItem)(nil),   // 15: elephant.repository.EventlogItem
+	(*InclusionDocument)(nil),         // 11: elephant.repositorysocket.InclusionDocument
+	(*repository.Timespan)(nil),       // 12: elephant.repository.Timespan
+	(*repository.DocumentFilter)(nil), // 13: elephant.repository.DocumentFilter
+	(*repository.DocumentMeta)(nil),   // 14: elephant.repository.DocumentMeta
+	(*newsdoc.Document)(nil),          // 15: newsdoc.Document
+	(*repository.EventlogItem)(nil),   // 16: elephant.repository.EventlogItem
 }
 var file_repositorysocket_service_proto_depIdxs = []int32{
 	3,  // 0: elephant.repositorysocket.Call.authenticate:type_name -> elephant.repositorysocket.Authenticate
@@ -899,20 +969,21 @@ var file_repositorysocket_service_proto_depIdxs = []int32{
 	8,  // 5: elephant.repositorysocket.Response.document_update:type_name -> elephant.repositorysocket.DocumentUpdate
 	10, // 6: elephant.repositorysocket.Response.inclusion_batch:type_name -> elephant.repositorysocket.InclusionBatch
 	9,  // 7: elephant.repositorysocket.Response.removed:type_name -> elephant.repositorysocket.DocumentRemoved
-	11, // 8: elephant.repositorysocket.GetDocuments.timespan:type_name -> elephant.repository.Timespan
-	12, // 9: elephant.repositorysocket.GetDocuments.filter:type_name -> elephant.repository.DocumentFilter
+	12, // 8: elephant.repositorysocket.GetDocuments.timespan:type_name -> elephant.repository.Timespan
+	13, // 9: elephant.repositorysocket.GetDocuments.filter:type_name -> elephant.repository.DocumentFilter
 	7,  // 10: elephant.repositorysocket.DocumentBatch.documents:type_name -> elephant.repositorysocket.DocumentState
-	13, // 11: elephant.repositorysocket.DocumentState.meta:type_name -> elephant.repository.DocumentMeta
-	14, // 12: elephant.repositorysocket.DocumentState.document:type_name -> newsdoc.Document
-	15, // 13: elephant.repositorysocket.DocumentUpdate.event:type_name -> elephant.repository.EventlogItem
-	13, // 14: elephant.repositorysocket.DocumentUpdate.meta:type_name -> elephant.repository.DocumentMeta
-	14, // 15: elephant.repositorysocket.DocumentUpdate.document:type_name -> newsdoc.Document
-	7,  // 16: elephant.repositorysocket.InclusionBatch.documents:type_name -> elephant.repositorysocket.DocumentState
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	14, // 11: elephant.repositorysocket.DocumentState.meta:type_name -> elephant.repository.DocumentMeta
+	15, // 12: elephant.repositorysocket.DocumentState.document:type_name -> newsdoc.Document
+	16, // 13: elephant.repositorysocket.DocumentUpdate.event:type_name -> elephant.repository.EventlogItem
+	14, // 14: elephant.repositorysocket.DocumentUpdate.meta:type_name -> elephant.repository.DocumentMeta
+	15, // 15: elephant.repositorysocket.DocumentUpdate.document:type_name -> newsdoc.Document
+	11, // 16: elephant.repositorysocket.InclusionBatch.documents:type_name -> elephant.repositorysocket.InclusionDocument
+	7,  // 17: elephant.repositorysocket.InclusionDocument.state:type_name -> elephant.repositorysocket.DocumentState
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_repositorysocket_service_proto_init() }
@@ -926,7 +997,7 @@ func file_repositorysocket_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_repositorysocket_service_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
