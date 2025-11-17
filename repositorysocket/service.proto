@@ -25,6 +25,8 @@ message Response {
   DocumentUpdate document_update = 4;
   InclusionBatch inclusion_batch = 5;
   DocumentRemoved removed        = 6;
+  // Handled is true when the call has been completely handled without errors.
+  bool handled                   = 7;
 }
 
 // Error is used to communicate errors.

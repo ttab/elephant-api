@@ -2357,6 +2357,10 @@
           "error": {
             "$ref": "#/components/schemas/elephant.repositorysocket.Error"
           },
+          "handled": {
+            "description": "Handled is true when the call has been completely handled without errors.",
+            "type": "boolean"
+          },
           "inclusion_batch": {
             "$ref": "#/components/schemas/elephant.repositorysocket.InclusionBatch"
           },
