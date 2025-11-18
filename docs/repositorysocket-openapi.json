@@ -2251,6 +2251,10 @@
           "event": {
             "$ref": "#/components/schemas/elephant.repository.EventlogItem"
           },
+          "included": {
+            "description": "Included is true if the update is for a document that was added through inclusion.",
+            "type": "boolean"
+          },
           "meta": {
             "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
           },

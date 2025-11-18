@@ -112,6 +112,9 @@ message DocumentUpdate {
   // Document is included for document update events or if the document is newly
   // added to the document set.
   newsdoc.Document document     = 4;
+  // Included is true if the update is for a document that was added through
+  // inclusion.
+  bool included                 = 5;
 }
 
 // DocumentRemoved is emitted when a document is removed from the set.
