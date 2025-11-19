@@ -64,6 +64,10 @@ service Documents {
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
   // GetAttachments returns download links for the requested attachments.
   rpc GetAttachments(GetAttachmentsRequest) returns (GetAttachmentsResponse);
+  // GetMatching returns documents matching the given criteria.
+  rpc GetMatching(GetMatchingRequest) returns (GetMatchingResponse);
+  // GetSocketToken returns a token that can be used to open socket connections.
+  rpc GetSocketToken(GetSocketTokenRequest) returns (GetSocketTokenResponse);
 }
 
 service Schemas {
@@ -89,6 +93,10 @@ service Schemas {
   rpc GetMetaTypes(GetMetaTypesRequest) returns (GetMetaTypesResponse);
   // GetDocumentTypes lists the defined document types.
   rpc GetDocumentTypes(GetDocumentTypesRequest) returns (GetDocumentTypesResponse);
+  // ConfigureType configures a document type.
+  rpc ConfigureType(ConfigureTypeRequest) returns (ConfigureTypeResponse);
+  // GetTypeConfiguration returns the current configuration for a type.
+  rpc GetTypeConfiguration(GetTypeConfigurationRequest) returns (GetTypeConfigurationResponse);
 }
 
 service Workflows {
@@ -255,7 +263,7 @@ message EventlogItem {
   // Id of the event.
   int64 id              = 1;
   // Event type, one of: "document", "status", "acl", "delete_document",
-  // "restore_finished".
+  // "restore_finished", "workflow".
   string event          = 2;
   // Uuid of the document that was affected.
   string uuid           = 3;
@@ -298,9 +306,19 @@ message EventlogItem {
   repeated string detached_objects = 19;
   // DeleteRecordId is the ID of the delete record if this was a delete event.
   int64 delete_record_id           = 20;
-  // DocumentNonce is the unique nonce for this document. If the document is deleted and
-  // recreated with the same ID it will still have a unique nonce.
+  // DocumentNonce is the unique nonce for this document. If the document is
+  // deleted and recreated with the same ID it will still have a unique nonce.
   string document_nonce            = 21;
+  // Timespans are the timespans that were extracted from the last document
+  // update and from the assignment if this document is a deliverable.
+  repeated Timespan timespans      = 22;
+  // Labels are the labels that were extracted from the last document update.
+  repeated string labels           = 23;
+}
+
+message Timespan {
+  string from = 1;
+  string to   = 2;
 }
 
 message GetStatusRulesRequest {}
@@ -754,6 +772,8 @@ message DocumentMeta {
   // Nonce is the unique nonce for this document. If the document is deleted and
   // recreated with the same ID it will still have a unique nonce.
   string nonce                       = 14;
+  // Type is the type of the document.
+  string type                        = 15;
 }
 
 message AttachmentRef {
@@ -1107,4 +1127,124 @@ message AttachmentDetails {
   string filename      = 5;
   // ContentType is the MIME type of the object.
   string content_type  = 6;
+}
+
+message ConfigureTypeRequest {
+  // Type to configure.
+  string type                     = 1;
+  // Configuration for the type.
+  TypeConfiguration configuration = 2;
+}
+
+message TypeConfiguration {
+  // Set to true if this is a collection of documents that are bounded (limited
+  // in size). Bounded collections can be fetched by type and language in one
+  // go.
+  bool bounded_collection                      = 1;
+  // TimeExpressions are used for extracting time ranges from documents.
+  repeated TypeTimeExpression time_expressions = 2;
+  // LabelExpressions are used to extract labels from documents.
+  repeated LabelExpression label_expressions   = 3;
+}
+
+message TypeTimeExpression {
+  // Expression is a newsdoc value extraction expression.
+  string expression = 1;
+  // Layout is the time/date format to use when parsing. Optional, defaults to
+  // RFC3339 or ISO 8601 for values annotated as dates.
+  string layout     = 2;
+  // Timezone is the timezone the time should be parsed in. Optional, most
+  // timestamps should include timezone information, if they don't, parsing will
+  // fall back to the default timezone that the repository has been configured
+  // with.
+  string timezone   = 3;
+}
+
+message LabelExpression {
+  // Expression is a newsdoc value extraction expression.
+  string expression = 1;
+  // Template is the template that turns the extracted values into a label.
+  string template   = 2;
+}
+
+message ConfigureTypeResponse {}
+
+message GetTypeConfigurationRequest {
+  // Type to get configuration for.
+  string type = 1;
+}
+
+message GetTypeConfigurationResponse {
+  // Configuration of the type.
+  TypeConfiguration configuration = 1;
+}
+
+message GetMatchingRequest {
+  // Type of the documents to get.
+  string type              = 1;
+  // Timespan is the inclusive time range to get documents for. Optional, this
+  // is only available for document types with time expressions and/or
+  // deliverables.
+  Timespan timespan        = 2;
+  // Labels is a list of labels that the document must have to be included.
+  repeated string labels   = 3;
+  // Filter to apply to the documents.
+  DocumentFilter filter    = 4;
+  // IncludeDocuments should be set to true to get the document for each match.
+  bool include_documents   = 5;
+  // IncludeMeta should be set to true to include document meta.
+  bool include_meta        = 6;
+  // Include will include documents with an UUID that matches the uuid of the
+  // newdoc extraction expression. Timespans, labels and filters will not be
+  // applied to included documents.
+  repeated string include  = 7;
+}
+
+message GetMatchingResponse {
+  repeated DocumentMatch matches = 1;
+}
+
+message DocumentMatch {
+  // UUID of the document.
+  string uuid               = 1;
+  // Version of the document.
+  int64 version             = 2;
+  // Document for the match.
+  newsdoc.Document document = 3;
+  // Meta information for the match.
+  DocumentMeta     meta     = 4;
+}
+
+enum FilterOperator {
+  FILTER_OP_UNKNOWN = 0;
+  FILTER_OP_ANY     = 1;
+  FILTER_OP_ALL     = 2;
+  FILTER_OP_NONE    = 3;
+}
+
+message DocumentFilter {
+  // Expression used to extract values from the document.
+  string expression            = 1;
+  // Operator to use when comparing the provided values to the extracted values.
+  FilterOperator operator      = 2;
+  // Values to compare to the extracted values.
+  repeated FilterValues values = 3;
+  // And filters that all must be true.
+  repeated DocumentFilter and  = 4;
+  // Or filters of which at least one must be true.
+  repeated DocumentFilter or   = 5;
+}
+
+message FilterValues {
+  map<string, string> values = 1;
+}
+
+message GetSocketTokenRequest {}
+
+message GetSocketTokenResponse {
+  // Token that is unique for the calling user that can be used to open
+  // websocket API connections.
+  string token   = 1;
+  // Expires is the expiry time of the token as a RFC3339 timestamp.
+  string expires = 2;
 }

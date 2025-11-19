@@ -1,0 +1,139 @@
+syntax = "proto3";
+
+import "newsdoc/newsdoc.proto";
+import "repository/service.proto";
+
+package elephant.repositorysocket;
+
+option go_package = "github.com/ttab/elephant-api/repositorysocket";
+
+message Call {
+  // CallID uniquely identifies this call and will be referenced in the
+  // response.
+  string call_id                      = 1;
+  Authenticate authenticate           = 2;
+  GetDocuments get_documents          = 3;
+  CloseDocumentSet close_document_set = 4;
+}
+
+message Response {
+  // CallID is the ID of the call that this is a response to.
+  string call_id                 = 1;
+  // Error is set if the call failed.
+  Error error                    = 2;
+  DocumentBatch document_batch   = 3;
+  DocumentUpdate document_update = 4;
+  InclusionBatch inclusion_batch = 5;
+  DocumentRemoved removed        = 6;
+  // Handled is true when the call has been completely handled without errors.
+  bool handled                   = 7;
+}
+
+// Error is used to communicate errors.
+message Error {
+  // ErrorCode classifying the error.
+  string error_code    = 1;
+  // ErrorMessage describing the error.
+  string error_message = 2;
+}
+
+// Authenticate is used to authenticate a connection. The socket will be closed
+// if the client fails to reauthenticate before the token expires. The socket
+// will also be closed if the user sub changes between authenticate calls.
+//
+// Responds with RespSuccess if the connection is successfully authenticated.
+message Authenticate {
+  string token   = 1;
+}
+
+// GetDocuments is used to fetch and optionally subscribe to a set of documents.
+//
+// Responds with a series of RespGetDocumentsBatch followed by
+// RespDocumentUpdate as changes occur.
+message GetDocuments {
+  // SetName is the name of the document set. Required when subscribing.
+  string set_name  = 1;
+  // Type of the documents to get.
+  string type      = 2;
+  // Timespan is the inclusive time range to get documents for. Optional, this
+  // is only available for document types with time expressions and/or
+  // deliverables.
+  repository.Timespan timespan     = 3;
+  // Labels are the labels that the documents must match.
+  repeated string labels           = 4;
+  // Filter to apply to the documents.
+  repository.DocumentFilter filter = 5;
+  // Include will include documents with an UUID that matches the uuid of the
+  // newdoc extraction expression. Timespans, labels and filters will not be
+  // applied to included documents.
+  repeated string include          = 6;
+  // IncludeACLs should be set to true to include ACL update events in the
+  // stream of updates.
+  bool include_acls = 7;
+}
+
+// CloseDocumentSet is used to stop recieving updates for a document set.
+//
+// Responds with RespSuccess if the set was closed, or error code 'not_found' if
+// the document set is unknown.
+message CloseDocumentSet {
+  // SetName is the name of the document set to close.
+  string set_name  = 1;
+}
+
+// DocumentBatch is emitted in response to a CallGetDocuments message. Multiple
+// batch messages can be emitted for a single get documents call.
+message DocumentBatch {
+  // SetName is the name of the set that result is for.
+  string set_name                  = 1;
+  // Documents is a batch of documents that are included in the set.
+  repeated DocumentState documents = 2;
+  // FinalBatch is set to true for the last batch in the response.
+  bool final_batch                 = 3;
+}
+
+message DocumentState {
+  // Meta information about the document.
+  repository.DocumentMeta meta = 1;
+  // Document is the document itself.
+  newsdoc.Document document    = 2;
+}
+
+// DocumentUpdate is emitted when a write operation has affected a document in a
+// set.
+message DocumentUpdate {
+  // SetName is the name of the set that result is for.
+  string set_name               = 1;
+  // Event is the change event for the document.
+  repository.EventlogItem event = 2;
+  // Meta information about the document, only included if the document is newly
+  // added to the document set.
+  repository.DocumentMeta meta  = 3;
+  // Document is included for document update events or if the document is newly
+  // added to the document set.
+  newsdoc.Document document     = 4;
+  // Included is true if the update is for a document that was added through
+  // inclusion.
+  bool included                 = 5;
+}
+
+// DocumentRemoved is emitted when a document is removed from the set.
+message DocumentRemoved {
+  string set_name      = 1;
+  string document_uuid = 2;
+}
+
+// InclusionBatch is emitted when documents are first included by documents in
+// the set.
+message InclusionBatch {
+  // SetName is the name of the set that result is for.
+  string set_name = 1;
+  // Documents is a batch of documents that are included in the set.
+  repeated InclusionDocument documents = 2;
+}
+
+// InclusionDocument is a document that was referenced by a document in the set.
+message InclusionDocument {
+  string uuid         = 1;
+  DocumentState state = 2;
+}
