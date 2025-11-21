@@ -58,6 +58,10 @@
           "iam": {
             "description": "IAM authentication.",
             "type": "boolean"
+          },
+          "userame": {
+            "description": "Username.",
+            "type": "string"
           }
         },
         "type": "object"
@@ -618,6 +622,14 @@
           "iam": {
             "description": "IAM authentication.",
             "type": "boolean"
+          },
+          "password": {
+            "description": "Password.",
+            "type": "string"
+          },
+          "username": {
+            "description": "Username.",
+            "type": "string"
           }
         },
         "type": "object"
@@ -940,7 +952,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.19.0"
+    "version": "v0.19.1"
   },
   "openapi": "3.0.0",
   "paths": {

@@ -48,7 +48,11 @@ message RegisterClusterRequest {
 
 message RegisterClusterAuth {
   // IAM authentication.
-  bool iam = 1;
+  bool iam        = 1;
+  // Username.
+  string username = 2;
+  // Password.
+  string password = 3;
 }
 
 message RegisterClusterResponse {}
@@ -82,7 +86,9 @@ message Cluster {
 
 message ClusterAuth {
   // IAM authentication.
-  bool iam = 1;
+  bool iam       = 1;
+  // Username.
+  string userame = 2;
 }
 
 message DeleteClusterRequest {
