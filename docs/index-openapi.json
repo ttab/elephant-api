@@ -59,7 +59,7 @@
             "description": "IAM authentication.",
             "type": "boolean"
           },
-          "userame": {
+          "username": {
             "description": "Username.",
             "type": "string"
           }
@@ -952,7 +952,7 @@
   },
   "info": {
     "title": "index API",
-    "version": "v0.19.1"
+    "version": "v0.19.2"
   },
   "openapi": "3.0.0",
   "paths": {

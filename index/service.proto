@@ -86,9 +86,9 @@ message Cluster {
 
 message ClusterAuth {
   // IAM authentication.
-  bool iam       = 1;
+  bool iam        = 1;
   // Username.
-  string userame = 2;
+  string username = 2;
 }
 
 message DeleteClusterRequest {
