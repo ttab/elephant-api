@@ -48,11 +48,15 @@ message RegisterClusterRequest {
 
 message RegisterClusterAuth {
   // IAM authentication.
-  bool iam        = 1;
+  bool iam          = 1;
   // Username.
-  string username = 2;
+  string username   = 2;
   // Password.
-  string password = 3;
+  string password   = 3;
+  // InsecureTLS sets insecure skip verify for the cluster client, optional.
+  bool insecure_tls = 4;
+  // CACert can be set to provide a PEM encoded CA certificate to trust.
+  string ca_cert    = 5;
 }
 
 message RegisterClusterResponse {}

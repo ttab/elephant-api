@@ -619,8 +619,16 @@
       },
       "elephant.index.RegisterClusterAuth": {
         "properties": {
+          "ca_cert": {
+            "description": "CACert can be set to provide a PEM encoded CA certificate to trust.",
+            "type": "string"
+          },
           "iam": {
             "description": "IAM authentication.",
+            "type": "boolean"
+          },
+          "insecure_tls": {
+            "description": "InsecureTLS sets insecure skip verify for the cluster client, optional.",
             "type": "boolean"
           },
           "password": {
