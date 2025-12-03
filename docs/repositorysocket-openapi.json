@@ -661,6 +661,30 @@
         },
         "type": "object"
       },
+      "elephant.repository.EvictRequest": {
+        "properties": {
+          "all_versions": {
+            "description": "AllVersions can be set to true to evict all versions of the document, optional.",
+            "type": "boolean"
+          },
+          "until_version": {
+            "description": "UntilVersion can be set to evict all versions up to (inclusive) the specified version, optional.",
+            "type": "integer"
+          },
+          "uuid": {
+            "description": "UUID of the document to evict versions of.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version can be set to a specific version to evict, optional.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.EvictResponse": {
+        "type": "object"
+      },
       "elephant.repository.ExtendLockRequest": {
         "properties": {
           "token": {
@@ -2745,6 +2769,44 @@
           }
         ],
         "summary": "Eventlog",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/Evict": {
+      "post": {
+        "description": "Evict removes stored document versions from the main database. The evicted data will be restored from the archive if requested again by clients.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.EvictRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.EvictResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Evict",
         "tags": [
           "Documents"
         ]
