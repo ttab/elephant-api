@@ -21,7 +21,8 @@ service Documents {
   // repository.
   rpc Validate(ValidateRequest) returns (ValidateResponse);
   // Evict removes stored document versions from the main database. The evicted
-  // data will be restored from the archive if requested again by clients.
+  // data will be restored from the archive if requested again by clients. It's
+  // not allowed to evict the current version of a document.
   rpc Evict(EvictRequest) returns (EvictResponse);
   // Delete deletes a document and all its associated data.
   rpc Delete(DeleteDocumentRequest) returns (DeleteDocumentResponse);
@@ -141,15 +142,16 @@ message EvictRequest {
   // Version can be set to a specific version to evict, optional.
   int64 version       = 2;
   // UntilVersion can be set to evict all versions up to (inclusive) the
-  // specified version, optional.
+  // specified version, optional. A negative value will be interpreted as
+  // relative to the current version, set to -1 to evict all non-current
+  // versions.
   int64 until_version = 3;
-  // AllVersions can be set to true to evict all versions of the document,
-  // optional.
-  bool all_versions   = 4;
 }
 
-message EvictResponse {}
-
+message EvictResponse {
+  // EvictCount is the number of versions that were evicted.
+  int64 evict_count = 1;
+}
 
 message GetStatusRequest {
   // UUID of the document to get the status history for.

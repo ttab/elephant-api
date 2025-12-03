@@ -663,12 +663,8 @@
       },
       "elephant.repository.EvictRequest": {
         "properties": {
-          "all_versions": {
-            "description": "AllVersions can be set to true to evict all versions of the document, optional.",
-            "type": "boolean"
-          },
           "until_version": {
-            "description": "UntilVersion can be set to evict all versions up to (inclusive) the specified version, optional.",
+            "description": "UntilVersion can be set to evict all versions up to (inclusive) the specified version, optional. A negative value will be interpreted as relative to the current version, set to -1 to evict all non-current versions.",
             "type": "integer"
           },
           "uuid": {
@@ -683,6 +679,12 @@
         "type": "object"
       },
       "elephant.repository.EvictResponse": {
+        "properties": {
+          "evict_count": {
+            "description": "EvictCount is the number of versions that were evicted.",
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "elephant.repository.ExtendLockRequest": {
@@ -2563,7 +2565,7 @@
     },
     "/twirp/elephant.repository.Documents/Evict": {
       "post": {
-        "description": "Evict removes stored document versions from the main database. The evicted data will be restored from the archive if requested again by clients.",
+        "description": "Evict removes stored document versions from the main database. The evicted data will be restored from the archive if requested again by clients. It's not allowed to evict the current version of a document.",
         "requestBody": {
           "content": {
             "application/json": {
