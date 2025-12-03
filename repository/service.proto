@@ -1166,6 +1166,10 @@ message TypeConfiguration {
   repeated TypeTimeExpression time_expressions = 2;
   // LabelExpressions are used to extract labels from documents.
   repeated LabelExpression label_expressions   = 3;
+  // ExpireNonCurrentAfter can be set to evict non-current versions of a
+  // document from the database after they're older than the given number of
+  // days. Optional.
+  int64 expire_noncurrent_after                = 4;
 }
 
 message TypeTimeExpression {
