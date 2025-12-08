@@ -1957,8 +1957,8 @@
             "description": "Set to true if this is a collection of documents that are bounded (limited in size). Bounded collections can be fetched by type and language in one go.",
             "type": "boolean"
           },
-          "expire_noncurrent_after": {
-            "description": "ExpireNonCurrentAfter can be set to evict non-current versions of a document from the database after they're older than the given number of days. Optional.",
+          "evict_noncurrent_after": {
+            "description": "EvictNonCurrentAfter can be set to evict non-current versions of a document from the database after they're older than the given number of days. Optional.",
             "type": "integer"
           },
           "label_expressions": {
