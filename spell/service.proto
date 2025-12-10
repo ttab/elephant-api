@@ -65,9 +65,14 @@ message MisspelledEntry {
   string text                     = 1;
   // Suggestions for replacements.
   repeated Suggestion suggestions = 2;
-  // Level is the level of the correction, can be either "error" if the word or
-  // phrase is believed to be wrong, or "suggestion" more of a suggestion.
-  string level                    = 3;
+  // Level is the level of the correction.
+  CorrectionLevel level           = 3;
+}
+
+enum CorrectionLevel {
+  LEVEL_UNSPECIFIED = 0;
+  LEVEL_ERROR       = 1;
+  LEVEL_SUGGESTION  = 2;
 }
 
 message SuggestionsRequest {
@@ -111,9 +116,9 @@ message CustomEntry {
   // CommonMistakes when writing the word or phrase. This is used to pre-filter
   // text that is spell-checked.
   repeated string common_mistakes = 5;
-  // Level to use when offering corrections based on this entry. One of "error"
-  // or "suggestion". Optional, defaults to "error".
-  string level                    = 6;
+  // Level to use when offering corrections based on this entry. Optional,
+  // defaults to LEVEL_ERROR.
+  CorrectionLevel level           = 6;
   // Forms is an alternative to the common mistakes -> text pairing and allows
   // the mapping of different forms of the word or phrase to specific
   // replacements.

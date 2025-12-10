@@ -1,6 +1,14 @@
 {
   "components": {
     "schemas": {
+      "elephant.spell.CorrectionLevel": {
+        "enum": [
+          "LEVEL_UNSPECIFIED",
+          "LEVEL_ERROR",
+          "LEVEL_SUGGESTION"
+        ],
+        "type": "string"
+      },
       "elephant.spell.CustomDictionary": {
         "properties": {
           "entry_count": {
@@ -39,8 +47,7 @@
             "type": "string"
           },
           "level": {
-            "description": "Level to use when offering corrections based on this entry. One of \"error\" or \"suggestion\". Optional, defaults to \"error\".",
-            "type": "string"
+            "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
           },
           "status": {
             "description": "Status of the entry, this is used for moderation.",
@@ -159,8 +166,7 @@
       "elephant.spell.MisspelledEntry": {
         "properties": {
           "level": {
-            "description": "Level is the level of the correction, can be either \"error\" if the word or phrase is believed to be wrong, or \"suggestion\" more of a suggestion.",
-            "type": "string"
+            "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
           },
           "suggestions": {
             "description": "Suggestions for replacements.",
