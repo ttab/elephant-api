@@ -76,7 +76,10 @@ enum CorrectionLevel {
 }
 
 message SuggestionsRequest {
-  string text = 1;
+  // Text is the word or phrase to get suggestions for.
+  string text              = 1;
+  // Language to get suggestions in.
+  string language          = 2;
 }
 
 message SuggestionsResponse {

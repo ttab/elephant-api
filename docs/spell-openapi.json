@@ -206,7 +206,12 @@
       },
       "elephant.spell.SuggestionsRequest": {
         "properties": {
+          "language": {
+            "description": "Language to get suggestions in.",
+            "type": "string"
+          },
           "text": {
+            "description": "Text is the word or phrase to get suggestions for.",
             "type": "string"
           }
         },
