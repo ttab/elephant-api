@@ -1,6 +1,14 @@
 {
   "components": {
     "schemas": {
+      "elephant.spell.CorrectionLevel": {
+        "enum": [
+          "LEVEL_UNSPECIFIED",
+          "LEVEL_ERROR",
+          "LEVEL_SUGGESTION"
+        ],
+        "type": "string"
+      },
       "elephant.spell.CustomDictionary": {
         "properties": {
           "entry_count": {
@@ -27,9 +35,19 @@
             "description": "Description of the entry.",
             "type": "string"
           },
+          "forms": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Forms is an alternative to the common mistakes -\u003e text pairing and allows the mapping of different forms of the word or phrase to specific replacements.",
+            "type": "object"
+          },
           "language": {
             "description": "Language the entry is for.",
             "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
           },
           "status": {
             "description": "Status of the entry, this is used for moderation.",
@@ -147,6 +165,9 @@
       },
       "elephant.spell.MisspelledEntry": {
         "properties": {
+          "level": {
+            "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
+          },
           "suggestions": {
             "description": "Suggestions for replacements.",
             "items": {
@@ -183,6 +204,26 @@
         },
         "type": "object"
       },
+      "elephant.spell.SuggestionsRequest": {
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SuggestionsResponse": {
+        "properties": {
+          "suggestions": {
+            "description": "Suggestions for replacements.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.Suggestion"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.spell.SupportedLanguagesRequest": {
         "type": "object"
       },
@@ -203,6 +244,10 @@
           "language": {
             "description": "Language to check the text for.",
             "type": "string"
+          },
+          "suggestions": {
+            "description": "Suggestions enables generation of suggestions for misspelled words. In interactive applications this should normally be done by calling the Suggestions method on demand.",
+            "type": "boolean"
           },
           "text": {
             "description": "Text to spellcheck.",
@@ -240,6 +285,44 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/twirp/elephant.spell.Check/Suggestions": {
+      "post": {
+        "description": "Suggestions returns suggestions for a word or phrase.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SuggestionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SuggestionsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Suggestions",
+        "tags": [
+          "Check"
+        ]
+      }
+    },
     "/twirp/elephant.spell.Check/Text": {
       "post": {
         "description": "Text spellchecks a text and returns the misspelled words or phrases.",

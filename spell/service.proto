@@ -8,6 +8,8 @@ option go_package = "github.com/ttab/elephant-api/spell";
 service Check {
   // Text spellchecks a text and returns the misspelled words or phrases.
   rpc Text(TextRequest) returns (TextResponse);
+  // Suggestions returns suggestions for a word or phrase.
+  rpc Suggestions(SuggestionsRequest) returns (SuggestionsResponse);
 }
 
 // Dictionaries is used to manage custom dictionary entries. Custom dictionaries
@@ -44,6 +46,10 @@ message TextRequest {
   repeated string text     = 1;
   // Language to check the text for.
   string language          = 2;
+  // Suggestions enables generation of suggestions for misspelled words. In
+  // interactive applications this should normally be done by calling the
+  // Suggestions method on demand.
+  bool suggestions         = 3;
 }
 
 message TextResponse {
@@ -59,6 +65,23 @@ message MisspelledEntry {
   string text                     = 1;
   // Suggestions for replacements.
   repeated Suggestion suggestions = 2;
+  // Level is the level of the correction.
+  CorrectionLevel level           = 3;
+}
+
+enum CorrectionLevel {
+  LEVEL_UNSPECIFIED = 0;
+  LEVEL_ERROR       = 1;
+  LEVEL_SUGGESTION  = 2;
+}
+
+message SuggestionsRequest {
+  string text = 1;
+}
+
+message SuggestionsResponse {
+  // Suggestions for replacements.
+  repeated Suggestion suggestions = 1;
 }
 
 message Suggestion {
@@ -93,6 +116,13 @@ message CustomEntry {
   // CommonMistakes when writing the word or phrase. This is used to pre-filter
   // text that is spell-checked.
   repeated string common_mistakes = 5;
+  // Level to use when offering corrections based on this entry. Optional,
+  // defaults to LEVEL_ERROR.
+  CorrectionLevel level           = 6;
+  // Forms is an alternative to the common mistakes -> text pairing and allows
+  // the mapping of different forms of the word or phrase to specific
+  // replacements.
+  map<string, string> forms       = 7;
 }
 
 message ListDictionariesRequest {}
