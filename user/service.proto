@@ -6,6 +6,185 @@ package elephant.user;
 
 option go_package = "github.com/ttab/elephant-api/user";
 
+// Settings service manages configuration for authenticated users.
+//
+// All methods in this service rely on the 'sub' claim from the 
+// authentication (bearer) token to identify the target user.
+service Settings {
+  // Gets a specific setting for the authenticated user.
+  rpc GetSetting(GetSettingRequest) returns (GetSettingResponse);
+  // Lists settings for the authenticated user.
+  rpc ListSettings(ListSettingsRequest) returns (ListSettingsResponse);
+  // Updates an existing or creates new setting for the authenticated user.
+  rpc UpdateSetting(UpdateSettingRequest) returns (UpdateSettingResponse);
+  // Deletes a setting for the authenticated user.
+  rpc DeleteSetting(DeleteSettingRequest) returns (DeleteSettingResponse);
+
+  // Gets a single property value for the authenticated user.
+  rpc GetProperty(GetPropertyRequest) returns (GetPropertyResponse);
+  // Lists properties for the authenticated user.
+  rpc ListProperties(ListPropertiesRequest) returns (ListPropertiesResponse);
+  // Sets or updates a single property for the authenticated user.
+  rpc SetProperty(SetPropertyRequest) returns (SetPropertyResponse);
+  // Deletes a property for the authenticated user.
+  rpc DeleteProperty(DeletePropertyRequest) returns (DeletePropertyResponse);
+  // Bulk sets properties for the authenticated user (e.g. for syncing or resetting state).
+  rpc BulkSetProperties(BulkSetPropertiesRequest) returns (BulkSetPropertiesResponse);
+}
+
+message GetSettingRequest {
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 1;
+  // Type is the content type of the document.
+  string type = 2;
+  // Unique identifier for the setting within the scope of the application and type.
+  // Can be a human readable slug or a UUID.
+  string key = 3;
+}
+
+message GetSettingResponse {
+  Setting setting = 1;
+}
+
+message Setting {
+  // ID of the setting's owner.
+  // Matches the 'sub' claim from the authentication token.
+  string user = 1;
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 2;
+  // Type is the content type of the document.
+  string type = 3;
+  // Unique identifier for the setting within the scope of the application and type.
+  // Can be a human readable slug or a UUID.
+  string key = 4;
+  // Version of the setting.
+  int64 version = 5;
+  // Semver string indicating the schema version of the payload.
+  string schema_version = 6;
+  // Creation time in RFC3339 format.
+  string created              = 7;
+  // Last update time in RFC3339 format.
+  string updated              = 8;
+  // Payload contains a newsdoc document with actual configuration data.
+  newsdoc.Document payload  = 9;
+}
+
+message ListSettingsRequest {
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 1;
+  // Type is the content type of the document.
+  string type = 2;
+}
+
+message ListSettingsResponse {
+  repeated Setting settings = 1;
+}
+
+message UpdateSettingRequest {
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 1;
+  // Type is the content type of the document.
+  string type = 2;
+  // Unique identifier for the setting within the scope of the application and type.
+  // Can be a human readable slug or a UUID.
+  string key = 3;
+  // Semver string indicating the schema version of the payload.
+  string schema_version = 4;
+  // Payload contains a newsdoc document with actual configuration data.
+  newsdoc.Document payload  = 5;
+}
+
+message UpdateSettingResponse {}
+
+message DeleteSettingRequest {
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 1;
+  // Type is the content type of the document.
+  string type = 2;
+  // Unique identifier for the setting within the scope of the application and type.
+  // Can be a human readable slug or a UUID.
+  string key = 3;
+}
+
+message DeleteSettingResponse {}
+
+// Property represents a generic key-value pair attached to a user.
+// It can be used for preferences, user state, feature flags et.c.
+message Property {
+  // User ID of the property owner.
+  // Matches the 'sub' claim from the authentication token.
+  string user = 1;
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 2;
+  // Unique identifier for the property within the application.
+  string key = 3;
+  // The value serialized as a string.
+  string value = 4;
+  // Creation time in RFC3339 format.
+  string created = 5;
+  // Last update time in RFC3339 format.
+  string updated = 6;
+}
+
+message GetPropertyRequest {
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 1;
+  // Unique identifier for the property within the application.
+  string key         = 2;
+}
+
+message GetPropertyResponse {
+  Property property = 1;
+}
+
+message ListPropertiesRequest {
+  // Filter by application ID.
+  // If empty, returns all properties for the user across all applications.
+  string application = 1;
+}
+
+message ListPropertiesResponse {
+  repeated Property properties = 1;
+}
+
+message SetPropertyRequest {
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 1;
+  // Unique identifier for the property within the application.
+  string key         = 2;
+  // The value serialized as a string.
+  string value       = 3;
+}
+
+message SetPropertyResponse {}
+
+message DeletePropertyRequest {
+  // The unique application identifier in reverse domain notation 
+  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  string application = 1;
+  // Unique identifier for the property within the application.
+  string key         = 2;
+}
+
+message DeletePropertyResponse {}
+
+message BulkSetPropertiesRequest {
+  // The application ID for all properties in this batch.
+  string application = 1;
+  // A map of key-value pairs to set.
+  map<string, string> properties = 2;
+}
+
+message BulkSetPropertiesResponse {}
+
 service Messages {
   // Pushes a new message to a recipient.
   rpc PushMessage(PushMessageRequest) returns (PushMessageResponse);
