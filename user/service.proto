@@ -8,7 +8,7 @@ option go_package = "github.com/ttab/elephant-api/user";
 
 // Settings service manages configuration for authenticated users.
 //
-// All methods in this service rely on the 'sub' claim from the 
+// All methods in this service rely on the `sub` claim from the 
 // authentication (bearer) token to identify the target user.
 service Settings {
   // Gets a specific setting for the authenticated user.
@@ -19,6 +19,8 @@ service Settings {
   rpc UpdateSetting(UpdateSettingRequest) returns (UpdateSettingResponse);
   // Deletes a setting for the authenticated user.
   rpc DeleteSetting(DeleteSettingRequest) returns (DeleteSettingResponse);
+  // Polls for new and updated settings for the authenticated user.
+  rpc PollSettings(PollSettingsRequest) returns (PollSettingsResponse);
 
   // Gets a single property value for the authenticated user.
   rpc GetProperty(GetPropertyRequest) returns (GetPropertyResponse);
@@ -30,11 +32,13 @@ service Settings {
   rpc DeleteProperty(DeletePropertyRequest) returns (DeletePropertyResponse);
   // Bulk sets properties for the authenticated user (e.g. for syncing or resetting state).
   rpc BulkSetProperties(BulkSetPropertiesRequest) returns (BulkSetPropertiesResponse);
+    // Polls for new and updated properties for the authenticated user.
+  rpc PollProperties(PollPropertiesRequest) returns (PollPropertiesResponse);
 }
 
 message GetSettingRequest {
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
   // Type is the content type of the document.
   string type = 2;
@@ -49,10 +53,10 @@ message GetSettingResponse {
 
 message Setting {
   // ID of the setting's owner.
-  // Matches the 'sub' claim from the authentication token.
+  // Matches the `sub` claim from the authentication token.
   string user = 1;
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 2;
   // Type is the content type of the document.
   string type = 3;
@@ -73,7 +77,7 @@ message Setting {
 
 message ListSettingsRequest {
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
   // Type is the content type of the document.
   string type = 2;
@@ -85,7 +89,7 @@ message ListSettingsResponse {
 
 message UpdateSettingRequest {
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
   // Type is the content type of the document.
   string type = 2;
@@ -102,7 +106,7 @@ message UpdateSettingResponse {}
 
 message DeleteSettingRequest {
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
   // Type is the content type of the document.
   string type = 2;
@@ -113,14 +117,28 @@ message DeleteSettingRequest {
 
 message DeleteSettingResponse {}
 
+message PollSettingsRequest {
+  // Time in RFC3339 format after which to start returning settings.
+  // Leave unset for the initial request.
+  string after_time = 1;
+}
+
+message PollSettingsResponse {
+  // Time in RFC3339 format of the most recent setting returned. Use for subsequent polling requests.
+  // If no settings are returned, it matches the `after_time` from the request.
+  string last_time = 1;
+  // Settings sorted in ascending order by last updated time (oldest first).
+  repeated Setting settings = 2;
+}
+
 // Property represents a generic key-value pair attached to a user.
 // It can be used for preferences, user state, feature flags et.c.
 message Property {
   // User ID of the property owner.
-  // Matches the 'sub' claim from the authentication token.
+  // Matches the `sub` claim from the authentication token.
   string user = 1;
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 2;
   // Unique identifier for the property within the application.
   string key = 3;
@@ -134,7 +152,7 @@ message Property {
 
 message GetPropertyRequest {
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
   // Unique identifier for the property within the application.
   string key         = 2;
@@ -156,7 +174,7 @@ message ListPropertiesResponse {
 
 message SetPropertyRequest {
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
   // Unique identifier for the property within the application.
   string key         = 2;
@@ -168,7 +186,7 @@ message SetPropertyResponse {}
 
 message DeletePropertyRequest {
   // The unique application identifier in reverse domain notation 
-  // (e.g., 'com.example.assignments' or 'com.example.writer').
+  // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
   // Unique identifier for the property within the application.
   string key         = 2;
@@ -184,6 +202,20 @@ message BulkSetPropertiesRequest {
 }
 
 message BulkSetPropertiesResponse {}
+
+message PollPropertiesRequest {
+  // Time in RFC3339 format after which to start returning properties.
+  // Leave unset for the initial request.
+  string after_time = 1;
+}
+
+message PollPropertiesResponse {
+  // Time in RFC3339 format of the most recent property returned. Use for subsequent polling requests.
+  // If no properties are returned, it matches the `after_time` from the request.
+  string last_time = 1;
+  // Properties sorted in ascending order by last updated time (oldest first).
+  repeated Property properties = 2;
+}
 
 service Messages {
   // Pushes a new message to a recipient.
