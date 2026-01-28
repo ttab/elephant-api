@@ -19,8 +19,6 @@ service Settings {
   rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse);
   // Deletes a document for the authenticated user.
   rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
-  // Polls for new and updated documents for the authenticated user.
-  rpc PollDocuments(PollDocumentsRequest) returns (PollDocumentsResponse);
 
   // Gets properties for the authenticated user.
   rpc GetProperties(GetPropertiesRequest) returns (GetPropertiesResponse);
@@ -28,8 +26,10 @@ service Settings {
   rpc SetProperties(SetPropertiesRequest) returns (SetPropertiesResponse);
   // Deletes properties for the authenticated user.
   rpc DeleteProperties(DeletePropertiesRequest) returns (DeletePropertiesResponse);
-    // Polls for new and updated properties for the authenticated user.
-  rpc PollProperties(PollPropertiesRequest) returns (PollPropertiesResponse);
+
+  // Polls for a stream of changes (creates, updates, deletes)
+  // for both documents and properties for the authenticated user.
+  rpc PollEvents(PollEventsRequest) returns (PollEventsResponse);
 }
 
 message GetDocumentRequest {
@@ -113,20 +113,6 @@ message DeleteDocumentRequest {
 
 message DeleteDocumentResponse {}
 
-message PollDocumentsRequest {
-  // Time in RFC3339 format after which to start returning documents.
-  // Leave unset for the initial request.
-  string after_time = 1;
-}
-
-message PollDocumentsResponse {
-  // Time in RFC3339 format of the most recent document returned. Use for subsequent polling requests.
-  // If no documents are returned, it matches the `after_time` from the request.
-  string last_time = 1;
-  // Documents sorted in ascending order by last updated time (oldest first).
-  repeated Document documents = 2;
-}
-
 // Property represents a generic key-value pair attached to a user.
 // It can be used for preferences, user state, feature flags etc.
 message Property {
@@ -190,18 +176,82 @@ message DeletePropertiesRequest {
 
 message DeletePropertiesResponse {}
 
-message PollPropertiesRequest {
-  // Time in RFC3339 format after which to start returning properties.
-  // Leave unset for the initial request.
-  string after_time = 1;
+message PollEventsRequest {
+  // ID of the event after which to start returning events.
+  // Set to -1 for the initial request.
+  int64 after_id = 1;
 }
 
-message PollPropertiesResponse {
-  // Time in RFC3339 format of the most recent property returned. Use for subsequent polling requests.
-  // If no properties are returned, it matches the `after_time` from the request.
-  string last_time = 1;
-  // Properties sorted in ascending order by last updated time (oldest first).
-  repeated Property properties = 2;
+message PollEventsResponse {
+  // ID of the most recent event returned. Use for subsequent polling requests.
+  // If no new events are returned, it matches the `after_id` from the request.
+  int64 last_id = 1;
+  // Events sorted in ascending order by id (oldest first).
+  repeated Event events = 2;
+}
+
+message Event {
+  // ID of the event.
+  int64 id = 1;
+  // Occurrence time in RFC3339 format.
+  string created = 2;
+  // The type of change.
+  EventType type = 3;
+  // The specific resource that changed.
+  oneof resource {
+    // Present if type is `EVENT_TYPE_UPDATE` and resource is a document.
+    // Contains only metadata, client must call GetDocument() for the full body.
+    DocumentMetadata document = 4;
+    // Present if type is `EVENT_TYPE_UPDATE` and resource is a property.
+    Property property = 5;
+    // Present if type is `EVENT_TYPE_DELETE`.
+    ResourceIdentifier deleted = 6;
+  }
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_UPDATE      = 1;
+  EVENT_TYPE_DELETE      = 2;
+}
+
+message DocumentMetadata {
+  // ID of the document's owner.
+  // Matches the `sub` claim from the authentication token.
+  string user = 1;
+    // The unique application identifier in reverse domain notation
+  // (e.g., `com.example.assignments` or `com.example.writer`).
+  string application = 2;
+  // Type is the content type of the document.
+  string type = 3;
+  // Unique identifier for the document within the scope of the application and type.
+  // Can be a human readable slug or a UUID.
+  string key = 4;
+    // Version of the document.
+  int64 version = 5;
+  // Semver string indicating the schema version of the document payload.
+  string schema_version = 6;
+  // Creation time in RFC3339 format.
+  string created = 7;
+  // Last update time in RFC3339 format.
+  string updated = 8;
+}
+
+message ResourceIdentifier {
+  // Kind of the resource.
+  ResourceKind kind = 1;
+  // The application ID (e.g., "com.example.writer").
+  string application = 2;
+  // The unique key of the resource.
+  string key = 3;
+  // Only applicable if kind is `RESOURCE_KIND_DOCUMENT`.
+  string document_type = 4;
+}
+
+enum ResourceKind {
+  RESOURCE_KIND_UNSPECIFIED = 0;
+  RESOURCE_KIND_DOCUMENT    = 1;
+  RESOURCE_KIND_PROPERTY    = 2;
 }
 
 service Messages {
