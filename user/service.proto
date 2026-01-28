@@ -22,16 +22,12 @@ service Settings {
   // Polls for new and updated documents for the authenticated user.
   rpc PollDocuments(PollDocumentsRequest) returns (PollDocumentsResponse);
 
-  // Gets a single property value for the authenticated user.
-  rpc GetProperty(GetPropertyRequest) returns (GetPropertyResponse);
-  // Lists properties for the authenticated user.
-  rpc ListProperties(ListPropertiesRequest) returns (ListPropertiesResponse);
-  // Sets or updates a single property for the authenticated user.
-  rpc SetProperty(SetPropertyRequest) returns (SetPropertyResponse);
-  // Deletes a property for the authenticated user.
-  rpc DeleteProperty(DeletePropertyRequest) returns (DeletePropertyResponse);
-  // Bulk sets properties for the authenticated user (e.g. for syncing or resetting state).
-  rpc BulkSetProperties(BulkSetPropertiesRequest) returns (BulkSetPropertiesResponse);
+  // Gets properties for the authenticated user.
+  rpc GetProperties(GetPropertiesRequest) returns (GetPropertiesResponse);
+  // Sets or updates properties for the authenticated user.
+  rpc SetProperties(SetPropertiesRequest) returns (SetPropertiesResponse);
+  // Deletes properties for the authenticated user.
+  rpc DeleteProperties(DeletePropertiesRequest) returns (DeletePropertiesResponse);
     // Polls for new and updated properties for the authenticated user.
   rpc PollProperties(PollPropertiesRequest) returns (PollPropertiesResponse);
 }
@@ -150,29 +146,21 @@ message Property {
   string updated = 6;
 }
 
-message GetPropertyRequest {
+message GetPropertiesRequest {
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
+  // If empty, returns all properties from all applications for this user.
   string application = 1;
   // Unique identifier for the property within the application.
-  string key = 2;
+  // If empty, returns all properties matching the application filter.
+  repeated string keys = 2;
 }
 
-message GetPropertyResponse {
-  Property property = 1;
-}
-
-message ListPropertiesRequest {
-  // Filter by application ID.
-  // If empty, returns all properties for the user across all applications.
-  string application = 1;
-}
-
-message ListPropertiesResponse {
+message GetPropertiesResponse {
   repeated Property properties = 1;
 }
 
-message SetPropertyRequest {
+message PropertyUpdate {
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
@@ -182,9 +170,13 @@ message SetPropertyRequest {
   string value = 3;
 }
 
-message SetPropertyResponse {}
+message SetPropertiesRequest {
+  repeated PropertyUpdate properties = 1;
+}
 
-message DeletePropertyRequest {
+message SetPropertiesResponse {}
+
+message PropertyDelete {
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 1;
@@ -192,16 +184,11 @@ message DeletePropertyRequest {
   string key = 2;
 }
 
-message DeletePropertyResponse {}
-
-message BulkSetPropertiesRequest {
-  // The application ID for all properties in this batch.
-  string application = 1;
-  // A map of key-value pairs to set.
-  map<string, string> properties = 2;
+message DeletePropertiesRequest {
+  repeated PropertyDelete properties = 1;
 }
 
-message BulkSetPropertiesResponse {}
+message DeletePropertiesResponse {}
 
 message PollPropertiesRequest {
   // Time in RFC3339 format after which to start returning properties.
