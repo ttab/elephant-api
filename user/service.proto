@@ -29,7 +29,7 @@ service Settings {
 
   // Polls for a stream of changes (creates, updates, deletes)
   // for both documents and properties for the authenticated user.
-  rpc PollEvents(PollEventsRequest) returns (PollEventsResponse);
+  rpc PollEventLog(PollEventLogRequest) returns (PollEventLogResponse);
 }
 
 message GetDocumentRequest {
@@ -176,43 +176,43 @@ message DeletePropertiesRequest {
 
 message DeletePropertiesResponse {}
 
-message PollEventsRequest {
+message PollEventLogRequest {
   // ID of the event after which to start returning events.
   // Set to -1 for the initial request.
   int64 after_id = 1;
 }
 
-message PollEventsResponse {
+message PollEventLogResponse {
   // ID of the most recent event returned. Use for subsequent polling requests.
   // If no new events are returned, it matches the `after_id` from the request.
   int64 last_id = 1;
-  // Events sorted in ascending order by id (oldest first).
-  repeated Event events = 2;
+  // Event log items sorted in ascending order by id (oldest first).
+  repeated EventLogEntry entries = 2;
 }
 
-message Event {
+message EventLogEntry {
   // ID of the event.
   int64 id = 1;
   // Occurrence time in RFC3339 format.
   string created = 2;
   // The type of change.
-  EventType type = 3;
-  // The specific resource that changed.
-  oneof resource {
-    // Present if type is `EVENT_TYPE_UPDATE` and resource is a document.
+  EventLogEntryType type = 3;
+  // The payload data associated with the entry.
+  oneof payload {
+    // Present if type is `EVENT_LOG_ENTRY_UPDATE` and payload is a document.
     // Contains only metadata, client must call GetDocument() for the full body.
     DocumentMetadata document = 4;
-    // Present if type is `EVENT_TYPE_UPDATE` and resource is a property.
+    // Present if type is `EVENT_LOG_ENTRY_UPDATE` and payload is a property.
     Property property = 5;
-    // Present if type is `EVENT_TYPE_DELETE`.
-    ResourceIdentifier deleted = 6;
+    // Present if type is `EVENT_LOG_ENTRY_DELETE`.
+    ResourceIdentifier resource = 6;
   }
 }
 
-enum EventType {
-  EVENT_TYPE_UNSPECIFIED = 0;
-  EVENT_TYPE_UPDATE      = 1;
-  EVENT_TYPE_DELETE      = 2;
+enum EventLogEntryType {
+  EVENT_LOG_ENTRY_UNSPECIFIED = 0;
+  EVENT_LOG_ENTRY_UPDATE      = 1;
+  EVENT_LOG_ENTRY_DELETE      = 2;
 }
 
 message DocumentMetadata {
