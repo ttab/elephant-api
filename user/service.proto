@@ -63,12 +63,16 @@ message Document {
   int64 version = 5;
   // Semver string indicating the schema version of the payload.
   string schema_version = 6;
+  // ReadOnly is set to true if the document is shared with all users.
+  bool read_only = 7;
+  // Title of the document.
+  string title = 8;
   // Creation time in RFC3339 format.
-  string created = 7;
+  string created = 9;
   // Last update time in RFC3339 format.
-  string updated = 8;
+  string updated = 10;
   // Payload contains a newsdoc document with actual configuration data.
-  newsdoc.Document payload = 9;
+  newsdoc.Document payload = 11;
 }
 
 message ListDocumentsRequest {
@@ -77,6 +81,9 @@ message ListDocumentsRequest {
   string application = 1;
   // Type is the content type of the document.
   string type = 2;
+  // If true, include the document payload in the response.
+  // If false (default), payload will be omitted.
+  bool include_payload = 3;
 }
 
 message ListDocumentsResponse {
@@ -231,10 +238,14 @@ message DocumentMetadata {
   int64 version = 5;
   // Semver string indicating the schema version of the document payload.
   string schema_version = 6;
+  // ReadOnly is set to true if the document is shared with all users.
+  bool read_only = 7;
+  // Title of the document.
+  string title = 8;
   // Creation time in RFC3339 format.
-  string created = 7;
+  string created = 9;
   // Last update time in RFC3339 format.
-  string updated = 8;
+  string updated = 10;
 }
 
 message ResourceIdentifier {
