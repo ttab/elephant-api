@@ -28,6 +28,2466 @@ import url "net/url"
 const _ = twirp.TwirpPackageMinVersion_8_1_0
 
 // ==================
+// Settings Interface
+// ==================
+
+// Settings service manages configuration for authenticated users.
+//
+// All methods in this service rely on the `sub` claim from the
+// authentication (bearer) token to identify the target user.
+type Settings interface {
+	// Gets a specific document for the authenticated user.
+	GetDocument(context.Context, *GetDocumentRequest) (*GetDocumentResponse, error)
+
+	// Lists documents for the authenticated user.
+	ListDocuments(context.Context, *ListDocumentsRequest) (*ListDocumentsResponse, error)
+
+	// Updates an existing or creates a new document for the authenticated user.
+	UpdateDocument(context.Context, *UpdateDocumentRequest) (*UpdateDocumentResponse, error)
+
+	// Deletes a document for the authenticated user.
+	DeleteDocument(context.Context, *DeleteDocumentRequest) (*DeleteDocumentResponse, error)
+
+	// Gets properties for the authenticated user.
+	GetProperties(context.Context, *GetPropertiesRequest) (*GetPropertiesResponse, error)
+
+	// Sets or updates properties for the authenticated user.
+	SetProperties(context.Context, *SetPropertiesRequest) (*SetPropertiesResponse, error)
+
+	// Deletes properties for the authenticated user.
+	DeleteProperties(context.Context, *DeletePropertiesRequest) (*DeletePropertiesResponse, error)
+
+	// Polls for a stream of changes (creates, updates, deletes)
+	// for both documents and properties for the authenticated user.
+	PollEventLog(context.Context, *PollEventLogRequest) (*PollEventLogResponse, error)
+}
+
+// ========================
+// Settings Protobuf Client
+// ========================
+
+type settingsProtobufClient struct {
+	client      HTTPClient
+	urls        [8]string
+	interceptor twirp.Interceptor
+	opts        twirp.ClientOptions
+}
+
+// NewSettingsProtobufClient creates a Protobuf client that implements the Settings interface.
+// It communicates using Protobuf and can be configured with a custom HTTPClient.
+func NewSettingsProtobufClient(baseURL string, client HTTPClient, opts ...twirp.ClientOption) Settings {
+	if c, ok := client.(*http.Client); ok {
+		client = withoutRedirects(c)
+	}
+
+	clientOpts := twirp.ClientOptions{}
+	for _, o := range opts {
+		o(&clientOpts)
+	}
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	literalURLs := false
+	_ = clientOpts.ReadOpt("literalURLs", &literalURLs)
+	var pathPrefix string
+	if ok := clientOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
+	serviceURL := sanitizeBaseURL(baseURL)
+	serviceURL += baseServicePath(pathPrefix, "elephant.user", "Settings")
+	urls := [8]string{
+		serviceURL + "GetDocument",
+		serviceURL + "ListDocuments",
+		serviceURL + "UpdateDocument",
+		serviceURL + "DeleteDocument",
+		serviceURL + "GetProperties",
+		serviceURL + "SetProperties",
+		serviceURL + "DeleteProperties",
+		serviceURL + "PollEventLog",
+	}
+
+	return &settingsProtobufClient{
+		client:      client,
+		urls:        urls,
+		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
+		opts:        clientOpts,
+	}
+}
+
+func (c *settingsProtobufClient) GetDocument(ctx context.Context, in *GetDocumentRequest) (*GetDocumentResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "GetDocument")
+	caller := c.callGetDocument
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetDocumentRequest) (*GetDocumentResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDocumentRequest) when calling interceptor")
+					}
+					return c.callGetDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callGetDocument(ctx context.Context, in *GetDocumentRequest) (*GetDocumentResponse, error) {
+	out := new(GetDocumentResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsProtobufClient) ListDocuments(ctx context.Context, in *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "ListDocuments")
+	caller := c.callListDocuments
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListDocumentsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListDocumentsRequest) when calling interceptor")
+					}
+					return c.callListDocuments(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListDocumentsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListDocumentsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callListDocuments(ctx context.Context, in *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+	out := new(ListDocumentsResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsProtobufClient) UpdateDocument(ctx context.Context, in *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDocument")
+	caller := c.callUpdateDocument
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDocumentRequest) when calling interceptor")
+					}
+					return c.callUpdateDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callUpdateDocument(ctx context.Context, in *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+	out := new(UpdateDocumentResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsProtobufClient) DeleteDocument(ctx context.Context, in *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteDocument")
+	caller := c.callDeleteDocument
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteDocumentRequest) when calling interceptor")
+					}
+					return c.callDeleteDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callDeleteDocument(ctx context.Context, in *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+	out := new(DeleteDocumentResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsProtobufClient) GetProperties(ctx context.Context, in *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "GetProperties")
+	caller := c.callGetProperties
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetPropertiesRequest) when calling interceptor")
+					}
+					return c.callGetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callGetProperties(ctx context.Context, in *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+	out := new(GetPropertiesResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsProtobufClient) SetProperties(ctx context.Context, in *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "SetProperties")
+	caller := c.callSetProperties
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetPropertiesRequest) when calling interceptor")
+					}
+					return c.callSetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callSetProperties(ctx context.Context, in *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+	out := new(SetPropertiesResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsProtobufClient) DeleteProperties(ctx context.Context, in *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteProperties")
+	caller := c.callDeleteProperties
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeletePropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeletePropertiesRequest) when calling interceptor")
+					}
+					return c.callDeleteProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeletePropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeletePropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callDeleteProperties(ctx context.Context, in *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+	out := new(DeletePropertiesResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsProtobufClient) PollEventLog(ctx context.Context, in *PollEventLogRequest) (*PollEventLogResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "PollEventLog")
+	caller := c.callPollEventLog
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *PollEventLogRequest) (*PollEventLogResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*PollEventLogRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*PollEventLogRequest) when calling interceptor")
+					}
+					return c.callPollEventLog(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*PollEventLogResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*PollEventLogResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsProtobufClient) callPollEventLog(ctx context.Context, in *PollEventLogRequest) (*PollEventLogResponse, error) {
+	out := new(PollEventLogResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[7], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+// ====================
+// Settings JSON Client
+// ====================
+
+type settingsJSONClient struct {
+	client      HTTPClient
+	urls        [8]string
+	interceptor twirp.Interceptor
+	opts        twirp.ClientOptions
+}
+
+// NewSettingsJSONClient creates a JSON client that implements the Settings interface.
+// It communicates using JSON and can be configured with a custom HTTPClient.
+func NewSettingsJSONClient(baseURL string, client HTTPClient, opts ...twirp.ClientOption) Settings {
+	if c, ok := client.(*http.Client); ok {
+		client = withoutRedirects(c)
+	}
+
+	clientOpts := twirp.ClientOptions{}
+	for _, o := range opts {
+		o(&clientOpts)
+	}
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	literalURLs := false
+	_ = clientOpts.ReadOpt("literalURLs", &literalURLs)
+	var pathPrefix string
+	if ok := clientOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
+	serviceURL := sanitizeBaseURL(baseURL)
+	serviceURL += baseServicePath(pathPrefix, "elephant.user", "Settings")
+	urls := [8]string{
+		serviceURL + "GetDocument",
+		serviceURL + "ListDocuments",
+		serviceURL + "UpdateDocument",
+		serviceURL + "DeleteDocument",
+		serviceURL + "GetProperties",
+		serviceURL + "SetProperties",
+		serviceURL + "DeleteProperties",
+		serviceURL + "PollEventLog",
+	}
+
+	return &settingsJSONClient{
+		client:      client,
+		urls:        urls,
+		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
+		opts:        clientOpts,
+	}
+}
+
+func (c *settingsJSONClient) GetDocument(ctx context.Context, in *GetDocumentRequest) (*GetDocumentResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "GetDocument")
+	caller := c.callGetDocument
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetDocumentRequest) (*GetDocumentResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDocumentRequest) when calling interceptor")
+					}
+					return c.callGetDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callGetDocument(ctx context.Context, in *GetDocumentRequest) (*GetDocumentResponse, error) {
+	out := new(GetDocumentResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsJSONClient) ListDocuments(ctx context.Context, in *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "ListDocuments")
+	caller := c.callListDocuments
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListDocumentsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListDocumentsRequest) when calling interceptor")
+					}
+					return c.callListDocuments(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListDocumentsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListDocumentsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callListDocuments(ctx context.Context, in *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+	out := new(ListDocumentsResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsJSONClient) UpdateDocument(ctx context.Context, in *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDocument")
+	caller := c.callUpdateDocument
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDocumentRequest) when calling interceptor")
+					}
+					return c.callUpdateDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callUpdateDocument(ctx context.Context, in *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+	out := new(UpdateDocumentResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsJSONClient) DeleteDocument(ctx context.Context, in *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteDocument")
+	caller := c.callDeleteDocument
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteDocumentRequest) when calling interceptor")
+					}
+					return c.callDeleteDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callDeleteDocument(ctx context.Context, in *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+	out := new(DeleteDocumentResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsJSONClient) GetProperties(ctx context.Context, in *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "GetProperties")
+	caller := c.callGetProperties
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetPropertiesRequest) when calling interceptor")
+					}
+					return c.callGetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callGetProperties(ctx context.Context, in *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+	out := new(GetPropertiesResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsJSONClient) SetProperties(ctx context.Context, in *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "SetProperties")
+	caller := c.callSetProperties
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetPropertiesRequest) when calling interceptor")
+					}
+					return c.callSetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callSetProperties(ctx context.Context, in *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+	out := new(SetPropertiesResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsJSONClient) DeleteProperties(ctx context.Context, in *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteProperties")
+	caller := c.callDeleteProperties
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeletePropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeletePropertiesRequest) when calling interceptor")
+					}
+					return c.callDeleteProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeletePropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeletePropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callDeleteProperties(ctx context.Context, in *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+	out := new(DeletePropertiesResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *settingsJSONClient) PollEventLog(ctx context.Context, in *PollEventLogRequest) (*PollEventLogResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithMethodName(ctx, "PollEventLog")
+	caller := c.callPollEventLog
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *PollEventLogRequest) (*PollEventLogResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*PollEventLogRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*PollEventLogRequest) when calling interceptor")
+					}
+					return c.callPollEventLog(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*PollEventLogResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*PollEventLogResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *settingsJSONClient) callPollEventLog(ctx context.Context, in *PollEventLogRequest) (*PollEventLogResponse, error) {
+	out := new(PollEventLogResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[7], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+// =======================
+// Settings Server Handler
+// =======================
+
+type settingsServer struct {
+	Settings
+	interceptor      twirp.Interceptor
+	hooks            *twirp.ServerHooks
+	pathPrefix       string // prefix for routing
+	jsonSkipDefaults bool   // do not include unpopulated fields (default values) in the response
+	jsonCamelCase    bool   // JSON fields are serialized as lowerCamelCase rather than keeping the original proto names
+}
+
+// NewSettingsServer builds a TwirpServer that can be used as an http.Handler to handle
+// HTTP requests that are routed to the right method in the provided svc implementation.
+// The opts are twirp.ServerOption modifiers, for example twirp.WithServerHooks(hooks).
+func NewSettingsServer(svc Settings, opts ...interface{}) TwirpServer {
+	serverOpts := newServerOpts(opts)
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	jsonSkipDefaults := false
+	_ = serverOpts.ReadOpt("jsonSkipDefaults", &jsonSkipDefaults)
+	jsonCamelCase := false
+	_ = serverOpts.ReadOpt("jsonCamelCase", &jsonCamelCase)
+	var pathPrefix string
+	if ok := serverOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	return &settingsServer{
+		Settings:         svc,
+		hooks:            serverOpts.Hooks,
+		interceptor:      twirp.ChainInterceptors(serverOpts.Interceptors...),
+		pathPrefix:       pathPrefix,
+		jsonSkipDefaults: jsonSkipDefaults,
+		jsonCamelCase:    jsonCamelCase,
+	}
+}
+
+// writeError writes an HTTP response with a valid Twirp error format, and triggers hooks.
+// If err is not a twirp.Error, it will get wrapped with twirp.InternalErrorWith(err)
+func (s *settingsServer) writeError(ctx context.Context, resp http.ResponseWriter, err error) {
+	writeError(ctx, resp, err, s.hooks)
+}
+
+// handleRequestBodyError is used to handle error when the twirp server cannot read request
+func (s *settingsServer) handleRequestBodyError(ctx context.Context, resp http.ResponseWriter, msg string, err error) {
+	if context.Canceled == ctx.Err() {
+		s.writeError(ctx, resp, twirp.NewError(twirp.Canceled, "failed to read request: context canceled"))
+		return
+	}
+	if context.DeadlineExceeded == ctx.Err() {
+		s.writeError(ctx, resp, twirp.NewError(twirp.DeadlineExceeded, "failed to read request: deadline exceeded"))
+		return
+	}
+	s.writeError(ctx, resp, twirp.WrapError(malformedRequestError(msg), err))
+}
+
+// SettingsPathPrefix is a convenience constant that may identify URL paths.
+// Should be used with caution, it only matches routes generated by Twirp Go clients,
+// with the default "/twirp" prefix and default CamelCase service and method names.
+// More info: https://twitchtv.github.io/twirp/docs/routing.html
+const SettingsPathPrefix = "/twirp/elephant.user.Settings/"
+
+func (s *settingsServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Settings")
+	ctx = ctxsetters.WithResponseWriter(ctx, resp)
+
+	var err error
+	ctx, err = callRequestReceived(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	if req.Method != "POST" {
+		msg := fmt.Sprintf("unsupported method %q (only POST is allowed)", req.Method)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+
+	// Verify path format: [<prefix>]/<package>.<Service>/<Method>
+	prefix, pkgService, method := parseTwirpPath(req.URL.Path)
+	if pkgService != "elephant.user.Settings" {
+		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+	if prefix != s.pathPrefix {
+		msg := fmt.Sprintf("invalid path prefix %q, expected %q, on path %q", prefix, s.pathPrefix, req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+
+	switch method {
+	case "GetDocument":
+		s.serveGetDocument(ctx, resp, req)
+		return
+	case "ListDocuments":
+		s.serveListDocuments(ctx, resp, req)
+		return
+	case "UpdateDocument":
+		s.serveUpdateDocument(ctx, resp, req)
+		return
+	case "DeleteDocument":
+		s.serveDeleteDocument(ctx, resp, req)
+		return
+	case "GetProperties":
+		s.serveGetProperties(ctx, resp, req)
+		return
+	case "SetProperties":
+		s.serveSetProperties(ctx, resp, req)
+		return
+	case "DeleteProperties":
+		s.serveDeleteProperties(ctx, resp, req)
+		return
+	case "PollEventLog":
+		s.servePollEventLog(ctx, resp, req)
+		return
+	default:
+		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+}
+
+func (s *settingsServer) serveGetDocument(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetDocumentJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetDocumentProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) serveGetDocumentJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetDocument")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetDocumentRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.GetDocument
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetDocumentRequest) (*GetDocumentResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDocumentRequest) when calling interceptor")
+					}
+					return s.Settings.GetDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetDocumentResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetDocumentResponse and nil error while calling GetDocument. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveGetDocumentProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetDocument")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetDocumentRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.GetDocument
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetDocumentRequest) (*GetDocumentResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDocumentRequest) when calling interceptor")
+					}
+					return s.Settings.GetDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetDocumentResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetDocumentResponse and nil error while calling GetDocument. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveListDocuments(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveListDocumentsJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveListDocumentsProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) serveListDocumentsJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ListDocuments")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(ListDocumentsRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.ListDocuments
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListDocumentsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListDocumentsRequest) when calling interceptor")
+					}
+					return s.Settings.ListDocuments(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListDocumentsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListDocumentsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ListDocumentsResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ListDocumentsResponse and nil error while calling ListDocuments. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveListDocumentsProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ListDocuments")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(ListDocumentsRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.ListDocuments
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListDocumentsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListDocumentsRequest) when calling interceptor")
+					}
+					return s.Settings.ListDocuments(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListDocumentsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListDocumentsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ListDocumentsResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ListDocumentsResponse and nil error while calling ListDocuments. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveUpdateDocument(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveUpdateDocumentJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveUpdateDocumentProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) serveUpdateDocumentJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDocument")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(UpdateDocumentRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.UpdateDocument
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDocumentRequest) when calling interceptor")
+					}
+					return s.Settings.UpdateDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *UpdateDocumentResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *UpdateDocumentResponse and nil error while calling UpdateDocument. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveUpdateDocumentProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDocument")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(UpdateDocumentRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.UpdateDocument
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *UpdateDocumentRequest) (*UpdateDocumentResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDocumentRequest) when calling interceptor")
+					}
+					return s.Settings.UpdateDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *UpdateDocumentResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *UpdateDocumentResponse and nil error while calling UpdateDocument. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveDeleteDocument(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveDeleteDocumentJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveDeleteDocumentProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) serveDeleteDocumentJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteDocument")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(DeleteDocumentRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.DeleteDocument
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteDocumentRequest) when calling interceptor")
+					}
+					return s.Settings.DeleteDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *DeleteDocumentResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeleteDocumentResponse and nil error while calling DeleteDocument. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveDeleteDocumentProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteDocument")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(DeleteDocumentRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.DeleteDocument
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteDocumentRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteDocumentRequest) when calling interceptor")
+					}
+					return s.Settings.DeleteDocument(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteDocumentResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteDocumentResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *DeleteDocumentResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeleteDocumentResponse and nil error while calling DeleteDocument. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveGetProperties(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetPropertiesJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetPropertiesProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) serveGetPropertiesJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetProperties")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetPropertiesRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.GetProperties
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetPropertiesRequest) when calling interceptor")
+					}
+					return s.Settings.GetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetPropertiesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetPropertiesResponse and nil error while calling GetProperties. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveGetPropertiesProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetProperties")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetPropertiesRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.GetProperties
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetPropertiesRequest) when calling interceptor")
+					}
+					return s.Settings.GetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetPropertiesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetPropertiesResponse and nil error while calling GetProperties. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveSetProperties(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveSetPropertiesJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveSetPropertiesProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) serveSetPropertiesJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SetProperties")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(SetPropertiesRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.SetProperties
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetPropertiesRequest) when calling interceptor")
+					}
+					return s.Settings.SetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SetPropertiesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SetPropertiesResponse and nil error while calling SetProperties. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveSetPropertiesProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SetProperties")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(SetPropertiesRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.SetProperties
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SetPropertiesRequest) (*SetPropertiesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetPropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetPropertiesRequest) when calling interceptor")
+					}
+					return s.Settings.SetProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetPropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetPropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SetPropertiesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SetPropertiesResponse and nil error while calling SetProperties. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveDeleteProperties(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveDeletePropertiesJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveDeletePropertiesProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) serveDeletePropertiesJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteProperties")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(DeletePropertiesRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.DeleteProperties
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeletePropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeletePropertiesRequest) when calling interceptor")
+					}
+					return s.Settings.DeleteProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeletePropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeletePropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *DeletePropertiesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeletePropertiesResponse and nil error while calling DeleteProperties. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) serveDeletePropertiesProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteProperties")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(DeletePropertiesRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.DeleteProperties
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *DeletePropertiesRequest) (*DeletePropertiesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeletePropertiesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeletePropertiesRequest) when calling interceptor")
+					}
+					return s.Settings.DeleteProperties(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeletePropertiesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeletePropertiesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *DeletePropertiesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeletePropertiesResponse and nil error while calling DeleteProperties. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) servePollEventLog(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.servePollEventLogJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.servePollEventLogProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *settingsServer) servePollEventLogJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "PollEventLog")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(PollEventLogRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Settings.PollEventLog
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *PollEventLogRequest) (*PollEventLogResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*PollEventLogRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*PollEventLogRequest) when calling interceptor")
+					}
+					return s.Settings.PollEventLog(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*PollEventLogResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*PollEventLogResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *PollEventLogResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *PollEventLogResponse and nil error while calling PollEventLog. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) servePollEventLogProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "PollEventLog")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(PollEventLogRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Settings.PollEventLog
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *PollEventLogRequest) (*PollEventLogResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*PollEventLogRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*PollEventLogRequest) when calling interceptor")
+					}
+					return s.Settings.PollEventLog(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*PollEventLogResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*PollEventLogResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *PollEventLogResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *PollEventLogResponse and nil error while calling PollEventLog. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *settingsServer) ServiceDescriptor() ([]byte, int) {
+	return twirpFileDescriptor0, 0
+}
+
+func (s *settingsServer) ProtocGenTwirpVersion() string {
+	return "v8.1.3"
+}
+
+// PathPrefix returns the base service path, in the form: "/<prefix>/<package>.<Service>/"
+// that is everything in a Twirp route except for the <Method>. This can be used for routing,
+// for example to identify the requests that are targeted to this service in a mux.
+func (s *settingsServer) PathPrefix() string {
+	return baseServicePath(s.pathPrefix, "elephant.user", "Settings")
+}
+
+// ==================
 // Messages Interface
 // ==================
 
@@ -2188,7 +4648,7 @@ func (s *messagesServer) serveDeleteInboxMessageProtobuf(ctx context.Context, re
 }
 
 func (s *messagesServer) ServiceDescriptor() ([]byte, int) {
-	return twirpFileDescriptor0, 0
+	return twirpFileDescriptor0, 1
 }
 
 func (s *messagesServer) ProtocGenTwirpVersion() string {
@@ -2768,53 +5228,101 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 759 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xdd, 0x4e, 0xdb, 0x48,
-	0x14, 0x56, 0x1c, 0x12, 0x3b, 0x27, 0xec, 0x0a, 0x06, 0x58, 0x1c, 0xc3, 0x6a, 0xc1, 0x48, 0x0b,
-	0x15, 0xaa, 0x53, 0xa5, 0xaa, 0x5a, 0x21, 0xf5, 0x06, 0x51, 0xa9, 0x51, 0x5b, 0x09, 0x45, 0xa0,
-	0x4a, 0xbd, 0x89, 0x1c, 0xcf, 0x01, 0x46, 0x75, 0x62, 0xd7, 0x33, 0xa6, 0x4d, 0x2f, 0xfb, 0x08,
-	0x7d, 0x97, 0xbe, 0x41, 0x5f, 0xa1, 0xef, 0x53, 0xd9, 0x1e, 0xc7, 0x8e, 0xed, 0x10, 0x5a, 0xa9,
-	0x57, 0x78, 0xce, 0xdf, 0x77, 0xce, 0xf9, 0xbe, 0x19, 0x02, 0x24, 0xe4, 0x18, 0x74, 0x39, 0x06,
-	0xb7, 0xcc, 0x41, 0xcb, 0x0f, 0x3c, 0xe1, 0x91, 0xbf, 0xd0, 0x45, 0xff, 0xc6, 0x9e, 0x08, 0x2b,
-	0x72, 0x1a, 0x5b, 0x13, 0xfc, 0xc8, 0xa9, 0xe7, 0x74, 0xe5, 0xdf, 0x24, 0xca, 0xfc, 0xa2, 0x00,
-	0x39, 0x0f, 0xf9, 0xcd, 0x1b, 0xe4, 0xdc, 0xbe, 0xc6, 0x01, 0x7e, 0x08, 0x91, 0x0b, 0x42, 0x60,
-	0x45, 0x4c, 0x7d, 0xd4, 0x6b, 0x7b, 0xb5, 0xa3, 0xd6, 0x20, 0xfe, 0x26, 0xbb, 0xd0, 0x0a, 0xd0,
-	0x61, 0x3e, 0xc3, 0x89, 0xd0, 0x95, 0xd8, 0x91, 0x19, 0x48, 0x07, 0x34, 0xea, 0x39, 0xc3, 0x30,
-	0x64, 0x54, 0xaf, 0xc7, 0x4e, 0x95, 0x7a, 0xce, 0x65, 0xc8, 0x68, 0xea, 0x8a, 0x0b, 0xae, 0xcc,
-	0x5c, 0x17, 0x51, 0xcd, 0x97, 0xa0, 0xfa, 0xf6, 0xd4, 0xf5, 0x6c, 0xaa, 0x37, 0xf6, 0xea, 0x47,
-	0xed, 0x9e, 0x65, 0xcd, 0xb5, 0x6d, 0x95, 0x7b, 0xb3, 0xce, 0x93, 0x84, 0x17, 0x13, 0x11, 0x4c,
-	0x07, 0x69, 0xba, 0x71, 0x02, 0xab, 0x79, 0x07, 0x59, 0x83, 0xfa, 0x7b, 0x9c, 0xca, 0x01, 0xa2,
-	0x4f, 0xb2, 0x09, 0x8d, 0x5b, 0xdb, 0x0d, 0x51, 0xf6, 0x9e, 0x1c, 0x4e, 0x94, 0x67, 0x35, 0x73,
-	0x0b, 0x36, 0xe6, 0x70, 0xb8, 0xef, 0x4d, 0x38, 0x9a, 0x14, 0xb6, 0x23, 0x73, 0x7f, 0x32, 0xf2,
-	0x3e, 0x15, 0xf6, 0x33, 0xb7, 0x8b, 0x5a, 0x71, 0x17, 0xc7, 0xd9, 0x54, 0x11, 0x56, 0xbb, 0xb7,
-	0x6e, 0xa5, 0x5b, 0x3f, 0xf3, 0x9c, 0x70, 0x8c, 0x13, 0x31, 0x6b, 0xdc, 0x34, 0x40, 0x2f, 0xa3,
-	0xc8, 0x0e, 0x1e, 0xc1, 0xc6, 0xb9, 0xe7, 0xba, 0xd2, 0xcc, 0x53, 0xf4, 0x0e, 0x68, 0xf6, 0x95,
-	0xc0, 0x60, 0xc8, 0x68, 0x0c, 0x5e, 0x1f, 0xa8, 0xf1, 0xb9, 0x4f, 0x4d, 0x07, 0x36, 0xe7, 0x33,
-	0x92, 0x4a, 0x64, 0x1b, 0x54, 0xd7, 0xe6, 0x22, 0xcb, 0x68, 0x46, 0xc7, 0x3e, 0x25, 0x3d, 0xd0,
-	0xc6, 0x32, 0x58, 0x57, 0x62, 0x0a, 0xfe, 0x29, 0x50, 0x90, 0x36, 0x35, 0x8b, 0x33, 0xbf, 0x29,
-	0xa0, 0x4a, 0x2b, 0xf9, 0x1b, 0x94, 0x59, 0x4d, 0x85, 0xd1, 0x99, 0x72, 0x94, 0x9c, 0x72, 0x74,
-	0x50, 0x9d, 0x00, 0x6d, 0x81, 0x33, 0x69, 0xc8, 0x23, 0xf9, 0x17, 0x40, 0x7e, 0x0e, 0x47, 0x53,
-	0x29, 0x8e, 0x96, 0xb4, 0x9c, 0x4e, 0xe7, 0xd7, 0xdc, 0xb8, 0x4b, 0x72, 0xcd, 0xc5, 0x92, 0x53,
-	0xe7, 0x25, 0xf7, 0x3c, 0x23, 0x47, 0x8b, 0xe7, 0x3d, 0xa8, 0x9e, 0xf7, 0x0f, 0xe8, 0xec, 0x09,
-	0xe8, 0x11, 0x39, 0x79, 0xaa, 0xef, 0xc3, 0xe9, 0x18, 0x3a, 0x15, 0x69, 0xcb, 0x88, 0x7d, 0x5a,
-	0x22, 0x76, 0xa7, 0x30, 0xe8, 0x9c, 0xe4, 0x32, 0x76, 0x7f, 0xd4, 0x60, 0x35, 0xef, 0x5a, 0x22,
-	0xf6, 0x44, 0x00, 0xca, 0x4c, 0x00, 0xbf, 0x4d, 0xb6, 0x0e, 0x6a, 0xe8, 0xd3, 0x38, 0x31, 0xa1,
-	0x3a, 0x3d, 0x46, 0x33, 0x32, 0x3e, 0x0c, 0xd0, 0x4e, 0x78, 0xd6, 0x06, 0x4d, 0xc6, 0x07, 0x68,
-	0xd3, 0xfc, 0x45, 0x53, 0x97, 0x5e, 0xb4, 0x57, 0xa0, 0xbf, 0x66, 0x5c, 0x54, 0x6e, 0x7f, 0x07,
-	0x5a, 0x23, 0xbc, 0xf2, 0x02, 0xcc, 0xf6, 0xa8, 0x25, 0x86, 0x7e, 0x2c, 0x69, 0xce, 0x3e, 0xa3,
-	0x9c, 0x31, 0xfe, 0x36, 0xbf, 0xd6, 0xa0, 0x53, 0x51, 0x4d, 0x92, 0xb2, 0x03, 0x2d, 0xd7, 0x16,
-	0x98, 0xa7, 0x45, 0x4b, 0x0c, 0x7d, 0x4a, 0xfe, 0x83, 0x36, 0xda, 0x81, 0xcb, 0xa4, 0x3b, 0xa9,
-	0x0a, 0xa9, 0xa9, 0xc0, 0x5c, 0xfd, 0x57, 0x98, 0x3b, 0x83, 0xce, 0x65, 0xbc, 0xb2, 0xaa, 0x27,
-	0xab, 0x78, 0x51, 0x73, 0x4b, 0x55, 0xf2, 0x4b, 0x35, 0x77, 0xc1, 0xa8, 0xaa, 0x22, 0x9f, 0xa4,
-	0x63, 0xe8, 0x9c, 0xa1, 0x8b, 0xf7, 0xc2, 0x88, 0x4a, 0x55, 0x05, 0x27, 0xa5, 0x7a, 0xdf, 0x1b,
-	0xa0, 0xa5, 0xab, 0x23, 0x17, 0xd0, 0xce, 0xbd, 0xc1, 0x64, 0x7f, 0xe9, 0xff, 0x01, 0xc3, 0xbc,
-	0x2b, 0x44, 0x12, 0xe1, 0xc0, 0x5a, 0xf1, 0x71, 0x25, 0xff, 0x57, 0xe4, 0x55, 0x0c, 0x63, 0x1c,
-	0x2e, 0x8d, 0x93, 0x20, 0x6f, 0x61, 0x35, 0xff, 0xe6, 0x92, 0x52, 0x63, 0xe5, 0x27, 0xdc, 0x38,
-	0xb8, 0x33, 0x46, 0x16, 0xbe, 0x82, 0xf5, 0xd2, 0xc5, 0x27, 0x87, 0x15, 0x99, 0x55, 0x9a, 0x36,
-	0x8e, 0x96, 0x07, 0x66, 0x38, 0x25, 0x2d, 0x97, 0x70, 0x16, 0xdd, 0x9d, 0x12, 0xce, 0xe2, 0x6b,
-	0xc1, 0x80, 0x94, 0x95, 0x45, 0x8a, 0xf9, 0x0b, 0x25, 0x6c, 0x3c, 0xb8, 0x47, 0x64, 0x06, 0x55,
-	0x56, 0x5e, 0x09, 0x6a, 0xa1, 0x92, 0x4b, 0x50, 0x8b, 0x65, 0x7c, 0x7a, 0xf0, 0x6e, 0xff, 0x9a,
-	0x89, 0x9b, 0x70, 0x64, 0x39, 0xde, 0xb8, 0x2b, 0x84, 0x3d, 0xea, 0xa6, 0xb9, 0x0f, 0x6d, 0x9f,
-	0x75, 0xa3, 0xfc, 0x51, 0x33, 0xfe, 0xb9, 0xf5, 0xf8, 0x67, 0x00, 0x00, 0x00, 0xff, 0xff, 0xd7,
-	0x9d, 0x20, 0xf7, 0xaa, 0x09, 0x00, 0x00,
+	// 1536 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x58, 0xdd, 0x72, 0xdb, 0x44,
+	0x14, 0x46, 0x72, 0x6c, 0xcb, 0x27, 0x89, 0x49, 0xb7, 0x71, 0xa3, 0x38, 0xcd, 0xd4, 0x55, 0x28,
+	0x0d, 0xed, 0xe0, 0x30, 0x29, 0xa5, 0x4c, 0x67, 0x7a, 0x41, 0x6b, 0x51, 0x4c, 0xd3, 0xc4, 0x23,
+	0x3b, 0x85, 0x66, 0x86, 0xf1, 0x28, 0xd2, 0x36, 0xd1, 0x54, 0x91, 0x8c, 0x7e, 0x52, 0xcc, 0x25,
+	0x8f, 0xc0, 0x03, 0xf0, 0x16, 0x5c, 0x72, 0xc7, 0x05, 0x3c, 0x00, 0xef, 0xc1, 0x23, 0x30, 0x2b,
+	0xad, 0xac, 0x9f, 0x5d, 0xdb, 0x49, 0x99, 0xf6, 0xca, 0xda, 0xb3, 0x67, 0xcf, 0x39, 0xfb, 0x9d,
+	0xdf, 0x35, 0xa0, 0xd0, 0xc7, 0xde, 0x8e, 0x8f, 0xbd, 0x73, 0xcb, 0xc0, 0xed, 0x91, 0xe7, 0x06,
+	0x2e, 0x5a, 0xc6, 0x36, 0x1e, 0x9d, 0xea, 0x4e, 0xd0, 0x26, 0x9b, 0xcd, 0x86, 0x83, 0xdf, 0xf8,
+	0xa6, 0x6b, 0xec, 0xd0, 0xdf, 0x98, 0x4b, 0xf1, 0x00, 0x3d, 0xc5, 0x41, 0xc7, 0x35, 0xc2, 0x33,
+	0xec, 0x04, 0x1a, 0xfe, 0x31, 0xc4, 0x7e, 0x80, 0x56, 0xa1, 0xec, 0xbe, 0x71, 0xb0, 0x27, 0x0b,
+	0x2d, 0x61, 0xbb, 0xa6, 0xc5, 0x0b, 0xd4, 0x82, 0x45, 0x7d, 0x34, 0xb2, 0x2d, 0x43, 0x0f, 0x2c,
+	0xd7, 0x91, 0xc5, 0x68, 0x2f, 0x4b, 0x42, 0x08, 0x16, 0x82, 0xf1, 0x08, 0xcb, 0xa5, 0x68, 0x2b,
+	0xfa, 0x46, 0x2b, 0x50, 0x7a, 0x8d, 0xc7, 0xf2, 0x42, 0x44, 0x22, 0x9f, 0xca, 0xb7, 0x70, 0x35,
+	0xa7, 0xd3, 0x1f, 0xb9, 0x8e, 0x8f, 0xd1, 0x3d, 0x90, 0x4c, 0x4a, 0x8b, 0xf4, 0x2e, 0xee, 0xae,
+	0xb5, 0x73, 0x77, 0x68, 0x4f, 0x8e, 0x4c, 0x18, 0x95, 0x3f, 0x44, 0x90, 0x12, 0xf2, 0xbb, 0x35,
+	0x1b, 0xc9, 0x50, 0x3d, 0xc7, 0x9e, 0x4f, 0x64, 0x94, 0x5b, 0xc2, 0x76, 0x49, 0x4b, 0x96, 0xe8,
+	0x16, 0xd4, 0x7d, 0xe3, 0x14, 0x9f, 0xe9, 0xc3, 0x84, 0xa1, 0x12, 0x1d, 0x5b, 0x8e, 0xa9, 0x2f,
+	0x28, 0xdb, 0x06, 0xd4, 0x3c, 0xac, 0x9b, 0x43, 0xd7, 0xb1, 0xc7, 0x72, 0xb5, 0x25, 0x6c, 0x4b,
+	0x9a, 0x44, 0x08, 0x07, 0x8e, 0x3d, 0x26, 0xb6, 0x07, 0x56, 0x60, 0x63, 0x59, 0x8a, 0x6d, 0x8f,
+	0x16, 0x44, 0xa7, 0xe1, 0x61, 0x3d, 0xc0, 0xa6, 0x5c, 0x8b, 0xe8, 0xc9, 0x92, 0xec, 0x84, 0x23,
+	0x33, 0xda, 0x81, 0x78, 0x87, 0x2e, 0xd1, 0x5d, 0xa8, 0x8e, 0xf4, 0xb1, 0xed, 0xea, 0xa6, 0xbc,
+	0x18, 0xc1, 0x78, 0xa5, 0x9d, 0xf8, 0x7c, 0x02, 0x60, 0xc2, 0xa1, 0x84, 0xb0, 0xba, 0x67, 0xf9,
+	0x13, 0x67, 0xf8, 0x49, 0x04, 0x14, 0x40, 0x13, 0xa6, 0x83, 0x26, 0x66, 0x40, 0xbb, 0x0d, 0x1f,
+	0x5a, 0x8e, 0x61, 0x87, 0x26, 0x1e, 0x26, 0x26, 0x94, 0xa2, 0x7b, 0xd6, 0x29, 0xb9, 0x47, 0xd5,
+	0xee, 0x43, 0xa3, 0xa0, 0x96, 0x06, 0xc1, 0x7d, 0xa8, 0x25, 0xbe, 0xf5, 0x65, 0xa1, 0x55, 0x9a,
+	0x15, 0x05, 0x29, 0xa7, 0xf2, 0xb7, 0x00, 0x8d, 0xc3, 0xe8, 0xfe, 0xef, 0x35, 0x94, 0x39, 0x9e,
+	0x2f, 0xf3, 0x3c, 0x9f, 0x71, 0x49, 0x65, 0xae, 0x4b, 0x64, 0xb8, 0x56, 0xbc, 0x4a, 0x0c, 0x8e,
+	0x12, 0x42, 0xa3, 0x83, 0x6d, 0xfc, 0x9e, 0x2f, 0x49, 0x0c, 0x2a, 0xaa, 0xa5, 0x06, 0xfd, 0x26,
+	0x80, 0xd4, 0xf3, 0xdc, 0x11, 0xf6, 0x82, 0xf1, 0x5b, 0x1b, 0x41, 0x15, 0x96, 0x52, 0x54, 0x57,
+	0xa1, 0x7c, 0xae, 0xdb, 0x21, 0xa6, 0x46, 0xc4, 0x8b, 0x6c, 0x2e, 0x94, 0xa7, 0xe6, 0x42, 0x25,
+	0x97, 0x0b, 0xca, 0x1e, 0xac, 0x3e, 0xc5, 0x01, 0x35, 0xd1, 0xc2, 0x97, 0x0b, 0xef, 0xd7, 0x78,
+	0xec, 0xcb, 0x62, 0xab, 0x44, 0xa0, 0x21, 0xdf, 0x4a, 0x0f, 0x1a, 0x05, 0x69, 0x34, 0x6a, 0x1f,
+	0x00, 0x8c, 0x26, 0xd4, 0x29, 0x61, 0x9b, 0xe0, 0xa4, 0x65, 0x58, 0x95, 0x23, 0xa8, 0x27, 0xf4,
+	0xd8, 0xe7, 0x17, 0xb0, 0x8c, 0xe2, 0x25, 0x72, 0xf0, 0x2a, 0x65, 0xf0, 0x52, 0x0e, 0x61, 0xb5,
+	0xcf, 0xbb, 0xfb, 0x23, 0x8e, 0xb1, 0x9b, 0x53, 0x8c, 0x8d, 0x8d, 0xca, 0x99, 0xbc, 0x06, 0x8d,
+	0x3e, 0x0f, 0x04, 0xa5, 0x93, 0xde, 0x25, 0x0e, 0x97, 0xb7, 0xb9, 0x8b, 0xf2, 0x3d, 0xac, 0xc5,
+	0xa7, 0xff, 0x9f, 0xe1, 0xb1, 0x8c, 0x9c, 0xe1, 0x4d, 0x90, 0x59, 0xc9, 0xd4, 0xf6, 0xcf, 0xe0,
+	0x6a, 0xcf, 0xb5, 0x6d, 0xf5, 0x1c, 0x3b, 0xc1, 0x9e, 0x7b, 0x92, 0x68, 0x5c, 0x07, 0x49, 0x7f,
+	0x15, 0x60, 0x6f, 0x68, 0x99, 0x91, 0xf5, 0x25, 0xad, 0x1a, 0xad, 0xbb, 0xa6, 0x72, 0x02, 0xab,
+	0xf9, 0x13, 0x34, 0x14, 0xd6, 0xa0, 0x6a, 0xeb, 0x7e, 0x90, 0x9e, 0xa8, 0x90, 0x65, 0xd7, 0x44,
+	0x5f, 0x40, 0x15, 0x3b, 0x81, 0x47, 0x4c, 0x17, 0x23, 0xd3, 0xaf, 0x17, 0x4c, 0x4f, 0x44, 0xa9,
+	0x4e, 0xe0, 0x8d, 0xb5, 0x84, 0x59, 0xf9, 0x4b, 0x84, 0xe5, 0xdc, 0x16, 0xaa, 0x83, 0x38, 0x91,
+	0x2e, 0x5a, 0x66, 0x36, 0x31, 0xc4, 0x7c, 0x62, 0x4c, 0x52, 0xb2, 0x34, 0x23, 0x25, 0x17, 0x58,
+	0xb7, 0x6c, 0xc1, 0x72, 0x52, 0x5b, 0x87, 0x51, 0x81, 0x88, 0x13, 0x6e, 0x29, 0x21, 0x0e, 0x32,
+	0x85, 0xa2, 0xc2, 0xed, 0x90, 0xd5, 0x7c, 0x87, 0xdc, 0x04, 0xa0, 0x29, 0x39, 0x3c, 0x1e, 0xd3,
+	0x16, 0x57, 0xa3, 0x94, 0xc7, 0x63, 0xf4, 0x39, 0xad, 0x43, 0xa4, 0xc7, 0xd5, 0x77, 0x5b, 0xb3,
+	0x80, 0x21, 0xaa, 0x69, 0xa5, 0xda, 0x81, 0x85, 0xd7, 0x96, 0x13, 0xf7, 0xbf, 0xfa, 0xee, 0x46,
+	0xe1, 0x94, 0x86, 0x7d, 0x37, 0xf4, 0x0c, 0xfc, 0xcc, 0x72, 0x4c, 0x2d, 0x62, 0x54, 0x7e, 0x11,
+	0x01, 0xf5, 0x42, 0xff, 0xf4, 0x39, 0xf6, 0x7d, 0xfd, 0x04, 0x27, 0x5e, 0x4e, 0xaa, 0xa0, 0x90,
+	0xa9, 0x82, 0xd7, 0x49, 0xaf, 0x36, 0xac, 0x91, 0x45, 0xa6, 0x91, 0x18, 0xd5, 0x94, 0x40, 0xe2,
+	0xc2, 0x74, 0x8d, 0x61, 0x18, 0x5a, 0x26, 0x85, 0xb6, 0x6a, 0xba, 0xc6, 0x61, 0x68, 0x99, 0xc9,
+	0x56, 0x24, 0x70, 0x61, 0xb2, 0x15, 0x01, 0xf6, 0x4d, 0xda, 0x05, 0xca, 0x51, 0x04, 0xb4, 0x8b,
+	0xc1, 0xcb, 0xd8, 0xd6, 0xa6, 0x0d, 0x93, 0xc6, 0x04, 0x3d, 0xde, 0x7c, 0x08, 0x4b, 0xd9, 0x8d,
+	0xc4, 0x15, 0x02, 0xa7, 0x24, 0x88, 0x99, 0x92, 0xf0, 0x50, 0xfc, 0x52, 0x50, 0x1a, 0x70, 0x35,
+	0xa7, 0x87, 0x66, 0x80, 0x09, 0x6b, 0x84, 0xdc, 0x75, 0x8e, 0xdd, 0x9f, 0x0a, 0xf8, 0xe4, 0xb0,
+	0x10, 0x8a, 0x58, 0x64, 0x7a, 0x9b, 0x38, 0xb7, 0xb7, 0x35, 0x41, 0x66, 0xb5, 0xe4, 0x73, 0x90,
+	0x92, 0xfd, 0x0b, 0xe4, 0xa0, 0x11, 0xe7, 0x60, 0x7a, 0x62, 0x5e, 0x0e, 0xee, 0x82, 0x74, 0x46,
+	0x99, 0x69, 0x12, 0x5e, 0x2b, 0xb8, 0x20, 0x31, 0x6a, 0xc2, 0xa7, 0xfc, 0x2e, 0x42, 0x95, 0x52,
+	0x99, 0xcc, 0xe3, 0xcd, 0x40, 0x99, 0x6c, 0x2c, 0xe5, 0xb3, 0x71, 0x13, 0x80, 0x7e, 0x92, 0x24,
+	0x88, 0x83, 0xa3, 0x46, 0x29, 0x8f, 0xc7, 0x79, 0x98, 0xcb, 0xb3, 0x42, 0xae, 0x32, 0x3d, 0xe4,
+	0xaa, 0xf9, 0x90, 0x7b, 0x94, 0x3a, 0x47, 0x8a, 0xee, 0xbb, 0xc5, 0xbf, 0xef, 0x3b, 0x88, 0xb3,
+	0xfb, 0x20, 0x13, 0xe7, 0x64, 0x5d, 0x7d, 0x11, 0x9f, 0x9e, 0xc1, 0x3a, 0xe7, 0xd8, 0x3c, 0xc7,
+	0x3e, 0x60, 0x1c, 0x5b, 0x2c, 0x07, 0xb9, 0x90, 0x4b, 0xbd, 0xfb, 0x8f, 0x00, 0x4b, 0xd9, 0xad,
+	0x39, 0xc1, 0x1e, 0x07, 0x80, 0xc8, 0x2b, 0xbd, 0x97, 0x73, 0x76, 0x66, 0x64, 0x29, 0xe7, 0xc7,
+	0xf7, 0x35, 0xa8, 0x5a, 0xfe, 0x90, 0xbc, 0x0b, 0x22, 0x3f, 0x4b, 0x5a, 0xc5, 0xf2, 0x35, 0xac,
+	0xe7, 0xe6, 0xfa, 0xea, 0xdc, 0x44, 0x7b, 0x06, 0x32, 0x19, 0xb0, 0xb9, 0xe8, 0x6f, 0x40, 0xed,
+	0x18, 0xbf, 0x72, 0x3d, 0x9c, 0xe2, 0x28, 0xc5, 0x84, 0x6e, 0x14, 0xd2, 0xbe, 0xf5, 0x33, 0xa6,
+	0x77, 0x8c, 0xbe, 0x95, 0x5f, 0x05, 0x58, 0xe7, 0x48, 0xa3, 0x4e, 0xd9, 0x80, 0x9a, 0xad, 0x07,
+	0x38, 0xeb, 0x16, 0x29, 0x26, 0x74, 0x4d, 0x74, 0x03, 0x16, 0xb1, 0xee, 0xd9, 0x16, 0xdd, 0x8e,
+	0xa5, 0x42, 0x42, 0x2a, 0x78, 0xae, 0x74, 0x19, 0xcf, 0x75, 0x60, 0x3d, 0x9e, 0x4e, 0x78, 0x25,
+	0xab, 0x98, 0xa8, 0x19, 0x50, 0xc5, 0x2c, 0xa8, 0xca, 0x75, 0x68, 0xf2, 0xa4, 0xd0, 0x92, 0x74,
+	0x17, 0xd6, 0xe3, 0x91, 0xe1, 0x02, 0x3a, 0x88, 0x28, 0x1e, 0x73, 0x2c, 0xea, 0x8e, 0x0d, 0x57,
+	0x98, 0x3e, 0x86, 0x6e, 0xc0, 0x86, 0xfa, 0x42, 0xdd, 0x1f, 0x0c, 0xf7, 0x0e, 0x9e, 0x0e, 0xd5,
+	0xfd, 0x81, 0xf6, 0x72, 0x78, 0xb8, 0xdf, 0xef, 0xa9, 0x4f, 0xba, 0x5f, 0x77, 0xd5, 0xce, 0xca,
+	0x07, 0xa8, 0x09, 0xd7, 0x18, 0x86, 0x5e, 0xe7, 0xab, 0x81, 0xba, 0x22, 0xf0, 0xf6, 0x3a, 0xea,
+	0x9e, 0x3a, 0x50, 0x57, 0xc4, 0x3b, 0x18, 0x96, 0xb2, 0xfd, 0x0f, 0x6d, 0xc2, 0xba, 0xa6, 0xf6,
+	0x0f, 0x0e, 0xb5, 0x27, 0xea, 0xf0, 0x59, 0x77, 0xbf, 0xc3, 0xaa, 0xc9, 0x6f, 0x77, 0x0e, 0x9e,
+	0x1c, 0x3e, 0x57, 0xf7, 0x07, 0xb1, 0x9a, 0xfc, 0x5e, 0x4f, 0x3b, 0xe8, 0xa9, 0xda, 0xe0, 0xe5,
+	0x8a, 0xb8, 0xfb, 0x6f, 0x19, 0xa4, 0x3e, 0x0e, 0x02, 0xcb, 0x39, 0xf1, 0xd1, 0x00, 0x16, 0x33,
+	0xcf, 0x7a, 0x74, 0xb3, 0xe0, 0x46, 0xf6, 0x6f, 0x86, 0xa6, 0x32, 0x8b, 0x85, 0x46, 0xd7, 0x11,
+	0x2c, 0xe7, 0x5e, 0x8a, 0xa8, 0x58, 0xc1, 0x78, 0xcf, 0xd7, 0xe6, 0x47, 0xb3, 0x99, 0xa8, 0xec,
+	0x1f, 0xa0, 0x9e, 0x7f, 0x69, 0xa1, 0xe2, 0x39, 0xee, 0x9b, 0xb2, 0x79, 0x6b, 0x0e, 0x57, 0x2a,
+	0x3e, 0xff, 0x6e, 0x62, 0xc4, 0x73, 0x5f, 0x73, 0x8c, 0x78, 0xfe, 0xe3, 0x8b, 0x20, 0x93, 0x7b,
+	0x8d, 0x30, 0xc8, 0xf0, 0x5e, 0x3e, 0x0c, 0x32, 0xfc, 0x07, 0xcd, 0x11, 0x2c, 0xf7, 0x67, 0xca,
+	0xee, 0x5f, 0x44, 0x36, 0xf7, 0x9d, 0x80, 0x0c, 0x58, 0x29, 0xce, 0xe1, 0xe8, 0x63, 0xee, 0x95,
+	0x59, 0x0d, 0xb7, 0xe7, 0xf2, 0x51, 0x25, 0xdf, 0xc1, 0x52, 0x76, 0x3c, 0x47, 0xc5, 0x50, 0xe3,
+	0x4c, 0xfb, 0xcd, 0xad, 0x99, 0x3c, 0xb1, 0xe0, 0xdd, 0x3f, 0xcb, 0x20, 0x25, 0x25, 0x90, 0x84,
+	0x7c, 0x66, 0x96, 0x62, 0x42, 0x9e, 0x9d, 0xe7, 0x98, 0x90, 0xe7, 0x8c, 0x62, 0x04, 0xa0, 0xe2,
+	0x90, 0xc4, 0x00, 0x34, 0x65, 0x56, 0x63, 0x00, 0x9a, 0x36, 0x6d, 0x25, 0x00, 0x4d, 0xae, 0xc2,
+	0x03, 0xa8, 0xd0, 0x38, 0xb8, 0x00, 0x31, 0xed, 0xe0, 0x15, 0x5c, 0x61, 0x1a, 0x38, 0xba, 0xcd,
+	0x39, 0xc9, 0xeb, 0x4d, 0xcd, 0xed, 0xf9, 0x8c, 0xa9, 0x1e, 0xa6, 0x27, 0x31, 0x7a, 0xa6, 0xf5,
+	0x40, 0x46, 0xcf, 0xf4, 0xf6, 0x66, 0x01, 0x62, 0x3b, 0x04, 0xda, 0xe6, 0x96, 0x00, 0x9e, 0x47,
+	0x3e, 0xb9, 0x00, 0x67, 0xaa, 0x8a, 0xed, 0x20, 0x8c, 0xaa, 0xa9, 0x1d, 0x89, 0x51, 0x35, 0xbd,
+	0x1d, 0x3d, 0xde, 0x3a, 0xba, 0x79, 0x62, 0x05, 0xa7, 0xe1, 0x71, 0xdb, 0x70, 0xcf, 0x76, 0x82,
+	0x40, 0x3f, 0xde, 0x49, 0xce, 0x7e, 0xaa, 0x8f, 0xac, 0x1d, 0x72, 0xfe, 0xb8, 0x12, 0xfd, 0x47,
+	0x7c, 0xef, 0xbf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x49, 0xb9, 0x16, 0x19, 0x5f, 0x16, 0x00, 0x00,
 }

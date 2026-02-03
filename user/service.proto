@@ -33,14 +33,17 @@ service Settings {
 }
 
 message GetDocumentRequest {
+  // URI of the document owner. Optional, defaults to the caller URI (`sub` claim).
+  // Can be a user, unit or organization. (e.g., core://user/1234, core://unit/abc, core://org/ab)
+  string owner = 1;
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
-  string application = 1;
+  string application = 2;
   // Type is the content type of the document.
-  string type = 2;
+  string type = 3;
   // Unique identifier for the document within the scope of the application and type.
   // Can be a human readable slug or a UUID.
-  string key = 3;
+  string key = 4;
 }
 
 message GetDocumentResponse {
@@ -48,9 +51,8 @@ message GetDocumentResponse {
 }
 
 message Document {
-  // ID of the document's owner.
-  // Matches the `sub` claim from the authentication token.
-  string user = 1;
+  // URI of the document owner.
+  string owner = 1;
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 2;
@@ -63,7 +65,7 @@ message Document {
   int64 version = 5;
   // Semver string indicating the schema version of the payload.
   string schema_version = 6;
-  // ReadOnly is set to true if the document is shared with all users.
+  // ReadOnly is set to true if the document is shared.
   bool read_only = 7;
   // Title of the document.
   string title = 8;
@@ -91,31 +93,39 @@ message ListDocumentsResponse {
 }
 
 message UpdateDocumentRequest {
+  // URI of the document owner. Optional, defaults to the caller URI (`sub` claim).
+  // Can be a user, unit or organization. (e.g., core://user/1234, core://unit/abc, core://org/ab)
+  // Only admin users can set it to a unit or organization.
+  string owner = 1;
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
-  string application = 1;
+  string application = 2;
   // Type is the content type of the document.
-  string type = 2;
+  string type = 3;
   // Unique identifier for the document within the scope of the application and type.
   // Can be a human readable slug or a UUID.
-  string key = 3;
+  string key = 4;
   // Semver string indicating the schema version of the payload.
-  string schema_version = 4;
+  string schema_version = 5;
   // Payload contains a newsdoc document with actual configuration data.
-  newsdoc.Document payload = 5;
+  newsdoc.Document payload = 6;
 }
 
 message UpdateDocumentResponse {}
 
 message DeleteDocumentRequest {
+  // URI of the document owner. If omitted, defaults to the caller URI (`sub` claim).
+  // Can be a user, unit or organization. (e.g., core://user/1234, core://unit/abc, core://org/ab)
+  // Only admin users can delete documents owned by a unit or organization.
+  string owner = 1;
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
-  string application = 1;
+  string application = 2;
   // Type is the content type of the document.
-  string type = 2;
+  string type = 3;
   // Unique identifier for the document within the scope of the application and type.
   // Can be a human readable slug or a UUID.
-  string key = 3;
+  string key = 4;
 }
 
 message DeleteDocumentResponse {}
@@ -123,9 +133,8 @@ message DeleteDocumentResponse {}
 // Property represents a generic key-value pair attached to a user.
 // It can be used for preferences, user state, feature flags etc.
 message Property {
-  // User ID of the property owner.
-  // Matches the `sub` claim from the authentication token.
-  string user = 1;
+  // URI of the property owner. Matches the caller `sub` claim.
+  string owner = 1;
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
   string application = 2;
@@ -202,61 +211,31 @@ message EventLogEntry {
   int64 id = 1;
   // Occurrence time in RFC3339 format.
   string created = 2;
+  // ID of the resource owner. Can be a user, unit or organization.
+  // (e.g., core://user/1234, core://unit/abc, core://org/ab)
+  string owner = 3;
+  // The unique application identifier in reverse domain notation
+  // (e.g., `com.example.assignments` or `com.example.writer`).
+  string application = 4;
+  // DocumentType is the content type of the document.
+  string document_type = 5;
+  // Unique identifier for a resource within the scope of the owner and
+  // application (and document type when kind is `RESOURCE_KIND_DOCUMENT`).
+  string key = 6;
+  // Version of the document.
+  int64 version = 7;
+  // UpdatedBy is the identity of the party that last updated the resource.
+  string updated_by = 8;
   // The type of change.
-  EventLogEntryType type = 3;
-  // The payload data associated with the entry.
-  oneof payload {
-    // Present if type is `EVENT_LOG_ENTRY_UPDATE` and payload is a document.
-    // Contains only metadata, client must call GetDocument() for the full body.
-    DocumentMetadata document = 4;
-    // Present if type is `EVENT_LOG_ENTRY_UPDATE` and payload is a property.
-    Property property = 5;
-    // Present if type is `EVENT_LOG_ENTRY_DELETE`.
-    ResourceIdentifier resource = 6;
-  }
+  EventLogEntryType type = 9;
+  // Kind of the resource.
+  ResourceKind kind = 10;
 }
 
 enum EventLogEntryType {
   EVENT_LOG_ENTRY_UNSPECIFIED = 0;
   EVENT_LOG_ENTRY_UPDATE      = 1;
   EVENT_LOG_ENTRY_DELETE      = 2;
-}
-
-message DocumentMetadata {
-  // ID of the document's owner.
-  // Matches the `sub` claim from the authentication token.
-  string user = 1;
-    // The unique application identifier in reverse domain notation
-  // (e.g., `com.example.assignments` or `com.example.writer`).
-  string application = 2;
-  // Type is the content type of the document.
-  string type = 3;
-  // Unique identifier for the document within the scope of the application and type.
-  // Can be a human readable slug or a UUID.
-  string key = 4;
-    // Version of the document.
-  int64 version = 5;
-  // Semver string indicating the schema version of the document payload.
-  string schema_version = 6;
-  // ReadOnly is set to true if the document is shared with all users.
-  bool read_only = 7;
-  // Title of the document.
-  string title = 8;
-  // Creation time in RFC3339 format.
-  string created = 9;
-  // Last update time in RFC3339 format.
-  string updated = 10;
-}
-
-message ResourceIdentifier {
-  // Kind of the resource.
-  ResourceKind kind = 1;
-  // The application ID (e.g., "com.example.writer").
-  string application = 2;
-  // The unique key of the resource.
-  string key = 3;
-  // Only applicable if kind is `RESOURCE_KIND_DOCUMENT`.
-  string document_type = 4;
 }
 
 enum ResourceKind {
