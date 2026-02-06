@@ -73,8 +73,10 @@ message Document {
   string created = 9;
   // Last update time in RFC3339 format.
   string updated = 10;
+  // UpdatedBy is the identity of the party that last updated the document.
+  string updated_by = 11;
   // Payload contains a newsdoc document with actual configuration data.
-  newsdoc.Document payload = 11;
+  newsdoc.Document payload = 12;
 }
 
 message ListDocumentsRequest {
@@ -224,7 +226,7 @@ message EventLogEntry {
   string key = 6;
   // Version of the document.
   int64 version = 7;
-  // UpdatedBy is the identity of the party that last updated the resource.
+  // UpdatedBy is the identity of the party that last updated the document.
   string updated_by = 8;
   // The type of change.
   EventLogEntryType type = 9;

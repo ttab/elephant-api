@@ -92,6 +92,10 @@
             "description": "Last update time in RFC3339 format.",
             "type": "string"
           },
+          "updated_by": {
+            "description": "UpdatedBy is the identity of the party that last updated the document.",
+            "type": "string"
+          },
           "version": {
             "description": "Version of the document.",
             "type": "integer"
@@ -132,7 +136,7 @@
             "$ref": "#/components/schemas/elephant.user.EventLogEntryType"
           },
           "updated_by": {
-            "description": "UpdatedBy is the identity of the party that last updated the resource.",
+            "description": "UpdatedBy is the identity of the party that last updated the document.",
             "type": "string"
           },
           "version": {
