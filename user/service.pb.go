@@ -388,8 +388,11 @@ type ListDocumentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The unique application identifier in reverse domain notation
 	// (e.g., `com.example.assignments` or `com.example.writer`).
+	// If empty, returns documents across all applications.
 	Application string `protobuf:"bytes,1,opt,name=application,proto3" json:"application,omitempty"`
 	// Type is the content type of the document.
+	// If provided, filters documents by type.
+	// If `application` is empty, returns documents of this type across all applications.
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// If true, include the document payload in the response.
 	// If false (default), payload will be omitted.
@@ -832,10 +835,11 @@ type GetPropertiesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The unique application identifier in reverse domain notation
 	// (e.g., `com.example.assignments` or `com.example.writer`).
-	// If empty, returns all properties from all applications for this user.
+	// If empty, returns properties across all applications.
 	Application string `protobuf:"bytes,1,opt,name=application,proto3" json:"application,omitempty"`
-	// Unique identifier for the property within the application.
-	// If empty, returns all properties matching the application filter.
+	// Unique identifier(s) for the property.
+	// If provided, filters properties by key.
+	// If `application` is empty, returns properties with these keys across all applications.
 	Keys          []string `protobuf:"bytes,2,rep,name=keys,proto3" json:"keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -186,11 +186,11 @@
       "elephant.user.GetPropertiesRequest": {
         "properties": {
           "application": {
-            "description": "The unique application identifier in reverse domain notation (e.g., `com.example.assignments` or `com.example.writer`). If empty, returns all properties from all applications for this user.",
+            "description": "The unique application identifier in reverse domain notation (e.g., `com.example.assignments` or `com.example.writer`). If empty, returns properties across all applications.",
             "type": "string"
           },
           "keys": {
-            "description": "Unique identifier for the property within the application. If empty, returns all properties matching the application filter.",
+            "description": "Unique identifier(s) for the property. If provided, filters properties by key. If `application` is empty, returns properties with these keys across all applications.",
             "items": {
               "type": "string"
             },
@@ -245,7 +245,7 @@
       "elephant.user.ListDocumentsRequest": {
         "properties": {
           "application": {
-            "description": "The unique application identifier in reverse domain notation (e.g., `com.example.assignments` or `com.example.writer`).",
+            "description": "The unique application identifier in reverse domain notation (e.g., `com.example.assignments` or `com.example.writer`). If empty, returns documents across all applications.",
             "type": "string"
           },
           "include_payload": {
@@ -253,7 +253,7 @@
             "type": "boolean"
           },
           "type": {
-            "description": "Type is the content type of the document.",
+            "description": "Type is the content type of the document. If provided, filters documents by type. If `application` is empty, returns documents of this type across all applications.",
             "type": "string"
           }
         },
