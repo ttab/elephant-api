@@ -136,7 +136,7 @@
             "$ref": "#/components/schemas/elephant.user.EventLogEntryType"
           },
           "updated_by": {
-            "description": "UpdatedBy is the identity of the party that last updated the document.",
+            "description": "UpdatedBy is the identity of the party that last updated the resource.",
             "type": "string"
           },
           "version": {

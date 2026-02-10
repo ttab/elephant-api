@@ -215,27 +215,27 @@ message PollEventLogResponse {
 message EventLogEntry {
   // ID of the event.
   int64 id = 1;
-  // Occurrence time in RFC3339 format.
-  string created = 2;
   // ID of the resource owner. Can be a user, unit or organization.
   // (e.g., core://user/1234, core://unit/abc, core://org/ab)
-  string owner = 3;
+  string owner = 2;
+  // The type of change.
+  EventLogEntryType type = 3;
+  // Kind of the resource.
+  ResourceKind kind = 4;
   // The unique application identifier in reverse domain notation
   // (e.g., `com.example.assignments` or `com.example.writer`).
-  string application = 4;
+  string application = 5;
   // DocumentType is the content type of the document.
-  string document_type = 5;
+  string document_type = 6;
   // Unique identifier for a resource within the scope of the owner and
   // application (and document type when kind is `RESOURCE_KIND_DOCUMENT`).
-  string key = 6;
+  string key = 7;
   // Version of the document.
-  int64 version = 7;
-  // UpdatedBy is the identity of the party that last updated the document.
-  string updated_by = 8;
-  // The type of change.
-  EventLogEntryType type = 9;
-  // Kind of the resource.
-  ResourceKind kind = 10;
+  int64 version = 8;
+  // UpdatedBy is the identity of the party that last updated the resource.
+  string updated_by = 9;
+  // Occurrence time in RFC3339 format.
+  string created = 10;
 }
 
 enum EventLogEntryType {
