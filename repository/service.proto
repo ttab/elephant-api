@@ -1145,6 +1145,8 @@ message TypeConfiguration {
   repeated TypeTimeExpression time_expressions = 2;
   // LabelExpressions are used to extract labels from documents.
   repeated LabelExpression label_expressions   = 3;
+  // Variants are the allowed variants for the document type.
+  repeated string variants                     = 4;
 }
 
 message TypeTimeExpression {

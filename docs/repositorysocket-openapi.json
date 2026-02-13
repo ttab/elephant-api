@@ -1944,6 +1944,13 @@
               "$ref": "#/components/schemas/elephant.repository.TypeTimeExpression"
             },
             "type": "array"
+          },
+          "variants": {
+            "description": "Variants are the allowed variants for the document type.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
