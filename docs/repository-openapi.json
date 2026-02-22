@@ -695,15 +695,18 @@
       "elephant.repository.ExtractedValue": {
         "properties": {
           "annotation": {
+            "description": "Annotations can be used to differentiate between different extracted values.",
             "type": "string"
           },
           "block": {
             "$ref": "#/components/schemas/newsdoc.Block"
           },
           "role": {
+            "description": "Role can be used to differentiate between different extracted values.",
             "type": "string"
           },
           "value": {
+            "description": "Value is used for extracted attributes and data values.",
             "type": "string"
           }
         },
@@ -711,10 +714,15 @@
       },
       "elephant.repository.ExtractedValues": {
         "properties": {
+          "extractor": {
+            "description": "Extractor index for the the extractor that produced the values.",
+            "type": "integer"
+          },
           "values": {
             "additionalProperties": {
               "$ref": "#/components/schemas/elephant.repository.ExtractedValue"
             },
+            "description": "Values that were extracted.",
             "type": "object"
           }
         },

@@ -477,13 +477,20 @@ message GetDocumentResponse {
 }
 
 message ExtractedValues {
-  map<string, ExtractedValue> values = 1;
+  // Extractor index for the the extractor that produced the values.
+  int64 extractor = 1;
+  // Values that were extracted.
+  map<string, ExtractedValue> values = 2;
 }
 
 message ExtractedValue {
+  // Value is used for extracted attributes and data values.
   string value        = 1;
+  // Block is used for block extractors.
   newsdoc.Block block = 2;
+  // Annotations can be used to differentiate between different extracted values.
   string annotation   = 3;
+  // Role can be used to differentiate between different extracted values.
   string role         = 4;
 }
 
