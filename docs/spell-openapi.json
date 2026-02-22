@@ -56,6 +56,14 @@
           "text": {
             "description": "Text is the word (or phrase) itself.",
             "type": "string"
+          },
+          "updated": {
+            "description": "Updated is the last update time in RFC3339 format.",
+            "type": "string"
+          },
+          "updated_by": {
+            "description": "UpdatedBy is the identity of the party that last updated the entry.",
+            "type": "string"
           }
         },
         "type": "object"
