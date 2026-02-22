@@ -518,8 +518,10 @@ message BulkGetItem {
   newsdoc.Document document = 1;
   // Version is the version of the returned document.
   int64 version             = 2;
+  // UUID of the loaded document.
+  string uuid               = 3;
   // Subset is the extracted subset of the document.
-  repeated ExtractedValues subset = 7;
+  repeated ExtractedValues subset = 4;
 }
 
 message MetaDocument {
