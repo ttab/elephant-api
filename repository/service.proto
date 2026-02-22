@@ -490,6 +490,9 @@ message ExtractedValue {
 message BulkGetRequest {
   // Documents to get.
   repeated BulkGetReference documents = 1;
+  // Subset returns a subset of the documents as specified by a list of newsdoc
+  // value extractors.
+  repeated string subset = 2;
 }
 
 message BulkGetReference {

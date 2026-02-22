@@ -99,6 +99,13 @@
               "$ref": "#/components/schemas/elephant.repository.BulkGetReference"
             },
             "type": "array"
+          },
+          "subset": {
+            "description": "Subset returns a subset of the documents as specified by a list of newsdoc value extractors.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
