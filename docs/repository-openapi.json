@@ -64,6 +64,13 @@
           "document": {
             "$ref": "#/components/schemas/newsdoc.Document"
           },
+          "subset": {
+            "description": "Subset is the extracted subset of the document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
+            },
+            "type": "array"
+          },
           "version": {
             "description": "Version is the version of the returned document.",
             "type": "integer"
@@ -678,6 +685,34 @@
         },
         "type": "object"
       },
+      "elephant.repository.ExtractedValue": {
+        "properties": {
+          "annotation": {
+            "type": "string"
+          },
+          "block": {
+            "$ref": "#/components/schemas/newsdoc.Block"
+          },
+          "role": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ExtractedValues": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValue"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.FilterOperator": {
         "enum": [
           "FILTER_OP_UNKNOWN",
@@ -869,6 +904,13 @@
             "description": "Status is used to fetch the version of the document references by the last status update. Can be used instead of specifying a version.",
             "type": "string"
           },
+          "subset": {
+            "description": "Subset returns a subset of the document as specified by a list of newsdoc value extractors.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "uuid": {
             "description": "UUID of the document to get.",
             "type": "string"
@@ -898,6 +940,13 @@
           },
           "status": {
             "$ref": "#/components/schemas/elephant.repository.Status"
+          },
+          "subset": {
+            "description": "Subset is the extracted subset of the document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
+            },
+            "type": "array"
           },
           "version": {
             "description": "Version is the version of the returned document.",
