@@ -2343,6 +2343,13 @@
           "set_name": {
             "description": "SetName is the name of the set that result is for.",
             "type": "string"
+          },
+          "subset": {
+            "description": "Subset is the extracted subset of the document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
+            },
+            "type": "array"
           }
         },
         "type": "object"

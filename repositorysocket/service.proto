@@ -128,6 +128,8 @@ message DocumentUpdate {
   // Included is true if the update is for a document that was added through
   // inclusion.
   bool included                 = 5;
+  // Subset is the extracted subset of the document.
+  repeated repository.ExtractedValues subset = 6;
 }
 
 // DocumentRemoved is emitted when a document is removed from the set.
