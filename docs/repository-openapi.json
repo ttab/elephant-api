@@ -64,6 +64,17 @@
           "document": {
             "$ref": "#/components/schemas/newsdoc.Document"
           },
+          "subset": {
+            "description": "Subset is the extracted subset of the document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
+            },
+            "type": "array"
+          },
+          "uuid": {
+            "description": "UUID of the loaded document.",
+            "type": "string"
+          },
           "version": {
             "description": "Version is the version of the returned document.",
             "type": "integer"
@@ -90,6 +101,13 @@
             "description": "Documents to get.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.BulkGetReference"
+            },
+            "type": "array"
+          },
+          "subset": {
+            "description": "Subset returns a subset of the documents as specified by a list of newsdoc value extractors.",
+            "items": {
+              "type": "string"
             },
             "type": "array"
           }
@@ -678,6 +696,42 @@
         },
         "type": "object"
       },
+      "elephant.repository.ExtractedValue": {
+        "properties": {
+          "annotation": {
+            "description": "Annotations can be used to differentiate between different extracted values.",
+            "type": "string"
+          },
+          "block": {
+            "$ref": "#/components/schemas/newsdoc.Block"
+          },
+          "role": {
+            "description": "Role can be used to differentiate between different extracted values.",
+            "type": "string"
+          },
+          "value": {
+            "description": "Value is used for extracted attributes and data values.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ExtractedValues": {
+        "properties": {
+          "extractor": {
+            "description": "Extractor index for the the extractor that produced the values.",
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValue"
+            },
+            "description": "Values that were extracted.",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.FilterOperator": {
         "enum": [
           "FILTER_OP_UNKNOWN",
@@ -869,6 +923,13 @@
             "description": "Status is used to fetch the version of the document references by the last status update. Can be used instead of specifying a version.",
             "type": "string"
           },
+          "subset": {
+            "description": "Subset returns a subset of the document as specified by a list of newsdoc value extractors.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "uuid": {
             "description": "UUID of the document to get.",
             "type": "string"
@@ -898,6 +959,13 @@
           },
           "status": {
             "$ref": "#/components/schemas/elephant.repository.Status"
+          },
+          "subset": {
+            "description": "Subset is the extracted subset of the document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
+            },
+            "type": "array"
           },
           "version": {
             "description": "Version is the version of the returned document.",
