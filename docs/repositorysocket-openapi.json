@@ -2313,6 +2313,13 @@
           },
           "meta": {
             "$ref": "#/components/schemas/elephant.repository.DocumentMeta"
+          },
+          "subset": {
+            "description": "Subset is the extracted subset of the document.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -2371,6 +2378,13 @@
             "description": "IncludeACLs should be set to true to include ACL update events in the stream of updates.",
             "type": "boolean"
           },
+          "inclusion_subsets": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "InclusionSubsets are used to apply subset newsdoc value extractors to included documents. Keyed by document type.",
+            "type": "object"
+          },
           "labels": {
             "description": "Labels are the labels that the documents must match.",
             "items": {
@@ -2381,6 +2395,13 @@
           "set_name": {
             "description": "SetName is the name of the document set. Required when subscribing.",
             "type": "string"
+          },
+          "subset": {
+            "description": "Subset returns a subset of the document as specified by a list of newsdoc value extractors.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "timespan": {
             "$ref": "#/components/schemas/elephant.repository.Timespan"
@@ -2417,6 +2438,18 @@
           },
           "uuid": {
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.InclusionSubset": {
+        "properties": {
+          "expressions": {
+            "description": "Expressions to use to extract document contents.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"

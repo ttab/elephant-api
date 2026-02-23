@@ -70,6 +70,17 @@ message GetDocuments {
   // IncludeACLs should be set to true to include ACL update events in the
   // stream of updates.
   bool include_acls = 7;
+  // Subset returns a subset of the document as specified by a list of newsdoc
+  // value extractors.
+  repeated string subset = 8;
+  // InclusionSubsets are used to apply subset newsdoc value extractors to
+  // included documents. Keyed by document type.
+  map<string, string> inclusion_subsets = 9;
+}
+
+message InclusionSubset {
+  // Expressions to use to extract document contents.
+  repeated string expressions = 1;
 }
 
 // CloseDocumentSet is used to stop recieving updates for a document set.
@@ -97,6 +108,8 @@ message DocumentState {
   repository.DocumentMeta meta = 1;
   // Document is the document itself.
   newsdoc.Document document    = 2;
+  // Subset is the extracted subset of the document.
+  repeated repository.ExtractedValues subset = 3;
 }
 
 // DocumentUpdate is emitted when a write operation has affected a document in a
