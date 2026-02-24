@@ -62,12 +62,12 @@ message GetEventlog {
   // server only buffers a limited amount of events (defaults to 100) and
   // requesting events from before the range of that buffer will result in a
   // resume out of bounds "eventlog_resume_oob" error.
-  optional int64 from = 2;
+  optional int64 after = 2;
   // DocumentTypes for which the client wants events for. If no types are
   // provided all types will be included.
   repeated string document_types = 3;
   // Languages that the client wants events for. If no languages are provided
-  // all types will be included. If a document switches language the event for
+  // all languages will be included. If a document switches language the event for
   // the switch will be included even if the new document version doesn't have a
   // matching language anymore.
   repeated string languages = 4;
@@ -85,7 +85,7 @@ message EventlogItem {
   // Event from the eventlog.
   repository.EventlogItem event = 1;
   // Subset is the extracted subset of the document. Only provided if this is a
-  // document even and subset expressions have been defined for the type.
+  // document event and subset expressions have been defined for the type.
   repeated repository.ExtractedValues subset = 2;
 }
 

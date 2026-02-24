@@ -2389,7 +2389,7 @@
             "$ref": "#/components/schemas/elephant.repository.EventlogItem"
           },
           "subset": {
-            "description": "Subset is the extracted subset of the document. Only provided if this is a document even and subset expressions have been defined for the type.",
+            "description": "Subset is the extracted subset of the document. Only provided if this is a document event and subset expressions have been defined for the type.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
             },
@@ -2463,6 +2463,10 @@
       },
       "elephant.repositorysocket.GetEventlog": {
         "properties": {
+          "after": {
+            "description": "After allows the client to subscribe from after a given event ID. The server only buffers a limited amount of events (defaults to 100) and requesting events from before the range of that buffer will result in a resume out of bounds \"eventlog_resume_oob\" error.",
+            "type": "integer"
+          },
           "document_types": {
             "description": "DocumentTypes for which the client wants events for. If no types are provided all types will be included.",
             "items": {
@@ -2470,12 +2474,8 @@
             },
             "type": "array"
           },
-          "from": {
-            "description": "After allows the client to subscribe from after a given event ID. The server only buffers a limited amount of events (defaults to 100) and requesting events from before the range of that buffer will result in a resume out of bounds \"eventlog_resume_oob\" error.",
-            "type": "integer"
-          },
           "languages": {
-            "description": "Languages that the client wants events for. If no languages are provided all types will be included. If a document switches language the event for the switch will be included even if the new document version doesn't have a matching language anymore.",
+            "description": "Languages that the client wants events for. If no languages are provided all languages will be included. If a document switches language the event for the switch will be included even if the new document version doesn't have a matching language anymore.",
             "items": {
               "type": "string"
             },
