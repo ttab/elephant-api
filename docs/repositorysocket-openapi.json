@@ -2257,8 +2257,14 @@
           "close_document_set": {
             "$ref": "#/components/schemas/elephant.repositorysocket.CloseDocumentSet"
           },
+          "close_eventlog": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.CloseEventlog"
+          },
           "get_documents": {
             "$ref": "#/components/schemas/elephant.repositorysocket.GetDocuments"
+          },
+          "get_eventlog": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.GetEventlog"
           }
         },
         "type": "object"
@@ -2268,6 +2274,15 @@
         "properties": {
           "set_name": {
             "description": "SetName is the name of the document set to close.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.CloseEventlog": {
+        "properties": {
+          "name": {
+            "description": "Name of the eventlog subscription to close.",
             "type": "string"
           }
         },
@@ -2368,6 +2383,32 @@
         },
         "type": "object"
       },
+      "elephant.repositorysocket.EventlogItem": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+          },
+          "subset": {
+            "description": "Subset is the extracted subset of the document. Only provided if this is a document even and subset expressions have been defined for the type.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.EventlogResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repositorysocket.EventlogItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repositorysocket.GetDocuments": {
         "description": "GetDocuments is used to fetch and optionally subscribe to a set of documents.\n Responds with a series of RespGetDocumentsBatch followed by RespDocumentUpdate as changes occur.",
         "properties": {
@@ -2416,6 +2457,40 @@
           "type": {
             "description": "Type of the documents to get.",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.GetEventlog": {
+        "properties": {
+          "document_types": {
+            "description": "DocumentTypes for which the client wants events for. If no types are provided all types will be included.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "from": {
+            "description": "After allows the client to subscribe from after a given event ID. The server only buffers a limited amount of events (defaults to 100) and requesting events from before the range of that buffer will result in a resume out of bounds \"eventlog_resume_oob\" error.",
+            "type": "integer"
+          },
+          "languages": {
+            "description": "Languages that the client wants events for. If no languages are provided all types will be included. If a document switches language the event for the switch will be included even if the new document version doesn't have a matching language anymore.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "Name of the eventlog subscription. Opening an eventlog subscription with the same name as an existing subscription will close the existing subscription. This can be used together with `from` to update a subscription without missing events.",
+            "type": "string"
+          },
+          "type_subsets": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "TypeSubsets are used to apply subset newsdoc value extractors to documents and include the results with the event data. Keyed by document type.",
+            "type": "object"
           }
         },
         "type": "object"
@@ -2476,8 +2551,11 @@
           "error": {
             "$ref": "#/components/schemas/elephant.repositorysocket.Error"
           },
+          "events": {
+            "$ref": "#/components/schemas/elephant.repositorysocket.EventlogResponse"
+          },
           "handled": {
-            "description": "Handled is true when the call has been completely handled without errors.",
+            "description": "Handled is true when the call has been completely handled without errors. For calls that create subscriptions this means that the subscription has been created successfully.",
             "type": "boolean"
           },
           "inclusion_batch": {
