@@ -158,6 +158,8 @@ message DocumentState {
   newsdoc.Document document    = 2;
   // Subset is the extracted subset of the document.
   repeated repository.ExtractedValues subset = 3;
+  // UUID of the document.
+  string uuid = 4;
 }
 
 // DocumentUpdate is emitted when a write operation has affected a document in a
