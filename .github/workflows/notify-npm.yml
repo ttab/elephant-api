@@ -1,0 +1,16 @@
+name: Notify npm repo
+
+on:
+  push:
+    tags: ['*']
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          gh api repos/ttab/elephant-api-npm/dispatches \
+            -f event_type=new-tag \
+            -f 'client_payload[tag]=${{ github.ref_name }}'
+        env:
+          GH_TOKEN: ${{ secrets.ELEPHANT_NPM_DISPATCH_PAT }}
