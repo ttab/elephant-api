@@ -31,8 +31,26 @@ const _ = twirp.TwirpPackageMinVersion_8_1_0
 // Replication Interface
 // =====================
 
+// Replication manages document replication between Elephant repository
+// instances. A replication target follows the source repository event log and
+// replicates documents to a target repository.
 type Replication interface {
+	// SendDocument triggers replication of a single document by UUID.
 	SendDocument(context.Context, *SendDocumentRequest) (*SendDocumentResponse, error)
+
+	// ConfigureTarget creates or updates a replication target. The configuration
+	// maps to the environment variables used for static configuration in
+	// elephant-replicant.
+	ConfigureTarget(context.Context, *ConfigureTargetRequest) (*ConfigureTargetResponse, error)
+
+	// RemoveTarget deletes a replication target and stops its replication.
+	RemoveTarget(context.Context, *RemoveTargetRequest) (*RemoveTargetResponse, error)
+
+	// ChangeTargetState starts or stops a replication target.
+	ChangeTargetState(context.Context, *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error)
+
+	// GetTargetState returns the current state of a replication target.
+	GetTargetState(context.Context, *GetTargetStateRequest) (*GetTargetStateResponse, error)
 }
 
 // ===========================
@@ -41,7 +59,7 @@ type Replication interface {
 
 type replicationProtobufClient struct {
 	client      HTTPClient
-	urls        [1]string
+	urls        [5]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -69,8 +87,12 @@ func NewReplicationProtobufClient(baseURL string, client HTTPClient, opts ...twi
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "elephant.replicant", "Replication")
-	urls := [1]string{
+	urls := [5]string{
 		serviceURL + "SendDocument",
+		serviceURL + "ConfigureTarget",
+		serviceURL + "RemoveTarget",
+		serviceURL + "ChangeTargetState",
+		serviceURL + "GetTargetState",
 	}
 
 	return &replicationProtobufClient{
@@ -127,13 +149,197 @@ func (c *replicationProtobufClient) callSendDocument(ctx context.Context, in *Se
 	return out, nil
 }
 
+func (c *replicationProtobufClient) ConfigureTarget(ctx context.Context, in *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "ConfigureTarget")
+	caller := c.callConfigureTarget
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ConfigureTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ConfigureTargetRequest) when calling interceptor")
+					}
+					return c.callConfigureTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ConfigureTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ConfigureTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationProtobufClient) callConfigureTarget(ctx context.Context, in *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+	out := new(ConfigureTargetResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *replicationProtobufClient) RemoveTarget(ctx context.Context, in *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "RemoveTarget")
+	caller := c.callRemoveTarget
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RemoveTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RemoveTargetRequest) when calling interceptor")
+					}
+					return c.callRemoveTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RemoveTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RemoveTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationProtobufClient) callRemoveTarget(ctx context.Context, in *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+	out := new(RemoveTargetResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *replicationProtobufClient) ChangeTargetState(ctx context.Context, in *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "ChangeTargetState")
+	caller := c.callChangeTargetState
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ChangeTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ChangeTargetStateRequest) when calling interceptor")
+					}
+					return c.callChangeTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ChangeTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ChangeTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationProtobufClient) callChangeTargetState(ctx context.Context, in *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+	out := new(ChangeTargetStateResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *replicationProtobufClient) GetTargetState(ctx context.Context, in *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "GetTargetState")
+	caller := c.callGetTargetState
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetTargetStateRequest) when calling interceptor")
+					}
+					return c.callGetTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationProtobufClient) callGetTargetState(ctx context.Context, in *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+	out := new(GetTargetStateResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
 // =======================
 // Replication JSON Client
 // =======================
 
 type replicationJSONClient struct {
 	client      HTTPClient
-	urls        [1]string
+	urls        [5]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -161,8 +367,12 @@ func NewReplicationJSONClient(baseURL string, client HTTPClient, opts ...twirp.C
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "elephant.replicant", "Replication")
-	urls := [1]string{
+	urls := [5]string{
 		serviceURL + "SendDocument",
+		serviceURL + "ConfigureTarget",
+		serviceURL + "RemoveTarget",
+		serviceURL + "ChangeTargetState",
+		serviceURL + "GetTargetState",
 	}
 
 	return &replicationJSONClient{
@@ -205,6 +415,190 @@ func (c *replicationJSONClient) SendDocument(ctx context.Context, in *SendDocume
 func (c *replicationJSONClient) callSendDocument(ctx context.Context, in *SendDocumentRequest) (*SendDocumentResponse, error) {
 	out := new(SendDocumentResponse)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *replicationJSONClient) ConfigureTarget(ctx context.Context, in *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "ConfigureTarget")
+	caller := c.callConfigureTarget
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ConfigureTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ConfigureTargetRequest) when calling interceptor")
+					}
+					return c.callConfigureTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ConfigureTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ConfigureTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationJSONClient) callConfigureTarget(ctx context.Context, in *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+	out := new(ConfigureTargetResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *replicationJSONClient) RemoveTarget(ctx context.Context, in *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "RemoveTarget")
+	caller := c.callRemoveTarget
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RemoveTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RemoveTargetRequest) when calling interceptor")
+					}
+					return c.callRemoveTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RemoveTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RemoveTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationJSONClient) callRemoveTarget(ctx context.Context, in *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+	out := new(RemoveTargetResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *replicationJSONClient) ChangeTargetState(ctx context.Context, in *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "ChangeTargetState")
+	caller := c.callChangeTargetState
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ChangeTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ChangeTargetStateRequest) when calling interceptor")
+					}
+					return c.callChangeTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ChangeTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ChangeTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationJSONClient) callChangeTargetState(ctx context.Context, in *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+	out := new(ChangeTargetStateResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *replicationJSONClient) GetTargetState(ctx context.Context, in *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.replicant")
+	ctx = ctxsetters.WithServiceName(ctx, "Replication")
+	ctx = ctxsetters.WithMethodName(ctx, "GetTargetState")
+	caller := c.callGetTargetState
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetTargetStateRequest) when calling interceptor")
+					}
+					return c.callGetTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *replicationJSONClient) callGetTargetState(ctx context.Context, in *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+	out := new(GetTargetStateResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -318,6 +712,18 @@ func (s *replicationServer) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 	switch method {
 	case "SendDocument":
 		s.serveSendDocument(ctx, resp, req)
+		return
+	case "ConfigureTarget":
+		s.serveConfigureTarget(ctx, resp, req)
+		return
+	case "RemoveTarget":
+		s.serveRemoveTarget(ctx, resp, req)
+		return
+	case "ChangeTargetState":
+		s.serveChangeTargetState(ctx, resp, req)
+		return
+	case "GetTargetState":
+		s.serveGetTargetState(ctx, resp, req)
 		return
 	default:
 		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
@@ -483,6 +889,726 @@ func (s *replicationServer) serveSendDocumentProtobuf(ctx context.Context, resp 
 	}
 	if respContent == nil {
 		s.writeError(ctx, resp, twirp.InternalError("received a nil *SendDocumentResponse and nil error while calling SendDocument. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveConfigureTarget(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveConfigureTargetJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveConfigureTargetProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *replicationServer) serveConfigureTargetJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ConfigureTarget")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(ConfigureTargetRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Replication.ConfigureTarget
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ConfigureTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ConfigureTargetRequest) when calling interceptor")
+					}
+					return s.Replication.ConfigureTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ConfigureTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ConfigureTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ConfigureTargetResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ConfigureTargetResponse and nil error while calling ConfigureTarget. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveConfigureTargetProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ConfigureTarget")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(ConfigureTargetRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Replication.ConfigureTarget
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ConfigureTargetRequest) (*ConfigureTargetResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ConfigureTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ConfigureTargetRequest) when calling interceptor")
+					}
+					return s.Replication.ConfigureTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ConfigureTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ConfigureTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ConfigureTargetResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ConfigureTargetResponse and nil error while calling ConfigureTarget. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveRemoveTarget(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveRemoveTargetJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveRemoveTargetProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *replicationServer) serveRemoveTargetJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "RemoveTarget")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(RemoveTargetRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Replication.RemoveTarget
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RemoveTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RemoveTargetRequest) when calling interceptor")
+					}
+					return s.Replication.RemoveTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RemoveTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RemoveTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *RemoveTargetResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *RemoveTargetResponse and nil error while calling RemoveTarget. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveRemoveTargetProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "RemoveTarget")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(RemoveTargetRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Replication.RemoveTarget
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *RemoveTargetRequest) (*RemoveTargetResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RemoveTargetRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RemoveTargetRequest) when calling interceptor")
+					}
+					return s.Replication.RemoveTarget(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RemoveTargetResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RemoveTargetResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *RemoveTargetResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *RemoveTargetResponse and nil error while calling RemoveTarget. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveChangeTargetState(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveChangeTargetStateJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveChangeTargetStateProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *replicationServer) serveChangeTargetStateJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ChangeTargetState")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(ChangeTargetStateRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Replication.ChangeTargetState
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ChangeTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ChangeTargetStateRequest) when calling interceptor")
+					}
+					return s.Replication.ChangeTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ChangeTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ChangeTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ChangeTargetStateResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ChangeTargetStateResponse and nil error while calling ChangeTargetState. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveChangeTargetStateProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ChangeTargetState")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(ChangeTargetStateRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Replication.ChangeTargetState
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ChangeTargetStateRequest) (*ChangeTargetStateResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ChangeTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ChangeTargetStateRequest) when calling interceptor")
+					}
+					return s.Replication.ChangeTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ChangeTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ChangeTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ChangeTargetStateResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ChangeTargetStateResponse and nil error while calling ChangeTargetState. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveGetTargetState(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetTargetStateJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetTargetStateProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *replicationServer) serveGetTargetStateJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetTargetState")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetTargetStateRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Replication.GetTargetState
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetTargetStateRequest) when calling interceptor")
+					}
+					return s.Replication.GetTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetTargetStateResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetTargetStateResponse and nil error while calling GetTargetState. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *replicationServer) serveGetTargetStateProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetTargetState")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetTargetStateRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Replication.GetTargetState
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetTargetStateRequest) (*GetTargetStateResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetTargetStateRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetTargetStateRequest) when calling interceptor")
+					}
+					return s.Replication.GetTargetState(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetTargetStateResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetTargetStateResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetTargetStateResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetTargetStateResponse and nil error while calling GetTargetState. nil responses are not supported"))
 		return
 	}
 
@@ -1087,19 +2213,58 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 221 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x90, 0xcd, 0x4a, 0x43, 0x31,
-	0x10, 0x85, 0xb9, 0xfe, 0xa1, 0xe3, 0xcf, 0x62, 0x2c, 0x58, 0x5c, 0x95, 0x82, 0x9a, 0x8d, 0x09,
-	0xe8, 0x5a, 0x04, 0xf1, 0x09, 0x22, 0xb8, 0x70, 0x23, 0xb9, 0xe9, 0xd8, 0x06, 0xda, 0x4c, 0x4c,
-	0x26, 0x7d, 0x7e, 0xe1, 0x06, 0x8b, 0xa2, 0xd0, 0x5d, 0x72, 0x38, 0xe7, 0xe3, 0x63, 0xe0, 0x22,
-	0x53, 0x5a, 0x06, 0xef, 0xa2, 0x98, 0x42, 0x79, 0x1d, 0x3c, 0xe9, 0x94, 0x59, 0x18, 0x91, 0x96,
-	0x94, 0x16, 0x2e, 0x8a, 0xde, 0x34, 0xa6, 0x8f, 0x70, 0xfe, 0x42, 0x71, 0xf6, 0xcc, 0xbe, 0xae,
-	0x28, 0x8a, 0xa5, 0xcf, 0x4a, 0x45, 0x10, 0x61, 0xaf, 0xd6, 0x30, 0x1b, 0x77, 0x93, 0x4e, 0x1d,
-	0xd9, 0xe1, 0x8d, 0x23, 0xd8, 0xff, 0xe0, 0xec, 0x69, 0xbc, 0x33, 0xe9, 0xd4, 0xa1, 0x6d, 0x9f,
-	0xe9, 0x03, 0x8c, 0x7e, 0x03, 0x4a, 0xe2, 0x58, 0x08, 0xaf, 0xe0, 0x4c, 0x5c, 0x9e, 0x93, 0xbc,
-	0xaf, 0x29, 0x97, 0xc0, 0x71, 0x60, 0xed, 0xda, 0xd3, 0x96, 0xbe, 0xb6, 0xf0, 0x2e, 0xc1, 0xb1,
-	0x6d, 0x32, 0x12, 0x38, 0xa2, 0x83, 0x93, 0x9f, 0x34, 0xbc, 0xd1, 0x7f, 0x9d, 0xf5, 0x3f, 0xc2,
-	0x97, 0x6a, 0x7b, 0xb1, 0x89, 0x3d, 0xa9, 0xb7, 0xeb, 0x79, 0x90, 0x45, 0xed, 0xb5, 0xe7, 0x95,
-	0x11, 0x71, 0xbd, 0xf9, 0x9e, 0xde, 0xba, 0x14, 0xcc, 0x66, 0xde, 0x1f, 0x0c, 0x67, 0xbb, 0xff,
-	0x0a, 0x00, 0x00, 0xff, 0xff, 0x7e, 0xd7, 0xcb, 0x8f, 0x51, 0x01, 0x00, 0x00,
+	// 837 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0x5d, 0x6f, 0xe2, 0x46,
+	0x14, 0x2d, 0x1f, 0xa1, 0xe1, 0x9a, 0x10, 0x76, 0x92, 0x4d, 0x9c, 0x6c, 0xb7, 0xa1, 0xae, 0xb6,
+	0xcb, 0x66, 0xbb, 0x44, 0xa2, 0x6a, 0x55, 0xa9, 0xaa, 0x2a, 0x9a, 0x90, 0x08, 0x55, 0x22, 0x91,
+	0x31, 0xfb, 0xd0, 0x87, 0x5a, 0x83, 0x99, 0x80, 0x2b, 0xe3, 0x71, 0x67, 0xc6, 0x91, 0xf2, 0x23,
+	0xfa, 0xd8, 0x97, 0xfe, 0x9d, 0xfe, 0xb1, 0xca, 0x33, 0xc3, 0x82, 0x61, 0x76, 0xc3, 0x9b, 0x39,
+	0xf7, 0xcc, 0xb9, 0xe7, 0x8e, 0xcf, 0xb5, 0x80, 0x63, 0x46, 0x92, 0x28, 0x0c, 0x70, 0x2c, 0x2e,
+	0x38, 0x61, 0x0f, 0x61, 0x40, 0xda, 0x09, 0xa3, 0x82, 0x22, 0x44, 0x22, 0x92, 0xcc, 0x70, 0x2c,
+	0xda, 0x1f, 0x18, 0xce, 0x2f, 0x70, 0x30, 0x24, 0xf1, 0xe4, 0x8a, 0x06, 0xe9, 0x9c, 0xc4, 0xc2,
+	0x25, 0x7f, 0xa5, 0x84, 0x0b, 0x84, 0xa0, 0x9c, 0xa6, 0xe1, 0xc4, 0x2e, 0x34, 0x0b, 0xad, 0xaa,
+	0x2b, 0x9f, 0xd1, 0x21, 0xec, 0xdc, 0x53, 0x16, 0x10, 0xbb, 0xd8, 0x2c, 0xb4, 0x76, 0x5d, 0xf5,
+	0xc3, 0xf9, 0x19, 0x0e, 0xf3, 0x02, 0x3c, 0xa1, 0x31, 0x27, 0xe8, 0x15, 0xd4, 0x05, 0x66, 0x53,
+	0x22, 0xfc, 0x07, 0xc2, 0x78, 0x48, 0x63, 0xa9, 0x55, 0x72, 0xf7, 0x14, 0xfa, 0x5e, 0x81, 0xce,
+	0xdf, 0x45, 0x38, 0xba, 0xa4, 0xf1, 0x7d, 0x38, 0x4d, 0x19, 0xf1, 0x64, 0x69, 0xc5, 0x43, 0x8c,
+	0xe7, 0x64, 0xe1, 0x21, 0x7b, 0xce, 0x54, 0x19, 0x49, 0x28, 0x0f, 0x05, 0x65, 0x8f, 0x7e, 0xca,
+	0x22, 0x69, 0xa6, 0xea, 0xee, 0x2d, 0xd1, 0x11, 0x8b, 0xd0, 0x19, 0x58, 0x34, 0x9c, 0x04, 0x7e,
+	0x20, 0x95, 0xed, 0x92, 0xe4, 0x40, 0x06, 0xa9, 0x5e, 0xe8, 0x05, 0x54, 0x83, 0x28, 0x24, 0xb1,
+	0xf0, 0xc3, 0x89, 0x5d, 0x96, 0xe5, 0x5d, 0x05, 0xf4, 0x27, 0xe8, 0x6b, 0xd8, 0xd3, 0x45, 0x4e,
+	0x02, 0x46, 0x84, 0xbd, 0x23, 0x09, 0x35, 0x05, 0x0e, 0x25, 0x86, 0x5e, 0x02, 0x70, 0x81, 0x99,
+	0xf0, 0xef, 0x19, 0x9d, 0xdb, 0x15, 0x39, 0x5b, 0x55, 0x22, 0xd7, 0x8c, 0xce, 0xd1, 0x0f, 0x50,
+	0xd1, 0xcd, 0x3f, 0x6f, 0x16, 0x5a, 0x56, 0xe7, 0xcb, 0xf6, 0xe6, 0xe5, 0xb7, 0x87, 0x8f, 0xb1,
+	0x36, 0xe4, 0x6a, 0xb6, 0xf3, 0x5f, 0x11, 0x60, 0x09, 0x67, 0x56, 0x70, 0x10, 0x90, 0x44, 0xf8,
+	0x84, 0x31, 0xca, 0xb8, 0xbc, 0x8c, 0x5d, 0xb7, 0xa6, 0xc0, 0x9e, 0xc4, 0xd0, 0x6b, 0xd8, 0xc7,
+	0x51, 0xe4, 0x63, 0x21, 0x70, 0x30, 0xcb, 0x5e, 0x02, 0xd7, 0xaf, 0xa8, 0x8e, 0xa3, 0xa8, 0xbb,
+	0x44, 0xd1, 0x57, 0x50, 0x0b, 0xa7, 0x31, 0x65, 0xc4, 0x17, 0x8f, 0x09, 0xe1, 0x76, 0xa9, 0x59,
+	0x6a, 0x55, 0x5d, 0x4b, 0x61, 0x5e, 0x06, 0xa1, 0xdf, 0x60, 0x5f, 0x53, 0x38, 0x09, 0x44, 0x48,
+	0x63, 0x6e, 0x97, 0x9b, 0xa5, 0x96, 0xd5, 0x71, 0x8c, 0x03, 0x28, 0xce, 0x35, 0x65, 0xd9, 0x69,
+	0xb7, 0xae, 0x8e, 0x6a, 0x94, 0xa3, 0xf7, 0x70, 0x10, 0xc6, 0x41, 0x94, 0x4e, 0x48, 0xce, 0xdc,
+	0x8e, 0x14, 0x7c, 0x65, 0x12, 0x5c, 0xba, 0x5d, 0x68, 0x22, 0xad, 0xb0, 0x3a, 0xc7, 0x19, 0x58,
+	0x0b, 0x93, 0xe9, 0x98, 0xdb, 0x15, 0x39, 0x06, 0xe8, 0xe6, 0xe9, 0x98, 0x3b, 0x37, 0x50, 0xcf,
+	0x5b, 0xcb, 0xc2, 0x94, 0xcd, 0xbc, 0x08, 0x53, 0xf6, 0x9c, 0x5d, 0x87, 0x1e, 0xd2, 0x97, 0x61,
+	0x57, 0x51, 0xb2, 0x34, 0x36, 0x4a, 0xc3, 0x89, 0xf3, 0x13, 0x3c, 0xdb, 0xb0, 0x64, 0xd4, 0x5a,
+	0x84, 0xb5, 0xb8, 0x0c, 0xab, 0x73, 0x02, 0xc7, 0x1b, 0xd1, 0x56, 0xdb, 0xe1, 0xbc, 0x81, 0x03,
+	0x97, 0xcc, 0xe9, 0xc3, 0xd3, 0x91, 0x77, 0x8e, 0xe0, 0x30, 0x4f, 0xd5, 0x12, 0x33, 0xb0, 0x2f,
+	0x67, 0x38, 0x9e, 0x6a, 0x7c, 0x28, 0xb0, 0x20, 0x9f, 0x5a, 0x9d, 0x1f, 0xa1, 0x82, 0xe5, 0x60,
+	0xd2, 0x63, 0xbd, 0xd3, 0x34, 0xdd, 0xbf, 0xd2, 0xea, 0x4a, 0x9e, 0xab, 0xf9, 0xce, 0x0b, 0x38,
+	0x31, 0x74, 0xd2, 0x36, 0xde, 0xc2, 0xf3, 0x1b, 0x22, 0xb6, 0xf3, 0xe0, 0xdc, 0xc2, 0xd1, 0x3a,
+	0x59, 0x7f, 0x2e, 0xbe, 0x87, 0x1d, 0x9e, 0x01, 0x92, 0x5e, 0xef, 0x9c, 0x7d, 0xdc, 0x9c, 0x3a,
+	0xa7, 0xd8, 0xe7, 0x7f, 0x40, 0x6d, 0xd5, 0x32, 0x7a, 0x09, 0x27, 0x5e, 0xd7, 0xbd, 0xe9, 0x79,
+	0x7e, 0xf7, 0xd2, 0xeb, 0xdf, 0x0e, 0xfc, 0xd1, 0x60, 0x78, 0xd7, 0xbb, 0xec, 0x5f, 0xf7, 0x7b,
+	0x57, 0x8d, 0xcf, 0xd0, 0x31, 0x1c, 0xe4, 0xcb, 0x43, 0xaf, 0xeb, 0x7a, 0x8d, 0x02, 0x3a, 0x02,
+	0xb4, 0x5e, 0xb8, 0xbd, 0x6b, 0x14, 0xcf, 0xff, 0x29, 0x80, 0xb5, 0xd2, 0x16, 0x7d, 0x01, 0xb6,
+	0xe6, 0x0d, 0xbd, 0xae, 0xd7, 0x5b, 0x93, 0xb7, 0xe1, 0x30, 0x57, 0x75, 0x47, 0x83, 0x41, 0x7f,
+	0x70, 0xd3, 0x28, 0xa0, 0x13, 0x78, 0x9e, 0xab, 0xc8, 0xbe, 0x59, 0xa9, 0x68, 0x28, 0xdd, 0xde,
+	0xdd, 0x65, 0xa5, 0xd2, 0x86, 0x9e, 0x2c, 0xf5, 0xae, 0x1a, 0xe5, 0xce, 0xbf, 0x65, 0xb0, 0x5c,
+	0x75, 0x31, 0x72, 0x6e, 0x0c, 0xb5, 0xd5, 0xaf, 0x30, 0x7a, 0x6d, 0xde, 0xd6, 0x8d, 0x0f, 0xfd,
+	0x69, 0xeb, 0x69, 0xa2, 0x7e, 0x43, 0x7f, 0xc2, 0xfe, 0x5a, 0x9a, 0xd1, 0xb9, 0xe9, 0xb0, 0xf9,
+	0x6b, 0x7e, 0xfa, 0x76, 0x2b, 0xae, 0xee, 0x85, 0xa1, 0xb6, 0x9a, 0x79, 0xf3, 0x38, 0x86, 0x05,
+	0x32, 0x8f, 0x63, 0x5a, 0x1f, 0x94, 0xc0, 0xb3, 0x8d, 0x50, 0xa3, 0x6f, 0x8d, 0x26, 0x3f, 0xb2,
+	0x65, 0xa7, 0xef, 0xb6, 0x64, 0xeb, 0x8e, 0x53, 0xa8, 0xe7, 0xc3, 0x8f, 0xde, 0x98, 0x04, 0x8c,
+	0xdb, 0x74, 0x7a, 0xbe, 0x0d, 0x55, 0x35, 0xfa, 0xb5, 0xf5, 0xfb, 0x37, 0xd3, 0x50, 0xcc, 0xd2,
+	0x71, 0x3b, 0xa0, 0xf3, 0x0b, 0x21, 0xf0, 0xf8, 0x62, 0x71, 0xf8, 0x1d, 0x4e, 0xc2, 0x8b, 0x0f,
+	0x02, 0xe3, 0x8a, 0xfc, 0x63, 0xf0, 0xdd, 0xff, 0x01, 0x00, 0x00, 0xff, 0xff, 0x57, 0xdd, 0xfe,
+	0x86, 0x33, 0x08, 0x00, 0x00,
 }
