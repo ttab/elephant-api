@@ -2432,7 +2432,7 @@
           },
           "inclusion_subsets": {
             "additionalProperties": {
-              "type": "string"
+              "$ref": "#/components/schemas/elephant.repositorysocket.Subsets"
             },
             "description": "InclusionSubsets are used to apply subset newsdoc value extractors to included documents. Keyed by document type.",
             "type": "object"
@@ -2491,7 +2491,7 @@
           },
           "type_subsets": {
             "additionalProperties": {
-              "type": "string"
+              "$ref": "#/components/schemas/elephant.repositorysocket.Subsets"
             },
             "description": "TypeSubsets are used to apply subset newsdoc value extractors to documents and include the results with the event data. Keyed by document type.",
             "type": "object"
@@ -2528,18 +2528,6 @@
         },
         "type": "object"
       },
-      "elephant.repositorysocket.InclusionSubset": {
-        "properties": {
-          "expressions": {
-            "description": "Expressions to use to extract document contents.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "type": "object"
-      },
       "elephant.repositorysocket.Response": {
         "properties": {
           "call_id": {
@@ -2567,6 +2555,18 @@
           },
           "removed": {
             "$ref": "#/components/schemas/elephant.repositorysocket.DocumentRemoved"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repositorysocket.Subsets": {
+        "properties": {
+          "expressions": {
+            "description": "Expressions to use to extract document contents.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "type": "object"
