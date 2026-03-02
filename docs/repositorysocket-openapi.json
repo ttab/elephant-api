@@ -2335,6 +2335,10 @@
               "$ref": "#/components/schemas/elephant.repository.ExtractedValues"
             },
             "type": "array"
+          },
+          "uuid": {
+            "description": "UUID of the document.",
+            "type": "string"
           }
         },
         "type": "object"
