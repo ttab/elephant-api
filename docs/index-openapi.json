@@ -121,10 +121,24 @@
         "type": "object"
       },
       "elephant.index.Fuzziness": {
-        "description": "Fuzziness has more ways to be specified, implementing that when we need it.",
         "properties": {
+          "auto": {
+            "$ref": "#/components/schemas/elephant.index.FuzzinessAuto"
+          },
           "edits": {
-            "description": "Edits is the maximum allowed Levenshtein Edit Distance (or number of edits).",
+            "description": "Edits is the maximum allowed Levenshtein Edit Distance (or number of edits). Valid values are 0, 1, and 2.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.FuzzinessAuto": {
+        "description": "FuzzinessAuto configures automatic fuzziness thresholds. The low and high values define the term length boundaries for edit distance tiers: - Terms shorter than low characters require an exact match (0 edits). - Terms with low to high-1 characters allow a maximum of 1 edit. - Terms with high or more characters allow a maximum of 2 edits.\n The default thresholds when both are zero are 3 and 6.",
+        "properties": {
+          "high": {
+            "type": "integer"
+          },
+          "low": {
             "type": "integer"
           }
         },
