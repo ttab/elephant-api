@@ -87,6 +87,10 @@ service Schemas {
   rpc SetActive(SetActiveSchemasRequest) returns (SetActiveSchemasResponse);
   // ListGenerations lists the configured schema generations.
   rpc ListGenerations(ListSchemaGenerationsRequest) returns (ListSchemaGenerationsResponse);
+  // GetExemplars returns the exemplar documents for a schema generation. Known
+  // exemplar version hashes can be provided to avoid re-transferring unchanged
+  // documents.
+  rpc GetExemplars(GetExemplarsRequest) returns (GetExemplarsResponse);
 
   // Get retrieves a schema.
   rpc Get(GetSchemaRequest) returns (GetSchemaResponse);
@@ -983,6 +987,29 @@ message SchemaGeneration {
   string deactivated = 5;
   // Schemas are the schemas that are included in the generation.
   repeated SchemaReference schemas = 6;
+}
+
+message GetExemplarsRequest {
+  // GenerationID is the ID of the schema generation to get exemplars for.
+  int64 generation_id = 1;
+  // Known exemplar version hashes that the client already has, keyed by
+  // exemplar name. Exemplars with matching version hashes will not be included
+  // in the response.
+  map<string, string> known = 2;
+}
+
+message GetExemplarsResponse {
+  // Exemplars are the exemplar documents for the schema generation.
+  repeated Exemplar exemplars = 1;
+}
+
+message Exemplar {
+  // Name of the exemplar.
+  string name = 1;
+  // Document is the exemplar newsdoc document.
+  newsdoc.Document document = 2;
+  // VersionHash is the version hash of the exemplar document.
+  string version_hash = 3;
 }
 
 message GetSchemaRequest {

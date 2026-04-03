@@ -709,6 +709,22 @@
         },
         "type": "object"
       },
+      "elephant.repository.Exemplar": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "name": {
+            "description": "Name of the exemplar.",
+            "type": "string"
+          },
+          "version_hash": {
+            "description": "VersionHash is the version hash of the exemplar document.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.ExtendLockRequest": {
         "properties": {
           "token": {
@@ -1049,6 +1065,34 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetExemplarsRequest": {
+        "properties": {
+          "generation_id": {
+            "description": "GenerationID is the ID of the schema generation to get exemplars for.",
+            "type": "integer"
+          },
+          "known": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Known exemplar version hashes that the client already has, keyed by exemplar name. Exemplars with matching version hashes will not be included in the response.",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetExemplarsResponse": {
+        "properties": {
+          "exemplars": {
+            "description": "Exemplars are the exemplar documents for the schema generation.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Exemplar"
             },
             "type": "array"
           }
@@ -4274,6 +4318,44 @@
           }
         ],
         "summary": "GetDocumentTypes",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/GetExemplars": {
+      "post": {
+        "description": "GetExemplars returns the exemplar documents for a schema generation. Known exemplar version hashes can be provided to avoid re-transferring unchanged documents.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetExemplarsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetExemplarsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetExemplars",
         "tags": [
           "Schemas"
         ]
