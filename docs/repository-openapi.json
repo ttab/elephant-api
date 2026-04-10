@@ -629,6 +629,10 @@
             "description": "OldLanguage of the document if the document changed language.",
             "type": "string"
           },
+          "schema_generation": {
+            "description": "SchemaGeneration is the ID of the schema generation that was used to validate the document.",
+            "type": "integer"
+          },
           "status": {
             "description": "Status that was affected, if it was a \"status\" event.",
             "type": "string"
@@ -701,6 +705,22 @@
           "evict_count": {
             "description": "EvictCount is the number of versions that were evicted.",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.Exemplar": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "name": {
+            "description": "Name of the exemplar.",
+            "type": "string"
+          },
+          "version_hash": {
+            "description": "VersionHash is the version hash of the exemplar document.",
+            "type": "string"
           }
         },
         "type": "object"
@@ -800,6 +820,10 @@
       },
       "elephant.repository.GetAllActiveSchemasResponse": {
         "properties": {
+          "generation_id": {
+            "description": "GenerationID is the ID of the currently active schema generation.",
+            "type": "integer"
+          },
           "removed": {
             "description": "Removed schemas.",
             "items": {
@@ -1041,6 +1065,34 @@
           "items": {
             "items": {
               "$ref": "#/components/schemas/elephant.repository.EventlogItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetExemplarsRequest": {
+        "properties": {
+          "generation_id": {
+            "description": "GenerationID is the ID of the schema generation to get exemplars for.",
+            "type": "integer"
+          },
+          "known": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Known exemplar version hashes that the client already has, keyed by exemplar name. Exemplars with matching version hashes will not be included in the response.",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.GetExemplarsResponse": {
+        "properties": {
+          "exemplars": {
+            "description": "Exemplars are the exemplar documents for the schema generation.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Exemplar"
             },
             "type": "array"
           }
@@ -1501,6 +1553,10 @@
       },
       "elephant.repository.ListActiveSchemasResponse": {
         "properties": {
+          "generation_id": {
+            "description": "GenerationID is the ID of the currently active schema generation.",
+            "type": "integer"
+          },
           "schemas": {
             "description": "Schemas without the spec populated",
             "items": {
@@ -1538,6 +1594,26 @@
             "description": "Deletes that have been performed on document instances with the given UUID.",
             "items": {
               "$ref": "#/components/schemas/elephant.repository.DeleteRecord"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ListSchemaGenerationsRequest": {
+        "properties": {
+          "before": {
+            "description": "Before is used to paginate backwards based on the generation ID.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.ListSchemaGenerationsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.SchemaGeneration"
             },
             "type": "array"
           }
@@ -1682,6 +1758,37 @@
       "elephant.repository.PurgeResponse": {
         "type": "object"
       },
+      "elephant.repository.RegisterGenerationRequest": {
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/elephant.repository.SchemaActivation"
+          },
+          "exemplars": {
+            "description": "Examplars are documents that serve as examples of what can be expressed with the schemas. If any of the exemplars are invalid the registration request will be rejected.",
+            "items": {
+              "$ref": "#/components/schemas/newsdoc.Document"
+            },
+            "type": "array"
+          },
+          "schemas": {
+            "description": "Schemas to register.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.Schema"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.RegisterGenerationResponse": {
+        "properties": {
+          "generation_id": {
+            "description": "GenerationID is the ID of the created schema generation.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.RegisterMetaTypeRequest": {
         "properties": {
           "exclusive": {
@@ -1746,29 +1853,6 @@
         "type": "object"
       },
       "elephant.repository.RegisterMetricResponse": {
-        "type": "object"
-      },
-      "elephant.repository.RegisterSchemaRequest": {
-        "properties": {
-          "activate": {
-            "description": "Activate the registered schema immediately.",
-            "type": "boolean"
-          },
-          "schema": {
-            "$ref": "#/components/schemas/elephant.repository.Schema"
-          },
-          "schema_sha256": {
-            "description": "SchemaSHA256 is a SHA256 checksum to validate the response body from the schema URL against.",
-            "type": "string"
-          },
-          "schema_url": {
-            "description": "SchemaURL is an HTTP(S) url to the schema to load, can be passed instead of an inline schema spec.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "elephant.repository.RegisterSchemaResponse": {
         "type": "object"
       },
       "elephant.repository.RestoreRequest": {
@@ -1845,24 +1929,70 @@
         },
         "type": "object"
       },
-      "elephant.repository.SetActiveSchemaRequest": {
+      "elephant.repository.SchemaActivation": {
+        "enum": [
+          "ACTIVATION_UNKNOWN",
+          "ACTIVATION_ACTIVE",
+          "ACTIVATION_PENDING",
+          "ACTIVATION_DEACTIVATED"
+        ],
+        "type": "string"
+      },
+      "elephant.repository.SchemaGeneration": {
         "properties": {
-          "deactivate": {
-            "description": "Deactivate is used to disable a schema, activate new schema versions instead if you want to start using a new version.",
-            "type": "boolean"
+          "activated": {
+            "description": "Activated is the time (RFC3339) the schema generation was last activated (if it has been activated).",
+            "type": "string"
           },
+          "created": {
+            "description": "Created is the time (RFC3339) the schema generation was first registered.",
+            "type": "string"
+          },
+          "deactivated": {
+            "description": "Deactivated is the time (RFC3339) the schema generation was last deactivated (if it has been deactivated).",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the schema generation.",
+            "type": "integer"
+          },
+          "schemas": {
+            "description": "Schemas are the schemas that are included in the generation.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.SchemaReference"
+            },
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/elephant.repository.SchemaActivation"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.SchemaReference": {
+        "properties": {
           "name": {
-            "description": "Name is the name of the schema to activate or deactivate, required.",
             "type": "string"
           },
           "version": {
-            "description": "Version of the schema to activate, required when activating a new version.",
             "type": "string"
           }
         },
         "type": "object"
       },
-      "elephant.repository.SetActiveSchemaResponse": {
+      "elephant.repository.SetActiveSchemasRequest": {
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/elephant.repository.SchemaActivation"
+          },
+          "generation_id": {
+            "description": "GenerationID is the ID of the generation to activate.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.SetActiveSchemasResponse": {
         "type": "object"
       },
       "elephant.repository.SetWorkflowRequest": {
@@ -3746,7 +3876,7 @@
     },
     "/twirp/elephant.repository.Schemas/GetAllActive": {
       "post": {
-        "description": "GetAllActiveSchemas returns the currently active schemas.",
+        "description": "GetAllActiveSchemas returns the currently active validation schemas.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3853,6 +3983,44 @@
           }
         ],
         "summary": "GetDocumentTypes",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/GetExemplars": {
+      "post": {
+        "description": "GetExemplars returns the exemplar documents for a schema generation. Known exemplar version hashes can be provided to avoid re-transferring unchanged documents.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.GetExemplarsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.GetExemplarsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetExemplars",
         "tags": [
           "Schemas"
         ]
@@ -3972,14 +4140,14 @@
         ]
       }
     },
-    "/twirp/elephant.repository.Schemas/Register": {
+    "/twirp/elephant.repository.Schemas/ListGenerations": {
       "post": {
-        "description": "Register register a new validation schema version.",
+        "description": "ListGenerations lists the configured schema generations.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/elephant.repository.RegisterSchemaRequest"
+                "$ref": "#/components/schemas/elephant.repository.ListSchemaGenerationsRequest"
               }
             }
           }
@@ -3989,7 +4157,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.RegisterSchemaResponse"
+                  "$ref": "#/components/schemas/elephant.repository.ListSchemaGenerationsResponse"
                 }
               }
             },
@@ -4004,7 +4172,45 @@
             "bearer": []
           }
         ],
-        "summary": "Register",
+        "summary": "ListGenerations",
+        "tags": [
+          "Schemas"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Schemas/RegisterGeneration": {
+      "post": {
+        "description": "RegisterGeneration registers a new schema generation. Registration is idempotent, so calling RegisterGeneration with the same schema versions will yield the same generation ID.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.RegisterGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.RegisterGenerationResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RegisterGeneration",
         "tags": [
           "Schemas"
         ]
@@ -4088,12 +4294,12 @@
     },
     "/twirp/elephant.repository.Schemas/SetActive": {
       "post": {
-        "description": "SetActive activates schema versions.",
+        "description": "SetActive activates or deactivates a schema generation. Activating a generation always deactivates the currently active schema generation. Deactivation is only relevant in the context of pending schema generations, because deactivating an active schema generation isn't allowed.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/elephant.repository.SetActiveSchemaRequest"
+                "$ref": "#/components/schemas/elephant.repository.SetActiveSchemasRequest"
               }
             }
           }
@@ -4103,7 +4309,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/elephant.repository.SetActiveSchemaResponse"
+                  "$ref": "#/components/schemas/elephant.repository.SetActiveSchemasResponse"
                 }
               }
             },
