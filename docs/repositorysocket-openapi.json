@@ -1742,6 +1742,29 @@
         },
         "type": "object"
       },
+      "elephant.repository.PruneRequest": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.PruneResponse": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "errors": {
+            "description": "Errors are validation issues that could not be resolved by pruning.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.ValidationResult"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.PurgeRequest": {
         "properties": {
           "delete_record_id": {
@@ -3748,6 +3771,44 @@
           }
         ],
         "summary": "Lock",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/Prune": {
+      "post": {
+        "description": "Prune will attempt to remove invalid parts of a document until what remains is valid. If that's not possible it will return the same kind of error information as a Validate call would return, highlighting the remaining issues.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.PruneRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.PruneResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Prune",
         "tags": [
           "Documents"
         ]
