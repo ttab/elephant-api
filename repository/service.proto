@@ -20,6 +20,11 @@ service Documents {
   // Validate is used to validate a document without writing it to the
   // repository.
   rpc Validate(ValidateRequest) returns (ValidateResponse);
+  // Prune will attempt to remove invalid parts of a document until what remains
+  // is valid. If that's not possible it will return the same kind of error
+  // information as a Validate call would return, highlighting the remaining
+  // issues.
+  rpc Prune(PruneRequest) returns (PruneResponse);
   // Evict removes stored document versions from the main database. The evicted
   // data will be restored from the archive if requested again by clients. It's
   // not allowed to evict the current version of a document.
@@ -675,6 +680,17 @@ message ValidateRequest {
 
 message ValidateResponse {
   repeated ValidationResult errors = 1;
+}
+
+message PruneRequest {
+  newsdoc.Document document = 1;
+}
+
+message PruneResponse {
+  // Document is the pruned document.
+  newsdoc.Document document = 1;
+  // Errors are validation issues that could not be resolved by pruning.
+  repeated ValidationResult errors = 2;
 }
 
 message ValidationResult {
