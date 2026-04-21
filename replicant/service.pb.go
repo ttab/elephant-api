@@ -825,6 +825,142 @@ func (x *GetTargetStateResponse) GetState() TargetState {
 	return TargetState_TARGET_STATE_UNSPECIFIED
 }
 
+type ListTargetsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTargetsRequest) Reset() {
+	*x = ListTargetsRequest{}
+	mi := &file_replicant_service_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTargetsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTargetsRequest) ProtoMessage() {}
+
+func (x *ListTargetsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_replicant_service_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTargetsRequest.ProtoReflect.Descriptor instead.
+func (*ListTargetsRequest) Descriptor() ([]byte, []int) {
+	return file_replicant_service_proto_rawDescGZIP(), []int{13}
+}
+
+type ListTargetsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The configured replication targets.
+	Targets       []*TargetInfo `protobuf:"bytes,1,rep,name=targets,proto3" json:"targets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTargetsResponse) Reset() {
+	*x = ListTargetsResponse{}
+	mi := &file_replicant_service_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTargetsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTargetsResponse) ProtoMessage() {}
+
+func (x *ListTargetsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_replicant_service_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTargetsResponse.ProtoReflect.Descriptor instead.
+func (*ListTargetsResponse) Descriptor() ([]byte, []int) {
+	return file_replicant_service_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ListTargetsResponse) GetTargets() []*TargetInfo {
+	if x != nil {
+		return x.Targets
+	}
+	return nil
+}
+
+// TargetInfo is a summary of a configured replication target.
+type TargetInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name of the replication target.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The URL of the target repository.
+	RepositoryUrl string `protobuf:"bytes,2,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TargetInfo) Reset() {
+	*x = TargetInfo{}
+	mi := &file_replicant_service_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TargetInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TargetInfo) ProtoMessage() {}
+
+func (x *TargetInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_replicant_service_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TargetInfo.ProtoReflect.Descriptor instead.
+func (*TargetInfo) Descriptor() ([]byte, []int) {
+	return file_replicant_service_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *TargetInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TargetInfo) GetRepositoryUrl() string {
+	if x != nil {
+		return x.RepositoryUrl
+	}
+	return ""
+}
+
 var File_replicant_service_proto protoreflect.FileDescriptor
 
 var file_replicant_service_proto_rawDesc = []byte{
@@ -906,7 +1042,18 @@ var file_replicant_service_proto_rawDesc = []byte{
 	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x35, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x0e, 0x32, 0x1f, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e,
 	0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x6e, 0x74, 0x2e, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74,
-	0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x2a, 0x5e, 0x0a, 0x0c,
+	0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x22, 0x14, 0x0a, 0x12,
+	0x4c, 0x69, 0x73, 0x74, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x22, 0x4f, 0x0a, 0x13, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74,
+	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x38, 0x0a, 0x07, 0x74, 0x61, 0x72,
+	0x67, 0x65, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x65, 0x6c, 0x65,
+	0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x6e, 0x74, 0x2e,
+	0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x07, 0x74, 0x61, 0x72, 0x67,
+	0x65, 0x74, 0x73, 0x22, 0x47, 0x0a, 0x0a, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x49, 0x6e, 0x66,
+	0x6f, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x25, 0x0a, 0x0e, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74,
+	0x6f, 0x72, 0x79, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x72,
+	0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x55, 0x72, 0x6c, 0x2a, 0x5e, 0x0a, 0x0c,
 	0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x1d, 0x0a, 0x19,
 	0x54, 0x41, 0x52, 0x47, 0x45, 0x54, 0x5f, 0x41, 0x43, 0x54, 0x49, 0x4f, 0x4e, 0x5f, 0x55, 0x4e,
 	0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x17, 0x0a, 0x13, 0x54,
@@ -922,7 +1069,7 @@ var file_replicant_service_proto_rawDesc = []byte{
 	0x19, 0x0a, 0x15, 0x54, 0x41, 0x52, 0x47, 0x45, 0x54, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x45, 0x5f,
 	0x53, 0x54, 0x4f, 0x50, 0x50, 0x49, 0x4e, 0x47, 0x10, 0x03, 0x12, 0x18, 0x0a, 0x14, 0x54, 0x41,
 	0x52, 0x47, 0x45, 0x54, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x45, 0x5f, 0x53, 0x54, 0x4f, 0x50, 0x50,
-	0x45, 0x44, 0x10, 0x04, 0x32, 0x9a, 0x04, 0x0a, 0x0b, 0x52, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61,
+	0x45, 0x44, 0x10, 0x04, 0x32, 0xfa, 0x04, 0x0a, 0x0b, 0x52, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61,
 	0x74, 0x69, 0x6f, 0x6e, 0x12, 0x61, 0x0a, 0x0c, 0x53, 0x65, 0x6e, 0x64, 0x44, 0x6f, 0x63, 0x75,
 	0x6d, 0x65, 0x6e, 0x74, 0x12, 0x27, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e,
 	0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x6e, 0x74, 0x2e, 0x53, 0x65, 0x6e, 0x64, 0x44, 0x6f,
@@ -956,6 +1103,12 @@ var file_replicant_service_proto_rawDesc = []byte{
 	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74,
 	0x2e, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x6e, 0x74, 0x2e, 0x47, 0x65, 0x74, 0x54, 0x61,
 	0x72, 0x67, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x5e, 0x0a, 0x0b, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x73,
+	0x12, 0x26, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6c,
+	0x69, 0x63, 0x61, 0x6e, 0x74, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x27, 0x2e, 0x65, 0x6c, 0x65, 0x70, 0x68,
+	0x61, 0x6e, 0x74, 0x2e, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x6e, 0x74, 0x2e, 0x4c, 0x69,
+	0x73, 0x74, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
 	0x65, 0x42, 0x28, 0x5a, 0x26, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
 	0x74, 0x74, 0x61, 0x62, 0x2f, 0x65, 0x6c, 0x65, 0x70, 0x68, 0x61, 0x6e, 0x74, 0x2d, 0x61, 0x70,
 	0x69, 0x2f, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x6e, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f,
@@ -975,7 +1128,7 @@ func file_replicant_service_proto_rawDescGZIP() []byte {
 }
 
 var file_replicant_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_replicant_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_replicant_service_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_replicant_service_proto_goTypes = []any{
 	(TargetAction)(0),                 // 0: elephant.replicant.TargetAction
 	(TargetState)(0),                  // 1: elephant.replicant.TargetState
@@ -992,6 +1145,9 @@ var file_replicant_service_proto_goTypes = []any{
 	(*ChangeTargetStateResponse)(nil), // 12: elephant.replicant.ChangeTargetStateResponse
 	(*GetTargetStateRequest)(nil),     // 13: elephant.replicant.GetTargetStateRequest
 	(*GetTargetStateResponse)(nil),    // 14: elephant.replicant.GetTargetStateResponse
+	(*ListTargetsRequest)(nil),        // 15: elephant.replicant.ListTargetsRequest
+	(*ListTargetsResponse)(nil),       // 16: elephant.replicant.ListTargetsResponse
+	(*TargetInfo)(nil),                // 17: elephant.replicant.TargetInfo
 }
 var file_replicant_service_proto_depIdxs = []int32{
 	5,  // 0: elephant.replicant.ConfigureTargetRequest.config:type_name -> elephant.replicant.SyncConfig
@@ -999,21 +1155,24 @@ var file_replicant_service_proto_depIdxs = []int32{
 	7,  // 2: elephant.replicant.SyncConfig.include_attachments:type_name -> elephant.replicant.AttachmentForType
 	0,  // 3: elephant.replicant.ChangeTargetStateRequest.action:type_name -> elephant.replicant.TargetAction
 	1,  // 4: elephant.replicant.GetTargetStateResponse.state:type_name -> elephant.replicant.TargetState
-	2,  // 5: elephant.replicant.Replication.SendDocument:input_type -> elephant.replicant.SendDocumentRequest
-	4,  // 6: elephant.replicant.Replication.ConfigureTarget:input_type -> elephant.replicant.ConfigureTargetRequest
-	9,  // 7: elephant.replicant.Replication.RemoveTarget:input_type -> elephant.replicant.RemoveTargetRequest
-	11, // 8: elephant.replicant.Replication.ChangeTargetState:input_type -> elephant.replicant.ChangeTargetStateRequest
-	13, // 9: elephant.replicant.Replication.GetTargetState:input_type -> elephant.replicant.GetTargetStateRequest
-	3,  // 10: elephant.replicant.Replication.SendDocument:output_type -> elephant.replicant.SendDocumentResponse
-	8,  // 11: elephant.replicant.Replication.ConfigureTarget:output_type -> elephant.replicant.ConfigureTargetResponse
-	10, // 12: elephant.replicant.Replication.RemoveTarget:output_type -> elephant.replicant.RemoveTargetResponse
-	12, // 13: elephant.replicant.Replication.ChangeTargetState:output_type -> elephant.replicant.ChangeTargetStateResponse
-	14, // 14: elephant.replicant.Replication.GetTargetState:output_type -> elephant.replicant.GetTargetStateResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	17, // 5: elephant.replicant.ListTargetsResponse.targets:type_name -> elephant.replicant.TargetInfo
+	2,  // 6: elephant.replicant.Replication.SendDocument:input_type -> elephant.replicant.SendDocumentRequest
+	4,  // 7: elephant.replicant.Replication.ConfigureTarget:input_type -> elephant.replicant.ConfigureTargetRequest
+	9,  // 8: elephant.replicant.Replication.RemoveTarget:input_type -> elephant.replicant.RemoveTargetRequest
+	11, // 9: elephant.replicant.Replication.ChangeTargetState:input_type -> elephant.replicant.ChangeTargetStateRequest
+	13, // 10: elephant.replicant.Replication.GetTargetState:input_type -> elephant.replicant.GetTargetStateRequest
+	15, // 11: elephant.replicant.Replication.ListTargets:input_type -> elephant.replicant.ListTargetsRequest
+	3,  // 12: elephant.replicant.Replication.SendDocument:output_type -> elephant.replicant.SendDocumentResponse
+	8,  // 13: elephant.replicant.Replication.ConfigureTarget:output_type -> elephant.replicant.ConfigureTargetResponse
+	10, // 14: elephant.replicant.Replication.RemoveTarget:output_type -> elephant.replicant.RemoveTargetResponse
+	12, // 15: elephant.replicant.Replication.ChangeTargetState:output_type -> elephant.replicant.ChangeTargetStateResponse
+	14, // 16: elephant.replicant.Replication.GetTargetState:output_type -> elephant.replicant.GetTargetStateResponse
+	16, // 17: elephant.replicant.Replication.ListTargets:output_type -> elephant.replicant.ListTargetsResponse
+	12, // [12:18] is the sub-list for method output_type
+	6,  // [6:12] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_replicant_service_proto_init() }
@@ -1027,7 +1186,7 @@ func file_replicant_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_replicant_service_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   13,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
