@@ -20,6 +20,9 @@ service Replication {
   rpc ChangeTargetState(ChangeTargetStateRequest) returns (ChangeTargetStateResponse);
   // GetTargetState returns the current state of a replication target.
   rpc GetTargetState(GetTargetStateRequest) returns (GetTargetStateResponse);
+  // ListTargets returns all configured replication targets and their current
+  // state.
+  rpc ListTargets(ListTargetsRequest) returns (ListTargetsResponse);
 }
 
 message SendDocumentRequest {
@@ -129,4 +132,21 @@ message GetTargetStateRequest {
 message GetTargetStateResponse {
   // The current state of the replication target.
   TargetState state = 1;
+}
+
+message ListTargetsRequest {}
+
+message ListTargetsResponse {
+  // The configured replication targets.
+  repeated TargetInfo targets = 1;
+}
+
+// TargetInfo is a summary of a configured replication target.
+message TargetInfo {
+  // Name of the replication target.
+  string name           = 1;
+  // The URL of the target repository.
+  string repository_url = 2;
+  // Enabled is true if the target is configured to run.
+  bool enabled          = 3;
 }

@@ -83,6 +83,21 @@
         },
         "type": "object"
       },
+      "elephant.replicant.ListTargetsRequest": {
+        "type": "object"
+      },
+      "elephant.replicant.ListTargetsResponse": {
+        "properties": {
+          "targets": {
+            "description": "The configured replication targets.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.replicant.TargetInfo"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.replicant.RemoveTargetRequest": {
         "properties": {
           "name": {
@@ -181,6 +196,24 @@
           "TARGET_ACTION_STOP"
         ],
         "type": "string"
+      },
+      "elephant.replicant.TargetInfo": {
+        "description": "TargetInfo is a summary of a configured replication target.",
+        "properties": {
+          "enabled": {
+            "description": "Enabled is true if the target is configured to run.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Name of the replication target.",
+            "type": "string"
+          },
+          "repository_url": {
+            "description": "The URL of the target repository.",
+            "type": "string"
+          }
+        },
+        "type": "object"
       },
       "elephant.replicant.TargetState": {
         "description": "TargetState describes the current runtime state of a replication target.",
@@ -317,6 +350,44 @@
           }
         ],
         "summary": "GetTargetState",
+        "tags": [
+          "Replication"
+        ]
+      }
+    },
+    "/twirp/elephant.replicant.Replication/ListTargets": {
+      "post": {
+        "description": "ListTargets returns all configured replication targets and their current state.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.replicant.ListTargetsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.replicant.ListTargetsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListTargets",
         "tags": [
           "Replication"
         ]
