@@ -200,6 +200,10 @@
       "elephant.replicant.TargetInfo": {
         "description": "TargetInfo is a summary of a configured replication target.",
         "properties": {
+          "enabled": {
+            "description": "Enabled is true if the target is configured to run.",
+            "type": "boolean"
+          },
           "name": {
             "description": "Name of the replication target.",
             "type": "string"
