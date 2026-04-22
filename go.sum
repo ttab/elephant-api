@@ -33,8 +33,8 @@ github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 h1:lZUw3E0/J3roVtGQ+SCrUrg3ON6Ng
 github.com/santhosh-tekuri/jsonschema/v5 v5.3.1/go.mod h1:uToXkOrWAZ6/Oc07xWQrPOhJotwFIyu2bBVN41fcDUY=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/ttab/mage v0.9.0 h1:zNd1aM0kvuYAPy59BqSW+5rGkEzMLp3PMYE2HL+AhAI=
-github.com/ttab/mage v0.9.0/go.mod h1:nemmtRhMVzb/DRo+stFa6BaQwLatMFmmZ9d8XmGgd6U=
+github.com/ttab/mage v0.9.1 h1:0X1AR5G/nevuLYtJW5BgN03glBicJZxb5z7jIUHN5ro=
+github.com/ttab/mage v0.9.1/go.mod h1:nemmtRhMVzb/DRo+stFa6BaQwLatMFmmZ9d8XmGgd6U=
 github.com/ttab/newsdoc v1.0.0 h1:ftGbUkReu+teOGuh00eZgeSraghzyMaMEJQ0acrFYDw=
 github.com/ttab/newsdoc v1.0.0/go.mod h1:Lt4bBWEsP3b5ChLwzuQ4fvxcfnv2u5DwrV9ADmE5ViQ=
 github.com/twitchtv/twirp v8.1.3+incompatible h1:+F4TdErPgSUbMZMwp13Q/KgDVuI7HJXP61mNV3/7iuU=
