@@ -68,6 +68,9 @@ service Documents {
   rpc GetWithheld(GetWithheldRequest) returns (GetWithheldResponse);
   // GetDeliverableInfo returns available information related to the deliverable.
   rpc GetDeliverableInfo(GetDeliverableInfoRequest) returns (GetDeliverableInfoResponse);
+  // BulkGetDeliverableInfo returns deliverable information for multiple
+  // documents in a single request.
+  rpc BulkGetDeliverableInfo(BulkGetDeliverableInfoRequest) returns (BulkGetDeliverableInfoResponse);
   // CreateUpload is used to start the process of uploading objects that then
   // can be attached to a document.
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
@@ -1230,6 +1233,28 @@ message GetDeliverableInfoRequest {
 message GetDeliverableInfoResponse {
   // Indicates whether the deliverable has planning information.
   bool has_planning_info = 1;
+  // UUID of the related planning item.
+  string planning_uuid   = 2;
+  // UUID of the related assignment.
+  string assignment_uuid = 3;
+  // UUID of the related event.
+  string event_uuid      = 4;
+}
+
+message BulkGetDeliverableInfoRequest {
+  // UUIDs of the deliverables to look up.
+  repeated string uuids = 1;
+}
+
+message BulkGetDeliverableInfoResponse {
+  // Items contains one entry per deliverable that has planning information.
+  // Deliverables without planning information are omitted.
+  repeated DeliverableInfo items = 1;
+}
+
+message DeliverableInfo {
+  // UUID of the deliverable document.
+  string uuid           = 1;
   // UUID of the related planning item.
   string planning_uuid   = 2;
   // UUID of the related assignment.
