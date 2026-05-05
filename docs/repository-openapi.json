@@ -59,6 +59,30 @@
         },
         "type": "object"
       },
+      "elephant.repository.BulkGetDeliverableInfoRequest": {
+        "properties": {
+          "uuids": {
+            "description": "UUIDs of the deliverables to look up.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.BulkGetDeliverableInfoResponse": {
+        "properties": {
+          "items": {
+            "description": "Items contains one entry per deliverable that has planning information. Deliverables without planning information are omitted.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.repository.DeliverableInfo"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.BulkGetItem": {
         "properties": {
           "document": {
@@ -320,6 +344,27 @@
         "type": "object"
       },
       "elephant.repository.DeleteWorkflowResponse": {
+        "type": "object"
+      },
+      "elephant.repository.DeliverableInfo": {
+        "properties": {
+          "assignment_uuid": {
+            "description": "UUID of the related assignment.",
+            "type": "string"
+          },
+          "event_uuid": {
+            "description": "UUID of the related event.",
+            "type": "string"
+          },
+          "planning_uuid": {
+            "description": "UUID of the related planning item.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "UUID of the deliverable document.",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "elephant.repository.Deprecation": {
@@ -2563,7 +2608,7 @@
   },
   "info": {
     "title": "repository API",
-    "version": "v0.21.3"
+    "version": "v0.22.2"
   },
   "openapi": "3.0.0",
   "paths": {
@@ -2600,6 +2645,44 @@
           }
         ],
         "summary": "BulkGet",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/twirp/elephant.repository.Documents/BulkGetDeliverableInfo": {
+      "post": {
+        "description": "BulkGetDeliverableInfo returns deliverable information for multiple documents in a single request.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.repository.BulkGetDeliverableInfoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.repository.BulkGetDeliverableInfoResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "BulkGetDeliverableInfo",
         "tags": [
           "Documents"
         ]
