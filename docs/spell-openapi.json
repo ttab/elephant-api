@@ -214,6 +214,10 @@
       },
       "elephant.spell.SuggestionsRequest": {
         "properties": {
+          "custom_only": {
+            "description": "CustomOnly limits suggestions to the custom dictionary, skipping the hunspell pass.",
+            "type": "boolean"
+          },
           "language": {
             "description": "Language to get suggestions in.",
             "type": "string"
@@ -254,6 +258,10 @@
       },
       "elephant.spell.TextRequest": {
         "properties": {
+          "custom_only": {
+            "description": "CustomOnly limits checks to the custom dictionary, skipping the hunspell pass. Useful when you only want to surface custom writing rules without the noise of hunspell corrections.",
+            "type": "boolean"
+          },
           "language": {
             "description": "Language to check the text for.",
             "type": "string"

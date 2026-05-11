@@ -50,6 +50,10 @@ message TextRequest {
   // interactive applications this should normally be done by calling the
   // Suggestions method on demand.
   bool suggestions         = 3;
+  // CustomOnly limits checks to the custom dictionary, skipping the
+  // hunspell pass. Useful when you only want to surface custom writing
+  // rules without the noise of hunspell corrections.
+  bool custom_only         = 4;
 }
 
 message TextResponse {
@@ -80,6 +84,9 @@ message SuggestionsRequest {
   string text              = 1;
   // Language to get suggestions in.
   string language          = 2;
+  // CustomOnly limits suggestions to the custom dictionary, skipping the
+  // hunspell pass.
+  bool custom_only         = 3;
 }
 
 message SuggestionsResponse {
