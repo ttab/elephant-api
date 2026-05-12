@@ -101,7 +101,12 @@ type Documents interface {
 	// GetPermissions returns the permissions you have for the document.
 	GetPermissions(context.Context, *GetPermissionsRequest) (*GetPermissionsResponse, error)
 
-	// Lock attempts to acquire a write lock on a document.
+	// Lock attempts to acquire a write lock on a document. Fails with
+	// FailedPrecondition when the document is already locked; the
+	// failure carries error metadata keys "lock_holder_sub",
+	// "lock_app", "lock_comment" and "lock_expires" so callers can
+	// distinguish "held by me" (look up the token in own state) from
+	// "held by someone else" (surface to the user).
 	Lock(context.Context, *LockRequest) (*LockResponse, error)
 
 	// ExtendLock extends the expiration of an existing lock.
