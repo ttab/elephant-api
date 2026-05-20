@@ -17,6 +17,24 @@
         },
         "type": "object"
       },
+      "elephant.repository.AcquireLock": {
+        "description": "AcquireLock describes a lock to acquire as part of a GetDocument request. It mirrors LockRequest, but omits the redundant document UUID.",
+        "properties": {
+          "app": {
+            "description": "Name of the locking application. Optional.",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Free-form comment string. Optional.",
+            "type": "string"
+          },
+          "ttl": {
+            "description": "Lock TTL in milliseconds.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "elephant.repository.AttachmentDetails": {
         "properties": {
           "content_type": {
@@ -1004,8 +1022,7 @@
       "elephant.repository.GetDocumentRequest": {
         "properties": {
           "lock": {
-            "description": "Lock will lock the document for updates. This only affects the creation of new versions of the document, statuses can still be updated.",
-            "type": "boolean"
+            "$ref": "#/components/schemas/elephant.repository.AcquireLock"
           },
           "meta_document": {
             "$ref": "#/components/schemas/elephant.repository.GetMetaDoc"
@@ -1044,6 +1061,9 @@
           "is_meta_document": {
             "description": "IsMetaDocument is true if the document is a meta document.",
             "type": "boolean"
+          },
+          "lock": {
+            "$ref": "#/components/schemas/elephant.repository.LockGrant"
           },
           "main_document": {
             "description": "MainDocument is the UUID of the main document if this is a meta document.",
@@ -1689,6 +1709,20 @@
           },
           "uri": {
             "description": "URI of the lock owner",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.repository.LockGrant": {
+        "description": "LockGrant is the lock returned when a GetDocument request successfully acquired a lock via its lock field. It mirrors LockResponse.",
+        "properties": {
+          "expires": {
+            "description": "Expires is the RFC3339 timestamp when the lock will expire.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Generated lock token in UUID format.",
             "type": "string"
           }
         },
@@ -3823,7 +3857,7 @@
     },
     "/twirp/elephant.repository.Documents/Lock": {
       "post": {
-        "description": "Lock attempts to acquire a write lock on a document.",
+        "description": "Lock attempts to acquire a write lock on a document. Fails with FailedPrecondition when the document is already locked; the failure carries error metadata keys \"lock_holder_sub\", \"lock_app\", \"lock_comment\" and \"lock_expires\" so callers can distinguish \"held by me\" (look up the token in own state) from \"held by someone else\" (surface to the user).",
         "requestBody": {
           "content": {
             "application/json": {
