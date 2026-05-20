@@ -1021,7 +1021,7 @@
       },
       "elephant.repository.GetDocumentRequest": {
         "properties": {
-          "acquire_lock": {
+          "lock": {
             "$ref": "#/components/schemas/elephant.repository.AcquireLock"
           },
           "meta_document": {
@@ -1715,7 +1715,7 @@
         "type": "object"
       },
       "elephant.repository.LockGrant": {
-        "description": "LockGrant is the lock returned when a GetDocument request successfully acquired a lock via acquire_lock. It mirrors LockResponse.",
+        "description": "LockGrant is the lock returned when a GetDocument request successfully acquired a lock via its lock field. It mirrors LockResponse.",
         "properties": {
           "expires": {
             "description": "Expires is the RFC3339 timestamp when the lock will expire.",
