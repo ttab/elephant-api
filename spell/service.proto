@@ -154,31 +154,6 @@ message CustomEntry {
   // casing of its text and common mistakes. Defaults to false (case-insensitive
   // matching), which suits ordinary words; proper nouns should set it to true.
   bool case_sensitive             = 10;
-  // Rule turns the entry into a pattern rule instead of a plain word/phrase
-  // entry. When set, the entry matches a token pattern (number ranges, gaps
-  // between words, …) rather than literal text.
-  Rule rule                       = 11;
-}
-
-// Rule is a token-pattern matcher. The pattern uses a small DSL: literals match
-// tokens case-insensitively, ":digit" matches a number, ":word" matches a word,
-// and ":gap" / ":gap(N)" match up to N intervening words. Capturing tokens
-// (classes and gaps) are referenced in the replacement template as {1}, {2}, …
-// in order. For example pattern ":digit - :digit" with replacement "{1}–{2}"
-// turns "12-15" into "12–15".
-message Rule {
-  // Pattern to match, in the rule DSL.
-  string pattern             = 1;
-  // Replacement template for the suggestion.
-  string replacement         = 2;
-  // Before, when set, requires one of these tokens immediately before a match.
-  repeated string before     = 3;
-  // After, when set, requires one of these tokens immediately after a match.
-  repeated string after      = 4;
-  // NotBefore suppresses the match when preceded by one of these tokens.
-  repeated string not_before = 5;
-  // NotAfter suppresses the match when followed by one of these tokens.
-  repeated string not_after  = 6;
 }
 
 message ListDictionariesRequest {}
@@ -194,6 +169,10 @@ message CustomDictionary {
   int64 entry_count = 2;
   // PendingCount is the number of entries awaiting moderation.
   int64 pending_count = 3;
+  // RuleCount is the number of pattern rules for the language.
+  int64 rule_count = 4;
+  // RulePendingCount is the number of rules awaiting moderation.
+  int64 rule_pending_count = 5;
 }
 
 message GetEntryRequest {
@@ -231,7 +210,112 @@ message DeleteEntryRequest {
   // Language the entry is for.
   string language = 1;
   // Text is the word or phrase to delete.
-  string text     = 2;  
+  string text     = 2;
 }
 
 message DeleteEntryResponse {}
+
+// Rules manages pattern rules, which match a token pattern rather than literal
+// text. They are a separate kind of entity from dictionary words.
+service Rules {
+  // ListRules lists pattern rules.
+  rpc ListRules(ListRulesRequest) returns (ListRulesResponse);
+  // GetRule returns the details of a single rule.
+  rpc GetRule(GetRuleRequest) returns (GetRuleResponse);
+  // SetRule adds or updates a rule.
+  rpc SetRule(SetRuleRequest) returns (SetRuleResponse);
+  // SetRuleStatus updates only the moderation status of a rule.
+  rpc SetRuleStatus(SetRuleStatusRequest) returns (SetRuleStatusResponse);
+  // DeleteRule removes a rule.
+  rpc DeleteRule(DeleteRuleRequest) returns (DeleteRuleResponse);
+}
+
+// Rule is a named token-pattern matcher. The pattern uses a small DSL: literals
+// match tokens case-insensitively, ":digit" matches a number, ":word" matches a
+// word, and ":gap" / ":gap(N)" match up to N intervening words. Capturing
+// tokens (classes and gaps) are referenced in the replacement template as {1},
+// {2}, … in order. For example pattern ":digit - :digit" with replacement
+// "{1}–{2}" turns "12-15" into "12–15".
+message Rule {
+  // Language the rule is for.
+  string language            = 1;
+  // Name identifies the rule (its primary key together with the language).
+  string name                = 2;
+  // Status of the rule, used for moderation.
+  string status              = 3;
+  // Description shown to editors as context for the correction.
+  string description         = 4;
+  // Level to use when offering corrections. Optional, defaults to LEVEL_ERROR.
+  CorrectionLevel level      = 5;
+  // Pattern to match, in the rule DSL.
+  string pattern             = 6;
+  // Replacement template for the suggestion.
+  string replacement         = 7;
+  // Before, when set, requires one of these tokens immediately before a match.
+  repeated string before     = 8;
+  // After, when set, requires one of these tokens immediately after a match.
+  repeated string after      = 9;
+  // NotBefore suppresses the match when preceded by one of these tokens.
+  repeated string not_before = 10;
+  // NotAfter suppresses the match when followed by one of these tokens.
+  repeated string not_after  = 11;
+  // Updated is the last update time in RFC3339 format.
+  string updated             = 12;
+  // UpdatedBy is the identity of the party that last updated the rule.
+  string updated_by          = 13;
+}
+
+message ListRulesRequest {
+  // Language to list rules for.
+  string language = 1;
+  // Page to return.
+  int64 page      = 2;
+  // Query filters rules by a free-text substring, matched against the name,
+  // description, pattern and replacement.
+  string query    = 3;
+  // Status to filter rules by.
+  string status   = 4;
+  // PageSize is the number of rules per page. Optional, defaults to 100.
+  int64 page_size = 5;
+}
+
+message ListRulesResponse {
+  repeated Rule rules = 1;
+}
+
+message GetRuleRequest {
+  // Language the rule is for.
+  string language = 1;
+  // Name of the rule to get.
+  string name     = 2;
+}
+
+message GetRuleResponse {
+  Rule rule = 1;
+}
+
+message SetRuleRequest {
+  Rule rule = 1;
+}
+
+message SetRuleResponse {}
+
+message SetRuleStatusRequest {
+  // Language the rule is for.
+  string language = 1;
+  // Name of the rule to update.
+  string name     = 2;
+  // Status to set, e.g. "accepted" or "pending".
+  string status   = 3;
+}
+
+message SetRuleStatusResponse {}
+
+message DeleteRuleRequest {
+  // Language the rule is for.
+  string language = 1;
+  // Name of the rule to delete.
+  string name     = 2;
+}
+
+message DeleteRuleResponse {}

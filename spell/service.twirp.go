@@ -2982,6 +2982,1623 @@ func (s *dictionariesServer) PathPrefix() string {
 	return baseServicePath(s.pathPrefix, "elephant.spell", "Dictionaries")
 }
 
+// ===============
+// Rules Interface
+// ===============
+
+// Rules manages pattern rules, which match a token pattern rather than literal
+// text. They are a separate kind of entity from dictionary words.
+type Rules interface {
+	// ListRules lists pattern rules.
+	ListRules(context.Context, *ListRulesRequest) (*ListRulesResponse, error)
+
+	// GetRule returns the details of a single rule.
+	GetRule(context.Context, *GetRuleRequest) (*GetRuleResponse, error)
+
+	// SetRule adds or updates a rule.
+	SetRule(context.Context, *SetRuleRequest) (*SetRuleResponse, error)
+
+	// SetRuleStatus updates only the moderation status of a rule.
+	SetRuleStatus(context.Context, *SetRuleStatusRequest) (*SetRuleStatusResponse, error)
+
+	// DeleteRule removes a rule.
+	DeleteRule(context.Context, *DeleteRuleRequest) (*DeleteRuleResponse, error)
+}
+
+// =====================
+// Rules Protobuf Client
+// =====================
+
+type rulesProtobufClient struct {
+	client      HTTPClient
+	urls        [5]string
+	interceptor twirp.Interceptor
+	opts        twirp.ClientOptions
+}
+
+// NewRulesProtobufClient creates a Protobuf client that implements the Rules interface.
+// It communicates using Protobuf and can be configured with a custom HTTPClient.
+func NewRulesProtobufClient(baseURL string, client HTTPClient, opts ...twirp.ClientOption) Rules {
+	if c, ok := client.(*http.Client); ok {
+		client = withoutRedirects(c)
+	}
+
+	clientOpts := twirp.ClientOptions{}
+	for _, o := range opts {
+		o(&clientOpts)
+	}
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	literalURLs := false
+	_ = clientOpts.ReadOpt("literalURLs", &literalURLs)
+	var pathPrefix string
+	if ok := clientOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
+	serviceURL := sanitizeBaseURL(baseURL)
+	serviceURL += baseServicePath(pathPrefix, "elephant.spell", "Rules")
+	urls := [5]string{
+		serviceURL + "ListRules",
+		serviceURL + "GetRule",
+		serviceURL + "SetRule",
+		serviceURL + "SetRuleStatus",
+		serviceURL + "DeleteRule",
+	}
+
+	return &rulesProtobufClient{
+		client:      client,
+		urls:        urls,
+		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
+		opts:        clientOpts,
+	}
+}
+
+func (c *rulesProtobufClient) ListRules(ctx context.Context, in *ListRulesRequest) (*ListRulesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "ListRules")
+	caller := c.callListRules
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ListRulesRequest) (*ListRulesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListRulesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListRulesRequest) when calling interceptor")
+					}
+					return c.callListRules(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListRulesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListRulesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesProtobufClient) callListRules(ctx context.Context, in *ListRulesRequest) (*ListRulesResponse, error) {
+	out := new(ListRulesResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesProtobufClient) GetRule(ctx context.Context, in *GetRuleRequest) (*GetRuleResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "GetRule")
+	caller := c.callGetRule
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetRuleRequest) (*GetRuleResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetRuleRequest) when calling interceptor")
+					}
+					return c.callGetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesProtobufClient) callGetRule(ctx context.Context, in *GetRuleRequest) (*GetRuleResponse, error) {
+	out := new(GetRuleResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesProtobufClient) SetRule(ctx context.Context, in *SetRuleRequest) (*SetRuleResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "SetRule")
+	caller := c.callSetRule
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SetRuleRequest) (*SetRuleResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleRequest) when calling interceptor")
+					}
+					return c.callSetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesProtobufClient) callSetRule(ctx context.Context, in *SetRuleRequest) (*SetRuleResponse, error) {
+	out := new(SetRuleResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesProtobufClient) SetRuleStatus(ctx context.Context, in *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "SetRuleStatus")
+	caller := c.callSetRuleStatus
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleStatusRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleStatusRequest) when calling interceptor")
+					}
+					return c.callSetRuleStatus(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleStatusResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleStatusResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesProtobufClient) callSetRuleStatus(ctx context.Context, in *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+	out := new(SetRuleStatusResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesProtobufClient) DeleteRule(ctx context.Context, in *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteRule")
+	caller := c.callDeleteRule
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteRuleRequest) when calling interceptor")
+					}
+					return c.callDeleteRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesProtobufClient) callDeleteRule(ctx context.Context, in *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+	out := new(DeleteRuleResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+// =================
+// Rules JSON Client
+// =================
+
+type rulesJSONClient struct {
+	client      HTTPClient
+	urls        [5]string
+	interceptor twirp.Interceptor
+	opts        twirp.ClientOptions
+}
+
+// NewRulesJSONClient creates a JSON client that implements the Rules interface.
+// It communicates using JSON and can be configured with a custom HTTPClient.
+func NewRulesJSONClient(baseURL string, client HTTPClient, opts ...twirp.ClientOption) Rules {
+	if c, ok := client.(*http.Client); ok {
+		client = withoutRedirects(c)
+	}
+
+	clientOpts := twirp.ClientOptions{}
+	for _, o := range opts {
+		o(&clientOpts)
+	}
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	literalURLs := false
+	_ = clientOpts.ReadOpt("literalURLs", &literalURLs)
+	var pathPrefix string
+	if ok := clientOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
+	serviceURL := sanitizeBaseURL(baseURL)
+	serviceURL += baseServicePath(pathPrefix, "elephant.spell", "Rules")
+	urls := [5]string{
+		serviceURL + "ListRules",
+		serviceURL + "GetRule",
+		serviceURL + "SetRule",
+		serviceURL + "SetRuleStatus",
+		serviceURL + "DeleteRule",
+	}
+
+	return &rulesJSONClient{
+		client:      client,
+		urls:        urls,
+		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
+		opts:        clientOpts,
+	}
+}
+
+func (c *rulesJSONClient) ListRules(ctx context.Context, in *ListRulesRequest) (*ListRulesResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "ListRules")
+	caller := c.callListRules
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ListRulesRequest) (*ListRulesResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListRulesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListRulesRequest) when calling interceptor")
+					}
+					return c.callListRules(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListRulesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListRulesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesJSONClient) callListRules(ctx context.Context, in *ListRulesRequest) (*ListRulesResponse, error) {
+	out := new(ListRulesResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesJSONClient) GetRule(ctx context.Context, in *GetRuleRequest) (*GetRuleResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "GetRule")
+	caller := c.callGetRule
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetRuleRequest) (*GetRuleResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetRuleRequest) when calling interceptor")
+					}
+					return c.callGetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesJSONClient) callGetRule(ctx context.Context, in *GetRuleRequest) (*GetRuleResponse, error) {
+	out := new(GetRuleResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesJSONClient) SetRule(ctx context.Context, in *SetRuleRequest) (*SetRuleResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "SetRule")
+	caller := c.callSetRule
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SetRuleRequest) (*SetRuleResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleRequest) when calling interceptor")
+					}
+					return c.callSetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesJSONClient) callSetRule(ctx context.Context, in *SetRuleRequest) (*SetRuleResponse, error) {
+	out := new(SetRuleResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesJSONClient) SetRuleStatus(ctx context.Context, in *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "SetRuleStatus")
+	caller := c.callSetRuleStatus
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleStatusRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleStatusRequest) when calling interceptor")
+					}
+					return c.callSetRuleStatus(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleStatusResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleStatusResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesJSONClient) callSetRuleStatus(ctx context.Context, in *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+	out := new(SetRuleStatusResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *rulesJSONClient) DeleteRule(ctx context.Context, in *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteRule")
+	caller := c.callDeleteRule
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteRuleRequest) when calling interceptor")
+					}
+					return c.callDeleteRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *rulesJSONClient) callDeleteRule(ctx context.Context, in *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+	out := new(DeleteRuleResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+// ====================
+// Rules Server Handler
+// ====================
+
+type rulesServer struct {
+	Rules
+	interceptor      twirp.Interceptor
+	hooks            *twirp.ServerHooks
+	pathPrefix       string // prefix for routing
+	jsonSkipDefaults bool   // do not include unpopulated fields (default values) in the response
+	jsonCamelCase    bool   // JSON fields are serialized as lowerCamelCase rather than keeping the original proto names
+}
+
+// NewRulesServer builds a TwirpServer that can be used as an http.Handler to handle
+// HTTP requests that are routed to the right method in the provided svc implementation.
+// The opts are twirp.ServerOption modifiers, for example twirp.WithServerHooks(hooks).
+func NewRulesServer(svc Rules, opts ...interface{}) TwirpServer {
+	serverOpts := newServerOpts(opts)
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	jsonSkipDefaults := false
+	_ = serverOpts.ReadOpt("jsonSkipDefaults", &jsonSkipDefaults)
+	jsonCamelCase := false
+	_ = serverOpts.ReadOpt("jsonCamelCase", &jsonCamelCase)
+	var pathPrefix string
+	if ok := serverOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	return &rulesServer{
+		Rules:            svc,
+		hooks:            serverOpts.Hooks,
+		interceptor:      twirp.ChainInterceptors(serverOpts.Interceptors...),
+		pathPrefix:       pathPrefix,
+		jsonSkipDefaults: jsonSkipDefaults,
+		jsonCamelCase:    jsonCamelCase,
+	}
+}
+
+// writeError writes an HTTP response with a valid Twirp error format, and triggers hooks.
+// If err is not a twirp.Error, it will get wrapped with twirp.InternalErrorWith(err)
+func (s *rulesServer) writeError(ctx context.Context, resp http.ResponseWriter, err error) {
+	writeError(ctx, resp, err, s.hooks)
+}
+
+// handleRequestBodyError is used to handle error when the twirp server cannot read request
+func (s *rulesServer) handleRequestBodyError(ctx context.Context, resp http.ResponseWriter, msg string, err error) {
+	if context.Canceled == ctx.Err() {
+		s.writeError(ctx, resp, twirp.NewError(twirp.Canceled, "failed to read request: context canceled"))
+		return
+	}
+	if context.DeadlineExceeded == ctx.Err() {
+		s.writeError(ctx, resp, twirp.NewError(twirp.DeadlineExceeded, "failed to read request: deadline exceeded"))
+		return
+	}
+	s.writeError(ctx, resp, twirp.WrapError(malformedRequestError(msg), err))
+}
+
+// RulesPathPrefix is a convenience constant that may identify URL paths.
+// Should be used with caution, it only matches routes generated by Twirp Go clients,
+// with the default "/twirp" prefix and default CamelCase service and method names.
+// More info: https://twitchtv.github.io/twirp/docs/routing.html
+const RulesPathPrefix = "/twirp/elephant.spell.Rules/"
+
+func (s *rulesServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.spell")
+	ctx = ctxsetters.WithServiceName(ctx, "Rules")
+	ctx = ctxsetters.WithResponseWriter(ctx, resp)
+
+	var err error
+	ctx, err = callRequestReceived(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	if req.Method != "POST" {
+		msg := fmt.Sprintf("unsupported method %q (only POST is allowed)", req.Method)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+
+	// Verify path format: [<prefix>]/<package>.<Service>/<Method>
+	prefix, pkgService, method := parseTwirpPath(req.URL.Path)
+	if pkgService != "elephant.spell.Rules" {
+		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+	if prefix != s.pathPrefix {
+		msg := fmt.Sprintf("invalid path prefix %q, expected %q, on path %q", prefix, s.pathPrefix, req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+
+	switch method {
+	case "ListRules":
+		s.serveListRules(ctx, resp, req)
+		return
+	case "GetRule":
+		s.serveGetRule(ctx, resp, req)
+		return
+	case "SetRule":
+		s.serveSetRule(ctx, resp, req)
+		return
+	case "SetRuleStatus":
+		s.serveSetRuleStatus(ctx, resp, req)
+		return
+	case "DeleteRule":
+		s.serveDeleteRule(ctx, resp, req)
+		return
+	default:
+		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+}
+
+func (s *rulesServer) serveListRules(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveListRulesJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveListRulesProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *rulesServer) serveListRulesJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ListRules")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(ListRulesRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Rules.ListRules
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ListRulesRequest) (*ListRulesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListRulesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListRulesRequest) when calling interceptor")
+					}
+					return s.Rules.ListRules(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListRulesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListRulesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ListRulesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ListRulesResponse and nil error while calling ListRules. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveListRulesProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ListRules")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(ListRulesRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Rules.ListRules
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ListRulesRequest) (*ListRulesResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListRulesRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListRulesRequest) when calling interceptor")
+					}
+					return s.Rules.ListRules(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListRulesResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListRulesResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ListRulesResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ListRulesResponse and nil error while calling ListRules. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveGetRule(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetRuleJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetRuleProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *rulesServer) serveGetRuleJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetRule")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetRuleRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Rules.GetRule
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetRuleRequest) (*GetRuleResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetRuleRequest) when calling interceptor")
+					}
+					return s.Rules.GetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetRuleResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetRuleResponse and nil error while calling GetRule. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveGetRuleProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetRule")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetRuleRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Rules.GetRule
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetRuleRequest) (*GetRuleResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetRuleRequest) when calling interceptor")
+					}
+					return s.Rules.GetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetRuleResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetRuleResponse and nil error while calling GetRule. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveSetRule(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveSetRuleJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveSetRuleProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *rulesServer) serveSetRuleJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SetRule")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(SetRuleRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Rules.SetRule
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SetRuleRequest) (*SetRuleResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleRequest) when calling interceptor")
+					}
+					return s.Rules.SetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SetRuleResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SetRuleResponse and nil error while calling SetRule. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveSetRuleProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SetRule")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(SetRuleRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Rules.SetRule
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SetRuleRequest) (*SetRuleResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleRequest) when calling interceptor")
+					}
+					return s.Rules.SetRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SetRuleResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SetRuleResponse and nil error while calling SetRule. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveSetRuleStatus(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveSetRuleStatusJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveSetRuleStatusProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *rulesServer) serveSetRuleStatusJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SetRuleStatus")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(SetRuleStatusRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Rules.SetRuleStatus
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleStatusRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleStatusRequest) when calling interceptor")
+					}
+					return s.Rules.SetRuleStatus(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleStatusResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleStatusResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SetRuleStatusResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SetRuleStatusResponse and nil error while calling SetRuleStatus. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveSetRuleStatusProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "SetRuleStatus")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(SetRuleStatusRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Rules.SetRuleStatus
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *SetRuleStatusRequest) (*SetRuleStatusResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*SetRuleStatusRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*SetRuleStatusRequest) when calling interceptor")
+					}
+					return s.Rules.SetRuleStatus(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*SetRuleStatusResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*SetRuleStatusResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *SetRuleStatusResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SetRuleStatusResponse and nil error while calling SetRuleStatus. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveDeleteRule(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveDeleteRuleJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveDeleteRuleProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *rulesServer) serveDeleteRuleJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteRule")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(DeleteRuleRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Rules.DeleteRule
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteRuleRequest) when calling interceptor")
+					}
+					return s.Rules.DeleteRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *DeleteRuleResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeleteRuleResponse and nil error while calling DeleteRule. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) serveDeleteRuleProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "DeleteRule")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(DeleteRuleRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Rules.DeleteRule
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *DeleteRuleRequest) (*DeleteRuleResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*DeleteRuleRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*DeleteRuleRequest) when calling interceptor")
+					}
+					return s.Rules.DeleteRule(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*DeleteRuleResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*DeleteRuleResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *DeleteRuleResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeleteRuleResponse and nil error while calling DeleteRule. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *rulesServer) ServiceDescriptor() ([]byte, int) {
+	return twirpFileDescriptor0, 2
+}
+
+func (s *rulesServer) ProtocGenTwirpVersion() string {
+	return "v8.1.3"
+}
+
+// PathPrefix returns the base service path, in the form: "/<prefix>/<package>.<Service>/"
+// that is everything in a Twirp route except for the <Method>. This can be used for routing,
+// for example to identify the requests that are targeted to this service in a mux.
+func (s *rulesServer) PathPrefix() string {
+	return baseServicePath(s.pathPrefix, "elephant.spell", "Rules")
+}
+
 // =====
 // Utils
 // =====
@@ -3548,76 +5165,92 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 1135 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x57, 0xc1, 0x6e, 0xdb, 0x46,
-	0x10, 0x2d, 0x2d, 0xc9, 0x91, 0x46, 0x8e, 0xa5, 0xae, 0xe3, 0x94, 0x91, 0xdb, 0x5a, 0xd8, 0x34,
-	0x89, 0x1a, 0xa0, 0x32, 0xea, 0x22, 0x45, 0x1a, 0xe4, 0x62, 0x5b, 0x8a, 0xe1, 0x42, 0x8e, 0x0b,
-	0xd2, 0xc9, 0xa1, 0x17, 0x95, 0xa6, 0xc6, 0x32, 0x61, 0x8a, 0x64, 0xb8, 0x4b, 0x23, 0xca, 0xa9,
-	0x7f, 0x50, 0xf4, 0x17, 0x7a, 0xee, 0xa9, 0x7f, 0xd3, 0xbf, 0x29, 0x76, 0xb9, 0x14, 0x29, 0x52,
-	0xb2, 0x9d, 0xf4, 0xc6, 0x9d, 0x79, 0x33, 0x3b, 0xf3, 0x66, 0x66, 0x77, 0x09, 0x1b, 0x2c, 0x40,
-	0xd7, 0xdd, 0x61, 0x18, 0x5e, 0x39, 0x36, 0x76, 0x83, 0xd0, 0xe7, 0x3e, 0x59, 0x47, 0x17, 0x83,
-	0x0b, 0xcb, 0xe3, 0x5d, 0xa9, 0xa5, 0x5b, 0xf0, 0xc0, 0x8c, 0x82, 0xc0, 0x0f, 0x39, 0x8e, 0x06,
-	0x96, 0x37, 0x8e, 0xac, 0x31, 0x32, 0x03, 0xdf, 0x45, 0xc8, 0x38, 0x3d, 0x85, 0xd6, 0x22, 0x25,
-	0x0b, 0x7c, 0x8f, 0x21, 0xf9, 0x11, 0x6a, 0x6e, 0x22, 0xd4, 0xb5, 0x76, 0xa9, 0x53, 0xdf, 0xd5,
-	0xbb, 0xf3, 0xee, 0xbb, 0x89, 0x95, 0x91, 0x42, 0xe9, 0xd7, 0x50, 0x4d, 0xc4, 0x84, 0x40, 0xd9,
-	0xf6, 0x47, 0xa8, 0x6b, 0x6d, 0xad, 0x53, 0x33, 0xe4, 0x37, 0xfd, 0x5d, 0x83, 0xfa, 0x29, 0xbe,
-	0xe7, 0x2a, 0x0a, 0x81, 0xe1, 0xf8, 0x9e, 0xcb, 0x2d, 0x6a, 0x86, 0xfc, 0x26, 0x2d, 0xa8, 0x26,
-	0x0e, 0xf5, 0x15, 0x69, 0x3b, 0x5b, 0x93, 0x36, 0xd4, 0x59, 0x34, 0x1e, 0x23, 0xe3, 0x8e, 0xef,
-	0x31, 0xbd, 0xd4, 0xd6, 0x3a, 0x55, 0x23, 0x2b, 0x22, 0xdb, 0x50, 0xb7, 0x23, 0xc6, 0xfd, 0xc9,
-	0xd0, 0xf7, 0xdc, 0xa9, 0x5e, 0x96, 0x08, 0x88, 0x45, 0x27, 0x9e, 0x3b, 0xa5, 0x3f, 0xc3, 0x5a,
-	0x1c, 0x81, 0x4a, 0xf5, 0x05, 0xc0, 0xc4, 0x61, 0x32, 0x25, 0x1c, 0xa9, 0x5c, 0x5b, 0xf9, 0x5c,
-	0x8f, 0x67, 0x08, 0x23, 0x83, 0xa6, 0x87, 0x00, 0xa9, 0x86, 0xfc, 0x04, 0x77, 0xd0, 0xe3, 0xa1,
-	0x33, 0xa3, 0x6c, 0x7b, 0xb9, 0x9b, 0xbe, 0xc7, 0xc3, 0xa9, 0x91, 0xe0, 0xe9, 0x3f, 0x1a, 0x34,
-	0x72, 0xca, 0x0c, 0x37, 0xda, 0x8c, 0x9b, 0x97, 0xf3, 0xf9, 0xaf, 0x2c, 0x8e, 0xd6, 0x9c, 0x41,
-	0xe6, 0xb9, 0x79, 0x06, 0x15, 0x17, 0xaf, 0xd0, 0x95, 0xbc, 0xad, 0x17, 0xc3, 0x3b, 0xf0, 0xc3,
-	0x10, 0x6d, 0x81, 0x1d, 0x08, 0x98, 0x11, 0xa3, 0xc9, 0x7d, 0x58, 0x65, 0xdc, 0xe2, 0x11, 0x93,
-	0x6c, 0xd6, 0x0c, 0xb5, 0xa2, 0x08, 0x24, 0xdd, 0x89, 0x15, 0x4b, 0xaa, 0xdd, 0xaa, 0xa4, 0xb9,
-	0x82, 0x95, 0x0a, 0x05, 0x33, 0x61, 0x63, 0x6e, 0x1b, 0x55, 0xb7, 0x1c, 0x15, 0xda, 0x47, 0x51,
-	0x41, 0xf7, 0x01, 0x52, 0xd5, 0xc2, 0x98, 0xdb, 0x50, 0x1f, 0x21, 0xb3, 0x43, 0x27, 0x10, 0x10,
-	0x15, 0x76, 0x56, 0x44, 0xff, 0xd0, 0x80, 0x0c, 0x1c, 0xc6, 0xfb, 0x71, 0x11, 0x13, 0x02, 0xb2,
-	0xc9, 0x6a, 0xb9, 0x64, 0x09, 0x94, 0x83, 0x84, 0x84, 0x92, 0x21, 0xbf, 0xc9, 0x3d, 0xa8, 0xbc,
-	0x8b, 0x30, 0x8c, 0x53, 0xaf, 0x19, 0xf1, 0x62, 0x19, 0xe9, 0x64, 0x0b, 0x6a, 0xc2, 0x6a, 0xc8,
-	0x9c, 0x0f, 0xa8, 0x57, 0xa4, 0x9b, 0xaa, 0x10, 0x98, 0xce, 0x07, 0xa4, 0x03, 0xd8, 0x98, 0x0b,
-	0x48, 0x51, 0xf5, 0x2c, 0xdf, 0x98, 0x5b, 0x85, 0xca, 0x4b, 0xba, 0x73, 0x4d, 0xf9, 0x6f, 0x09,
-	0xea, 0x19, 0xc5, 0x4d, 0x89, 0x49, 0x06, 0x57, 0x32, 0x0c, 0xa6, 0x29, 0x94, 0xe6, 0x52, 0xc8,
-	0x31, 0x5b, 0x2e, 0x30, 0x4b, 0x9e, 0x40, 0xc3, 0xf6, 0x27, 0x13, 0xdf, 0x1b, 0x4e, 0x1c, 0xc6,
-	0xad, 0x4b, 0x64, 0x7a, 0x45, 0x9e, 0x10, 0xeb, 0xb1, 0xf8, 0x58, 0x49, 0xd3, 0x8e, 0x5e, 0xfd,
-	0xa8, 0x8e, 0x7e, 0x09, 0x95, 0x73, 0x3f, 0x9c, 0x30, 0xfd, 0x8e, 0xa4, 0xe3, 0xf1, 0x35, 0x74,
-	0x74, 0x5f, 0x09, 0x60, 0xcc, 0x4c, 0x6c, 0x44, 0x74, 0xb8, 0x13, 0x05, 0x23, 0x8b, 0xe3, 0x48,
-	0xaf, 0xca, 0xd8, 0x93, 0x25, 0xf9, 0x0a, 0x40, 0x7d, 0x0e, 0xcf, 0xa6, 0x7a, 0x4d, 0x2a, 0x6b,
-	0x4a, 0xb2, 0x3f, 0x25, 0x8f, 0x60, 0xdd, 0xb6, 0x18, 0x0e, 0x19, 0x7a, 0xcc, 0xe1, 0xce, 0x15,
-	0xea, 0x20, 0xbb, 0xfd, 0xae, 0x90, 0x9a, 0x89, 0x90, 0x74, 0xa0, 0x1c, 0x46, 0x2e, 0xea, 0xf5,
-	0xb6, 0xd6, 0xa9, 0xef, 0xde, 0xcb, 0x07, 0x67, 0x44, 0x2e, 0x1a, 0x12, 0xd1, 0x7a, 0x0e, 0x90,
-	0x86, 0x47, 0x9a, 0x50, 0xba, 0xc4, 0xa9, 0x2a, 0x8d, 0xf8, 0x14, 0xad, 0x75, 0x65, 0xb9, 0x51,
-	0x32, 0x74, 0xf1, 0xe2, 0xc5, 0xca, 0x73, 0x8d, 0xfe, 0xad, 0x41, 0x59, 0x38, 0x12, 0xc9, 0x04,
-	0x16, 0xe7, 0x18, 0x7a, 0xca, 0x30, 0x59, 0x8a, 0x32, 0x85, 0x18, 0xb8, 0x96, 0x8d, 0x13, 0xf4,
-	0x92, 0xca, 0x66, 0x45, 0xa2, 0xc0, 0x67, 0x78, 0xee, 0x87, 0xa8, 0x97, 0x64, 0x75, 0xd4, 0x4a,
-	0x6c, 0x6b, 0x9d, 0x73, 0x0c, 0xf5, 0xb2, 0x14, 0xc7, 0x0b, 0x41, 0x8e, 0xe7, 0xf3, 0xa1, 0xb2,
-	0x88, 0xeb, 0x59, 0xf3, 0x7c, 0xbe, 0x1f, 0x1b, 0x6d, 0x81, 0x58, 0x0c, 0x63, 0xc3, 0x55, 0xa9,
-	0xad, 0x7a, 0x3e, 0xdf, 0x13, 0x6b, 0xfa, 0x00, 0xbe, 0x10, 0x8d, 0xdd, 0x73, 0x64, 0x2d, 0xad,
-	0xcc, 0xb8, 0xd1, 0xdf, 0x40, 0x2f, 0xaa, 0x54, 0xe3, 0xf7, 0x60, 0x6d, 0x94, 0x91, 0xab, 0xee,
-	0x6f, 0x2f, 0x2e, 0xf7, 0xcc, 0xc3, 0xd4, 0x98, 0xb3, 0xa2, 0x1c, 0x9a, 0x79, 0xc4, 0xb5, 0xb3,
-	0xb0, 0x0d, 0x75, 0x31, 0x42, 0xd3, 0xa1, 0xed, 0x47, 0x8a, 0xb8, 0x92, 0x01, 0x52, 0x74, 0x20,
-	0x24, 0xe4, 0x21, 0xdc, 0x0d, 0xd0, 0x1b, 0x39, 0xde, 0x58, 0x41, 0x4a, 0x12, 0xb2, 0xa6, 0x84,
-	0x12, 0x44, 0xf7, 0xa0, 0x71, 0x88, 0x3c, 0x6e, 0xbc, 0xdb, 0x9d, 0x2c, 0xf9, 0x01, 0xa4, 0x7d,
-	0x68, 0xa6, 0x2e, 0x14, 0x25, 0xdf, 0x43, 0x45, 0x46, 0x22, 0x1d, 0xdc, 0x70, 0x12, 0xc4, 0x48,
-	0xda, 0x83, 0x86, 0x99, 0x8b, 0xe4, 0x13, 0xbc, 0x10, 0x68, 0x9a, 0xb9, 0x60, 0xe8, 0x10, 0x36,
-	0x13, 0x99, 0x29, 0xcf, 0x86, 0x4f, 0xcc, 0x74, 0xd9, 0x51, 0x43, 0x75, 0xb8, 0x9f, 0xdf, 0x40,
-	0x6d, 0xdd, 0x03, 0xd2, 0x43, 0x17, 0x39, 0xfe, 0x2f, 0x86, 0x37, 0x61, 0x63, 0xce, 0x4b, 0xec,
-	0xfc, 0xe9, 0x09, 0x34, 0x72, 0x27, 0x0f, 0xd9, 0x84, 0xcf, 0x07, 0xfd, 0xb7, 0xfd, 0xc1, 0xf0,
-	0xcd, 0x6b, 0xf3, 0x97, 0xfe, 0xc1, 0xd1, 0xab, 0xa3, 0x7e, 0xaf, 0xf9, 0x19, 0x69, 0x40, 0x3d,
-	0x16, 0xf7, 0x0d, 0xe3, 0xc4, 0x68, 0x6a, 0xe4, 0x1e, 0x34, 0x63, 0x81, 0xf9, 0xe6, 0xf0, 0xb0,
-	0x6f, 0x9e, 0x1e, 0x9d, 0xbc, 0x6e, 0xae, 0xec, 0xfe, 0xa5, 0x41, 0xe5, 0xe0, 0x02, 0xed, 0x4b,
-	0xb2, 0x07, 0x65, 0xf1, 0x7c, 0x21, 0x05, 0xca, 0x33, 0xcf, 0xaa, 0xd6, 0x97, 0x8b, 0x95, 0xaa,
-	0x05, 0xde, 0x42, 0x3d, 0x73, 0xa1, 0x12, 0xba, 0xfc, 0xce, 0x4c, 0xea, 0xd1, 0x7a, 0x78, 0x2d,
-	0x26, 0xf6, 0xbb, 0xfb, 0x67, 0x05, 0xd6, 0xb2, 0x63, 0x48, 0x2e, 0xc5, 0x03, 0x21, 0xff, 0xc6,
-	0x24, 0xdf, 0x16, 0x7d, 0x2d, 0x79, 0xa4, 0xb6, 0x9e, 0xde, 0x06, 0xaa, 0xb2, 0x42, 0x68, 0xe6,
-	0xcf, 0x01, 0xf2, 0xa4, 0xf0, 0x66, 0x5d, 0x7c, 0x88, 0xb4, 0x3a, 0x37, 0x03, 0x53, 0xf2, 0x32,
-	0x57, 0x6c, 0x91, 0xbc, 0xe2, 0x83, 0xa0, 0x48, 0xde, 0xa2, 0x3b, 0xfa, 0x18, 0xaa, 0xc9, 0xac,
-	0x92, 0xc2, 0x35, 0x96, 0x3b, 0x08, 0x5a, 0xed, 0xe5, 0x80, 0xd4, 0x9d, 0xb9, 0xd4, 0x9d, 0x79,
-	0x93, 0xbb, 0xfc, 0xa0, 0x92, 0x21, 0xac, 0xcf, 0xcf, 0x11, 0x79, 0xb4, 0xcc, 0x66, 0x6e, 0x90,
-	0x5b, 0x8f, 0x6f, 0x82, 0xa5, 0xb4, 0x66, 0x06, 0xa9, 0x48, 0x6b, 0x71, 0x56, 0x8b, 0xb4, 0x2e,
-	0x98, 0xc4, 0xfd, 0x6f, 0x7e, 0xa5, 0x63, 0x87, 0x5f, 0x44, 0x67, 0x5d, 0xdb, 0x9f, 0xec, 0x70,
-	0x6e, 0x9d, 0xed, 0x24, 0x56, 0xdf, 0x59, 0x81, 0xb3, 0x23, 0x2d, 0xcf, 0x56, 0xe5, 0x0f, 0xd4,
-	0x0f, 0xff, 0x05, 0x00, 0x00, 0xff, 0xff, 0x2e, 0xbb, 0x7c, 0x05, 0x57, 0x0d, 0x00, 0x00,
+	// 1378 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x58, 0x4b, 0x6f, 0xdb, 0x46,
+	0x10, 0x2e, 0x2d, 0x29, 0x16, 0x47, 0x7e, 0xc8, 0x6b, 0x27, 0x61, 0xe4, 0x26, 0x56, 0x36, 0x2f,
+	0x37, 0x68, 0x6d, 0xd4, 0x45, 0x8a, 0x34, 0x0d, 0xd0, 0xc6, 0xb6, 0x62, 0x24, 0x70, 0xe2, 0x80,
+	0x4c, 0x72, 0x28, 0x8a, 0xaa, 0xb4, 0xb4, 0x71, 0x08, 0x53, 0x24, 0x43, 0x2e, 0x8d, 0x28, 0xa7,
+	0x9e, 0x7a, 0x2b, 0x8a, 0xfe, 0x85, 0xa2, 0xf7, 0x02, 0xfd, 0x07, 0xfd, 0x67, 0xc5, 0x3e, 0x28,
+	0x2e, 0x1f, 0xb2, 0xe4, 0xf8, 0xd2, 0x1b, 0x77, 0xe6, 0x9b, 0xd9, 0x99, 0x6f, 0x76, 0x66, 0x57,
+	0x82, 0xe5, 0x28, 0x20, 0xae, 0xbb, 0x19, 0x91, 0xf0, 0xc4, 0xe9, 0x91, 0x8d, 0x20, 0xf4, 0xa9,
+	0x8f, 0x16, 0x88, 0x4b, 0x82, 0xb7, 0xb6, 0x47, 0x37, 0xb8, 0x16, 0xaf, 0xc2, 0x15, 0x2b, 0x0e,
+	0x02, 0x3f, 0xa4, 0xa4, 0xbf, 0x6f, 0x7b, 0x47, 0xb1, 0x7d, 0x44, 0x22, 0x93, 0xbc, 0x8b, 0x49,
+	0x44, 0xf1, 0x4b, 0x68, 0x95, 0x29, 0xa3, 0xc0, 0xf7, 0x22, 0x82, 0xbe, 0x06, 0xdd, 0x4d, 0x84,
+	0x86, 0xd6, 0xae, 0xac, 0x37, 0xb6, 0x8c, 0x8d, 0xac, 0xfb, 0x8d, 0xc4, 0xca, 0x4c, 0xa1, 0xf8,
+	0x1a, 0xd4, 0x13, 0x31, 0x42, 0x50, 0xed, 0xf9, 0x7d, 0x62, 0x68, 0x6d, 0x6d, 0x5d, 0x37, 0xf9,
+	0x37, 0xfe, 0x45, 0x83, 0xc6, 0x4b, 0xf2, 0x9e, 0xca, 0x28, 0x18, 0x86, 0x92, 0xf7, 0x94, 0x6f,
+	0xa1, 0x9b, 0xfc, 0x1b, 0xb5, 0xa0, 0x9e, 0x38, 0x34, 0x66, 0xb8, 0xed, 0x68, 0x8d, 0xda, 0xd0,
+	0x88, 0xe2, 0xa3, 0x23, 0x12, 0x51, 0xc7, 0xf7, 0x22, 0xa3, 0xd2, 0xd6, 0xd6, 0xeb, 0xa6, 0x2a,
+	0x42, 0x6b, 0xd0, 0xe8, 0xc5, 0x11, 0xf5, 0x07, 0x5d, 0xdf, 0x73, 0x87, 0x46, 0x95, 0x23, 0x40,
+	0x88, 0x0e, 0x3c, 0x77, 0x88, 0x9f, 0xc2, 0x9c, 0x88, 0x40, 0xa6, 0xfa, 0x00, 0x60, 0xe0, 0x44,
+	0x3c, 0x25, 0xd2, 0x97, 0xb9, 0xb6, 0xf2, 0xb9, 0x3e, 0x1b, 0x21, 0x4c, 0x05, 0x8d, 0xf7, 0x00,
+	0x52, 0x0d, 0xfa, 0x06, 0x66, 0x89, 0x47, 0x43, 0x67, 0x44, 0xd9, 0xda, 0x78, 0x37, 0x1d, 0x8f,
+	0x86, 0x43, 0x33, 0xc1, 0xe3, 0x7f, 0x34, 0x58, 0xcc, 0x29, 0x15, 0x6e, 0xb4, 0x11, 0x37, 0x0f,
+	0xb3, 0xf9, 0xcf, 0x94, 0x47, 0x6b, 0x8d, 0x20, 0x59, 0x6e, 0xee, 0x41, 0xcd, 0x25, 0x27, 0xc4,
+	0xe5, 0xbc, 0x2d, 0x14, 0xc3, 0xdb, 0xf1, 0xc3, 0x90, 0xf4, 0x18, 0x76, 0x9f, 0xc1, 0x4c, 0x81,
+	0x46, 0x97, 0xe0, 0x42, 0x44, 0x6d, 0x1a, 0x47, 0x9c, 0x4d, 0xdd, 0x94, 0x2b, 0x4c, 0x00, 0xa5,
+	0x3b, 0x45, 0xc5, 0x92, 0x6a, 0x53, 0x95, 0x34, 0x57, 0xb0, 0x4a, 0xa1, 0x60, 0x16, 0x2c, 0x67,
+	0xb6, 0x91, 0x75, 0xcb, 0x51, 0xa1, 0x9d, 0x89, 0x0a, 0xbc, 0x0d, 0x90, 0xaa, 0x4a, 0x63, 0x6e,
+	0x43, 0xa3, 0x4f, 0xa2, 0x5e, 0xe8, 0x04, 0x0c, 0x22, 0xc3, 0x56, 0x45, 0xf8, 0x77, 0x0d, 0xd0,
+	0xbe, 0x13, 0xd1, 0x8e, 0x28, 0x62, 0x42, 0x80, 0x9a, 0xac, 0x96, 0x4b, 0x16, 0x41, 0x35, 0x48,
+	0x48, 0xa8, 0x98, 0xfc, 0x1b, 0xad, 0x40, 0xed, 0x5d, 0x4c, 0x42, 0x91, 0xba, 0x6e, 0x8a, 0xc5,
+	0x38, 0xd2, 0xd1, 0x2a, 0xe8, 0xcc, 0xaa, 0x1b, 0x39, 0x1f, 0x88, 0x51, 0xe3, 0x6e, 0xea, 0x4c,
+	0x60, 0x39, 0x1f, 0x08, 0xde, 0x87, 0xe5, 0x4c, 0x40, 0x92, 0xaa, 0x7b, 0xf9, 0x83, 0xb9, 0x5a,
+	0xa8, 0x3c, 0xa7, 0x3b, 0x77, 0x28, 0xff, 0xae, 0x40, 0x43, 0x51, 0x4c, 0x4a, 0x8c, 0x33, 0x38,
+	0xa3, 0x30, 0x98, 0xa6, 0x50, 0xc9, 0xa4, 0x90, 0x63, 0xb6, 0x5a, 0x60, 0x16, 0xdd, 0x81, 0xc5,
+	0x9e, 0x3f, 0x18, 0xf8, 0x5e, 0x77, 0xe0, 0x44, 0xd4, 0x3e, 0x26, 0x91, 0x51, 0xe3, 0x13, 0x62,
+	0x41, 0x88, 0x9f, 0x49, 0x69, 0x7a, 0xa2, 0x2f, 0x9c, 0xe9, 0x44, 0x3f, 0x84, 0xda, 0x1b, 0x3f,
+	0x1c, 0x44, 0xc6, 0x2c, 0xa7, 0xe3, 0xf6, 0x29, 0x74, 0x6c, 0x3c, 0x66, 0x40, 0xc1, 0x8c, 0x30,
+	0x42, 0x06, 0xcc, 0xc6, 0x41, 0xdf, 0xa6, 0xa4, 0x6f, 0xd4, 0x79, 0xec, 0xc9, 0x12, 0x5d, 0x05,
+	0x90, 0x9f, 0xdd, 0xc3, 0xa1, 0xa1, 0x73, 0xa5, 0x2e, 0x25, 0xdb, 0x43, 0x74, 0x0b, 0x16, 0x7a,
+	0x76, 0x44, 0xba, 0x11, 0xf1, 0x22, 0x87, 0x3a, 0x27, 0xc4, 0x00, 0x7e, 0xda, 0xe7, 0x99, 0xd4,
+	0x4a, 0x84, 0xad, 0xfb, 0x00, 0xe9, 0xa6, 0xa8, 0x09, 0x95, 0x63, 0x32, 0x94, 0x84, 0xb3, 0x4f,
+	0x76, 0x60, 0x4e, 0x6c, 0x37, 0x4e, 0x5a, 0x49, 0x2c, 0x1e, 0xcc, 0xdc, 0xd7, 0xf0, 0x15, 0xb8,
+	0xcc, 0xea, 0xbf, 0xeb, 0xf0, 0x94, 0x6d, 0xe5, 0x54, 0xe2, 0x9f, 0xc1, 0x28, 0xaa, 0xe4, 0xf9,
+	0xd8, 0x85, 0xb9, 0xbe, 0x22, 0x97, 0x87, 0xa4, 0x5d, 0xce, 0xca, 0xc8, 0xc3, 0xd0, 0xcc, 0x58,
+	0xe1, 0x7f, 0x35, 0x68, 0xe6, 0x21, 0xa7, 0x9e, 0x99, 0x35, 0x68, 0xb0, 0xa3, 0x36, 0xec, 0xf6,
+	0xfc, 0xd8, 0xa3, 0xb2, 0x27, 0x80, 0x8b, 0x76, 0x98, 0x04, 0xdd, 0x80, 0xf9, 0x80, 0x78, 0x7d,
+	0xc7, 0x3b, 0x92, 0x90, 0x0a, 0x87, 0xcc, 0x49, 0xa1, 0x00, 0x5d, 0x05, 0x08, 0x63, 0x97, 0x48,
+	0x44, 0x95, 0x23, 0x74, 0x26, 0x11, 0xea, 0xcf, 0x01, 0x71, 0x75, 0xd6, 0x91, 0x68, 0x9c, 0x26,
+	0xd3, 0xbc, 0x50, 0x9c, 0xe1, 0x47, 0xb0, 0xb8, 0x47, 0xa8, 0xa8, 0xf6, 0x74, 0xed, 0x9c, 0x3f,
+	0xf5, 0xb8, 0x03, 0xcd, 0xd4, 0x85, 0x24, 0xf8, 0x4b, 0xa8, 0xf1, 0xb4, 0xb8, 0x83, 0x09, 0xed,
+	0x27, 0x90, 0x78, 0x17, 0x16, 0xad, 0x5c, 0x24, 0x1f, 0xe1, 0x05, 0x41, 0xd3, 0xca, 0x05, 0x83,
+	0xbb, 0x70, 0x31, 0x91, 0x59, 0xbc, 0x21, 0x3f, 0x32, 0xd3, 0x71, 0xfd, 0x8d, 0x0d, 0xb8, 0x94,
+	0xdf, 0x40, 0x6e, 0xbd, 0x0b, 0x68, 0x97, 0xb8, 0x84, 0x92, 0x73, 0x31, 0x7c, 0x11, 0x96, 0x33,
+	0x5e, 0xa4, 0xf3, 0x5f, 0x2b, 0x50, 0x35, 0x63, 0x97, 0x4c, 0xf2, 0xe7, 0xd9, 0x83, 0xa4, 0x75,
+	0xf8, 0xf7, 0x39, 0xe6, 0xd4, 0x68, 0xfc, 0xd4, 0xce, 0x34, 0x7e, 0x0c, 0x98, 0x0d, 0x6c, 0x4a,
+	0x49, 0xe8, 0xf1, 0xb9, 0xa5, 0x9b, 0xc9, 0x92, 0x6d, 0x19, 0x92, 0xc0, 0xb5, 0x7b, 0x64, 0x40,
+	0x3c, 0x6a, 0xcc, 0x8a, 0x2d, 0x15, 0x11, 0x0b, 0xf6, 0x90, 0xbc, 0xf1, 0x43, 0x62, 0xd4, 0xf9,
+	0x44, 0x94, 0x2b, 0x36, 0x14, 0xec, 0x37, 0x94, 0x84, 0x86, 0xce, 0xc5, 0x62, 0xc1, 0x9a, 0xc3,
+	0xf3, 0x69, 0x57, 0x5a, 0x00, 0x57, 0xe9, 0x9e, 0x4f, 0xb7, 0x85, 0xd1, 0x2a, 0xb0, 0x45, 0x57,
+	0x18, 0x36, 0xb8, 0xb6, 0xee, 0xf9, 0xf4, 0x11, 0xb7, 0x55, 0xc6, 0xdc, 0xdc, 0x69, 0x63, 0x6e,
+	0x3e, 0x37, 0xe6, 0xf0, 0x6f, 0x1a, 0x34, 0xd9, 0xac, 0x61, 0xc5, 0xf8, 0x3f, 0xdc, 0x8a, 0xdf,
+	0xc1, 0x92, 0x12, 0x8e, 0x6c, 0xc9, 0xbb, 0x50, 0x63, 0xdd, 0x9f, 0x0c, 0xbb, 0x95, 0x7c, 0xe9,
+	0x18, 0xda, 0x14, 0x10, 0xfc, 0x3d, 0x2c, 0xec, 0x11, 0x6e, 0x3f, 0x65, 0x36, 0xf9, 0x23, 0x86,
+	0xbf, 0xe5, 0x73, 0x45, 0x78, 0x90, 0x01, 0xac, 0x43, 0x95, 0x79, 0x97, 0xcd, 0x5c, 0xbe, 0x3f,
+	0x47, 0xe0, 0x07, 0xb0, 0x60, 0x65, 0xb7, 0x9f, 0xde, 0x76, 0x89, 0x8f, 0x11, 0x75, 0x63, 0xfc,
+	0x13, 0xac, 0x48, 0xd1, 0x99, 0xda, 0x7f, 0xda, 0xb6, 0xc1, 0x97, 0xf9, 0x7c, 0x51, 0xfd, 0xcb,
+	0x8d, 0x77, 0x60, 0x49, 0xf4, 0xed, 0x79, 0x98, 0x5c, 0x49, 0x46, 0x88, 0x9a, 0xd3, 0xdd, 0x03,
+	0x58, 0xcc, 0xf5, 0x1a, 0xba, 0x08, 0x4b, 0xfb, 0x9d, 0xd7, 0x9d, 0xfd, 0xee, 0xab, 0xe7, 0xd6,
+	0x8b, 0xce, 0xce, 0x93, 0xc7, 0x4f, 0x3a, 0xbb, 0xcd, 0x4f, 0xd0, 0x22, 0x34, 0x84, 0xb8, 0x63,
+	0x9a, 0x07, 0x66, 0x53, 0x43, 0x2b, 0xd0, 0x14, 0x02, 0xeb, 0xd5, 0xde, 0x5e, 0xc7, 0x7a, 0xf9,
+	0xe4, 0xe0, 0x79, 0x73, 0x66, 0xeb, 0x4f, 0x0d, 0x6a, 0x3b, 0x6f, 0x49, 0xef, 0x18, 0x3d, 0x82,
+	0x2a, 0xfb, 0xbd, 0x80, 0x0a, 0xe3, 0x56, 0xf9, 0x1d, 0xd3, 0xfa, 0xb4, 0x5c, 0x29, 0x4b, 0xfd,
+	0x1a, 0x1a, 0xca, 0x0b, 0x16, 0xe1, 0xf1, 0x8f, 0xd4, 0xa4, 0x18, 0xad, 0x1b, 0xa7, 0x62, 0x84,
+	0xdf, 0xad, 0x3f, 0x6a, 0x30, 0xa7, 0x5e, 0xe8, 0xe8, 0x98, 0xbd, 0xc8, 0xf3, 0x3f, 0xea, 0xd0,
+	0x67, 0x45, 0x5f, 0x63, 0x7e, 0x15, 0xb6, 0xee, 0x4e, 0x03, 0x95, 0x59, 0x11, 0xd1, 0xe5, 0x99,
+	0x00, 0xee, 0x14, 0x7e, 0x24, 0x96, 0x3f, 0x47, 0x5a, 0xeb, 0x93, 0x81, 0x29, 0x79, 0xca, 0x9b,
+	0xb6, 0x48, 0x5e, 0xf1, 0x05, 0x5e, 0x24, 0xaf, 0xec, 0x51, 0xfc, 0x0c, 0xea, 0xc9, 0x3d, 0x8d,
+	0x0a, 0x83, 0x3b, 0xf7, 0x08, 0x68, 0xb5, 0xc7, 0x03, 0x52, 0x77, 0xd6, 0x58, 0x77, 0xd6, 0x24,
+	0x77, 0xf9, 0x4b, 0x1a, 0x75, 0x79, 0xcf, 0x2b, 0x77, 0x28, 0xba, 0x35, 0xce, 0x26, 0xd3, 0xc5,
+	0xad, 0xdb, 0x93, 0x60, 0x29, 0xad, 0xca, 0x25, 0x5a, 0xa4, 0xb5, 0x78, 0x4f, 0x17, 0x69, 0x2d,
+	0xb9, 0x85, 0xb7, 0xfe, 0xaa, 0x40, 0x8d, 0x4f, 0x5a, 0xf4, 0x02, 0xf4, 0xd1, 0xd8, 0x45, 0xed,
+	0xb2, 0x92, 0xa8, 0x17, 0x44, 0xeb, 0xfa, 0x29, 0x08, 0x19, 0xf3, 0x53, 0x98, 0x95, 0x53, 0x14,
+	0x5d, 0x2b, 0x29, 0x88, 0x32, 0x56, 0x5a, 0x6b, 0x63, 0xf5, 0xa9, 0x2f, 0x6b, 0x9c, 0x2f, 0x6b,
+	0x82, 0xaf, 0xdc, 0x44, 0x45, 0x3f, 0xc2, 0x7c, 0x66, 0xe2, 0xa1, 0x9b, 0x63, 0x2c, 0xb2, 0xa5,
+	0xba, 0x35, 0x01, 0x25, 0xbd, 0x5b, 0x00, 0xe9, 0xc4, 0x43, 0xd7, 0xcb, 0x8b, 0xa0, 0xc6, 0x8b,
+	0x4f, 0x83, 0x08, 0xa7, 0xdb, 0x37, 0x7f, 0xc0, 0x47, 0x0e, 0x7d, 0x1b, 0x1f, 0x6e, 0xf4, 0xfc,
+	0xc1, 0x26, 0xa5, 0xf6, 0xe1, 0x66, 0x62, 0xf4, 0x85, 0x1d, 0x38, 0x9b, 0xdc, 0xf0, 0xf0, 0x02,
+	0xff, 0x63, 0xe9, 0xab, 0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0x78, 0x45, 0xc9, 0x33, 0x6f, 0x12,
+	0x00, 0x00,
 }

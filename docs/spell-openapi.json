@@ -22,6 +22,14 @@
           "pending_count": {
             "description": "PendingCount is the number of entries awaiting moderation.",
             "type": "integer"
+          },
+          "rule_count": {
+            "description": "RuleCount is the number of pattern rules for the language.",
+            "type": "integer"
+          },
+          "rule_pending_count": {
+            "description": "RulePendingCount is the number of rules awaiting moderation.",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -56,9 +64,6 @@
           },
           "level": {
             "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
-          },
-          "rule": {
-            "$ref": "#/components/schemas/elephant.spell.Rule"
           },
           "status": {
             "description": "Status of the entry, this is used for moderation.",
@@ -95,6 +100,22 @@
       "elephant.spell.DeleteEntryResponse": {
         "type": "object"
       },
+      "elephant.spell.DeleteRuleRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the rule is for.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the rule to delete.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.DeleteRuleResponse": {
+        "type": "object"
+      },
       "elephant.spell.GetEntryRequest": {
         "properties": {
           "language": {
@@ -112,6 +133,27 @@
         "properties": {
           "entry": {
             "$ref": "#/components/schemas/elephant.spell.CustomEntry"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.GetRuleRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the rule is for.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the rule to get.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.GetRuleResponse": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/elephant.spell.Rule"
           }
         },
         "type": "object"
@@ -175,6 +217,42 @@
         },
         "type": "object"
       },
+      "elephant.spell.ListRulesRequest": {
+        "properties": {
+          "language": {
+            "description": "Language to list rules for.",
+            "type": "string"
+          },
+          "page": {
+            "description": "Page to return.",
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "PageSize is the number of rules per page. Optional, defaults to 100.",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Query filters rules by a free-text substring, matched against the name, description, pattern and replacement.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status to filter rules by.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.ListRulesResponse": {
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.Rule"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.spell.Misspelled": {
         "properties": {
           "entries": {
@@ -210,7 +288,7 @@
         "type": "object"
       },
       "elephant.spell.Rule": {
-        "description": "Rule is a token-pattern matcher. The pattern uses a small DSL: literals match tokens case-insensitively, \":digit\" matches a number, \":word\" matches a word, and \":gap\" / \":gap(N)\" match up to N intervening words. Capturing tokens (classes and gaps) are referenced in the replacement template as {1}, {2}, … in order. For example pattern \":digit - :digit\" with replacement \"{1}–{2}\" turns \"12-15\" into \"12–15\".",
+        "description": "Rule is a named token-pattern matcher. The pattern uses a small DSL: literals match tokens case-insensitively, \":digit\" matches a number, \":word\" matches a word, and \":gap\" / \":gap(N)\" match up to N intervening words. Capturing tokens (classes and gaps) are referenced in the replacement template as {1}, {2}, … in order. For example pattern \":digit - :digit\" with replacement \"{1}–{2}\" turns \"12-15\" into \"12–15\".",
         "properties": {
           "after": {
             "description": "After, when set, requires one of these tokens immediately after a match.",
@@ -225,6 +303,21 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "description": {
+            "description": "Description shown to editors as context for the correction.",
+            "type": "string"
+          },
+          "language": {
+            "description": "Language the rule is for.",
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
+          },
+          "name": {
+            "description": "Name identifies the rule (its primary key together with the language).",
+            "type": "string"
           },
           "not_after": {
             "description": "NotAfter suppresses the match when followed by one of these tokens.",
@@ -246,6 +339,18 @@
           },
           "replacement": {
             "description": "Replacement template for the suggestion.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status of the rule, used for moderation.",
+            "type": "string"
+          },
+          "updated": {
+            "description": "Updated is the last update time in RFC3339 format.",
+            "type": "string"
+          },
+          "updated_by": {
+            "description": "UpdatedBy is the identity of the party that last updated the rule.",
             "type": "string"
           }
         },
@@ -280,6 +385,37 @@
         "type": "object"
       },
       "elephant.spell.SetEntryStatusResponse": {
+        "type": "object"
+      },
+      "elephant.spell.SetRuleRequest": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/elephant.spell.Rule"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetRuleResponse": {
+        "type": "object"
+      },
+      "elephant.spell.SetRuleStatusRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the rule is for.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the rule to update.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status to set, e.g. \"accepted\" or \"pending\".",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetRuleStatusResponse": {
         "type": "object"
       },
       "elephant.spell.Suggestion": {
@@ -728,6 +864,196 @@
           "Dictionaries"
         ]
       }
+    },
+    "/twirp/elephant.spell.Rules/DeleteRule": {
+      "post": {
+        "description": "DeleteRule removes a rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.DeleteRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.DeleteRuleResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "DeleteRule",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/GetRule": {
+      "post": {
+        "description": "GetRule returns the details of a single rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.GetRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.GetRuleResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetRule",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/ListRules": {
+      "post": {
+        "description": "ListRules lists pattern rules.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.ListRulesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.ListRulesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListRules",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/SetRule": {
+      "post": {
+        "description": "SetRule adds or updates a rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SetRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SetRuleResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetRule",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/SetRuleStatus": {
+      "post": {
+        "description": "SetRuleStatus updates only the moderation status of a rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SetRuleStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SetRuleStatusResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetRuleStatus",
+        "tags": [
+          "Rules"
+        ]
+      }
     }
   },
   "servers": [
@@ -746,6 +1072,10 @@
     {
       "description": "Dictionaries is used to manage custom dictionary entries. Custom dictionaries can be used to add both words and phrases.",
       "name": "Dictionaries"
+    },
+    {
+      "description": "Rules manages pattern rules, which match a token pattern rather than literal text. They are a separate kind of entity from dictionary words.",
+      "name": "Rules"
     }
   ]
 }
