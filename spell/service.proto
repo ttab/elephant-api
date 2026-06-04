@@ -237,9 +237,12 @@ service Rules {
 // {2}, … in order. For example pattern ":digit - :digit" with replacement
 // "{1}–{2}" turns "12-15" into "12–15".
 message Rule {
+  // ID is the sequential primary key of the rule. Zero when creating a new
+  // rule; the server assigns it.
+  int64 id                   = 14;
   // Language the rule is for.
   string language            = 1;
-  // Name identifies the rule (its primary key together with the language).
+  // Name is a human-readable label for the rule. It is not unique.
   string name                = 2;
   // Status of the rule, used for moderation.
   string status              = 3;
@@ -284,10 +287,8 @@ message ListRulesResponse {
 }
 
 message GetRuleRequest {
-  // Language the rule is for.
-  string language = 1;
-  // Name of the rule to get.
-  string name     = 2;
+  // ID of the rule to get.
+  int64 id = 1;
 }
 
 message GetRuleResponse {
@@ -295,27 +296,28 @@ message GetRuleResponse {
 }
 
 message SetRuleRequest {
+  // Rule to set. A zero id creates a new rule; a non-zero id updates the
+  // existing rule with that id.
   Rule rule = 1;
 }
 
-message SetRuleResponse {}
+message SetRuleResponse {
+  // ID of the created or updated rule.
+  int64 id = 1;
+}
 
 message SetRuleStatusRequest {
-  // Language the rule is for.
-  string language = 1;
-  // Name of the rule to update.
-  string name     = 2;
+  // ID of the rule to update.
+  int64 id      = 1;
   // Status to set, e.g. "accepted" or "pending".
-  string status   = 3;
+  string status = 2;
 }
 
 message SetRuleStatusResponse {}
 
 message DeleteRuleRequest {
-  // Language the rule is for.
-  string language = 1;
-  // Name of the rule to delete.
-  string name     = 2;
+  // ID of the rule to delete.
+  int64 id = 1;
 }
 
 message DeleteRuleResponse {}

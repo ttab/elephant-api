@@ -102,13 +102,9 @@
       },
       "elephant.spell.DeleteRuleRequest": {
         "properties": {
-          "language": {
-            "description": "Language the rule is for.",
-            "type": "string"
-          },
-          "name": {
-            "description": "Name of the rule to delete.",
-            "type": "string"
+          "id": {
+            "description": "ID of the rule to delete.",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -139,13 +135,9 @@
       },
       "elephant.spell.GetRuleRequest": {
         "properties": {
-          "language": {
-            "description": "Language the rule is for.",
-            "type": "string"
-          },
-          "name": {
-            "description": "Name of the rule to get.",
-            "type": "string"
+          "id": {
+            "description": "ID of the rule to get.",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -308,6 +300,10 @@
             "description": "Description shown to editors as context for the correction.",
             "type": "string"
           },
+          "id": {
+            "description": "ID is the sequential primary key of the rule. Zero when creating a new rule; the server assigns it.",
+            "type": "integer"
+          },
           "language": {
             "description": "Language the rule is for.",
             "type": "string"
@@ -316,7 +312,7 @@
             "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
           },
           "name": {
-            "description": "Name identifies the rule (its primary key together with the language).",
+            "description": "Name is a human-readable label for the rule. It is not unique.",
             "type": "string"
           },
           "not_after": {
@@ -396,17 +392,19 @@
         "type": "object"
       },
       "elephant.spell.SetRuleResponse": {
+        "properties": {
+          "id": {
+            "description": "ID of the created or updated rule.",
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "elephant.spell.SetRuleStatusRequest": {
         "properties": {
-          "language": {
-            "description": "Language the rule is for.",
-            "type": "string"
-          },
-          "name": {
-            "description": "Name of the rule to update.",
-            "type": "string"
+          "id": {
+            "description": "ID of the rule to update.",
+            "type": "integer"
           },
           "status": {
             "description": "Status to set, e.g. \"accepted\" or \"pending\".",
