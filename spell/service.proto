@@ -266,6 +266,9 @@ message Rule {
   string updated             = 12;
   // UpdatedBy is the identity of the party that last updated the rule.
   string updated_by          = 13;
+  // CaseSensitive matches the pattern and guards with their exact casing when
+  // set. Defaults to case-insensitive matching.
+  bool case_sensitive        = 15;
 }
 
 message ListRulesRequest {

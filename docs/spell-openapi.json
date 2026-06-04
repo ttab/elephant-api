@@ -296,6 +296,10 @@
             },
             "type": "array"
           },
+          "case_sensitive": {
+            "description": "CaseSensitive matches the pattern and guards with their exact casing when set. Defaults to case-insensitive matching.",
+            "type": "boolean"
+          },
           "description": {
             "description": "Description shown to editors as context for the correction.",
             "type": "string"
