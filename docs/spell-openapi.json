@@ -150,8 +150,8 @@
             "description": "PageSize is the number of entries to return per page. Optional, defaults to 100 when zero.",
             "type": "integer"
           },
-          "prefix": {
-            "description": "Prefix to filter entries by.",
+          "query": {
+            "description": "Query filters entries by a free-text substring, matched against the entry text, its description, and its common mistakes.",
             "type": "string"
           },
           "status": {

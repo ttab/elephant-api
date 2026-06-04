@@ -113,8 +113,9 @@ message ListEntriesRequest {
   string language = 1;
   // Page to return.
   int64 page      = 2;
-  // Prefix to filter entries by.
-  string prefix   = 3;
+  // Query filters entries by a free-text substring, matched against the entry
+  // text, its description, and its common mistakes.
+  string query    = 3;
   // Status to filter entries by
   string status   = 4;
   // PageSize is the number of entries to return per page. Optional, defaults to
