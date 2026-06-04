@@ -18,6 +18,10 @@
           "language": {
             "description": "Language the dictionary is for.",
             "type": "string"
+          },
+          "pending_count": {
+            "description": "PendingCount is the number of entries awaiting moderation.",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -138,6 +142,10 @@
             "description": "Page to return.",
             "type": "integer"
           },
+          "page_size": {
+            "description": "PageSize is the number of entries to return per page. Optional, defaults to 100 when zero.",
+            "type": "integer"
+          },
           "prefix": {
             "description": "Prefix to filter entries by.",
             "type": "string"
@@ -176,6 +184,10 @@
           "level": {
             "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
           },
+          "status": {
+            "description": "Status of the custom entry the correction is based on, e.g. \"accepted\" or \"pending\". Empty for corrections that don't originate from a custom entry (such as plain hunspell results). Clients can use this to indicate that a correction comes from an unreviewed (pending) entry.",
+            "type": "string"
+          },
           "suggestions": {
             "description": "Suggestions for replacements.",
             "items": {
@@ -199,6 +211,26 @@
         "type": "object"
       },
       "elephant.spell.SetEntryResponse": {
+        "type": "object"
+      },
+      "elephant.spell.SetEntryStatusRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the entry is for.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status to set, e.g. \"accepted\" or \"pending\".",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text is the word or phrase to update.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetEntryStatusResponse": {
         "type": "object"
       },
       "elephant.spell.Suggestion": {
@@ -567,6 +599,44 @@
           }
         ],
         "summary": "SetEntry",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/SetEntryStatus": {
+      "post": {
+        "description": "SetEntryStatus updates only the moderation status of an entry. It is a lightweight alternative to SetEntry for accept/reject workflows that don't need to round-trip the whole entry.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SetEntryStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SetEntryStatusResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetEntryStatus",
         "tags": [
           "Dictionaries"
         ]

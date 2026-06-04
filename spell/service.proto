@@ -25,6 +25,10 @@ service Dictionaries {
   rpc GetEntry(GetEntryRequest) returns (GetEntryResponse);
   // SetEntry is used to add or update custom dictionary entries.
   rpc SetEntry(SetEntryRequest) returns (SetEntryResponse);
+  // SetEntryStatus updates only the moderation status of an entry. It is a
+  // lightweight alternative to SetEntry for accept/reject workflows that don't
+  // need to round-trip the whole entry.
+  rpc SetEntryStatus(SetEntryStatusRequest) returns (SetEntryStatusResponse);
   // DeleteEntry is used to remove an entry.
   rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
 }
@@ -71,6 +75,11 @@ message MisspelledEntry {
   repeated Suggestion suggestions = 2;
   // Level is the level of the correction.
   CorrectionLevel level           = 3;
+  // Status of the custom entry the correction is based on, e.g. "accepted" or
+  // "pending". Empty for corrections that don't originate from a custom entry
+  // (such as plain hunspell results). Clients can use this to indicate that a
+  // correction comes from an unreviewed (pending) entry.
+  string status                   = 4;
 }
 
 enum CorrectionLevel {
@@ -108,6 +117,9 @@ message ListEntriesRequest {
   string prefix   = 3;
   // Status to filter entries by
   string status   = 4;
+  // PageSize is the number of entries to return per page. Optional, defaults to
+  // 100 when zero.
+  int64 page_size = 5;
 }
 
 message ListEntriesResponse {
@@ -150,6 +162,8 @@ message CustomDictionary {
   string language  = 1;
   // EntryCount for the dictionary.
   int64 entry_count = 2;
+  // PendingCount is the number of entries awaiting moderation.
+  int64 pending_count = 3;
 }
 
 message GetEntryRequest {
@@ -171,6 +185,17 @@ message SetEntryRequest {
 }
 
 message SetEntryResponse {}
+
+message SetEntryStatusRequest {
+  // Language the entry is for.
+  string language = 1;
+  // Text is the word or phrase to update.
+  string text     = 2;
+  // Status to set, e.g. "accepted" or "pending".
+  string status   = 3;
+}
+
+message SetEntryStatusResponse {}
 
 message DeleteEntryRequest {
   // Language the entry is for.
