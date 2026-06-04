@@ -80,6 +80,22 @@ message MisspelledEntry {
   // (such as plain hunspell results). Clients can use this to indicate that a
   // correction comes from an unreviewed (pending) entry.
   string status                   = 4;
+  // Spans are the character ranges in the source text where this specific
+  // correction applies. The same text can occur several times with different
+  // outcomes (e.g. only one occurrence is corrected), so clients should act on
+  // these ranges rather than searching for the text. Empty for corrections that
+  // apply wherever the text appears, such as plain hunspell results.
+  repeated TextSpan spans         = 5;
+}
+
+// TextSpan is a half-open range [start, end) into a source text, counted in
+// Unicode characters (code points / runes), not bytes. For text within the
+// Basic Multilingual Plane this matches JavaScript/UTF-16 string offsets.
+message TextSpan {
+  // Start is the character offset of the match in the source text.
+  int64 start = 1;
+  // End is the character offset just past the match.
+  int64 end   = 2;
 }
 
 enum CorrectionLevel {
