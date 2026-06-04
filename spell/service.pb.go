@@ -205,9 +205,9 @@ type TextRequest struct {
 	// interactive applications this should normally be done by calling the
 	// Suggestions method on demand.
 	Suggestions bool `protobuf:"varint,3,opt,name=suggestions,proto3" json:"suggestions,omitempty"`
-	// CustomOnly limits checks to the custom dictionary, skipping the
-	// hunspell pass. Useful when you only want to surface custom writing
-	// rules without the noise of hunspell corrections.
+	// CustomOnly limits checks to the custom dictionary and rules, skipping the
+	// hunspell pass. Useful when you only want to surface custom corrections
+	// without the noise of hunspell results.
 	CustomOnly    bool `protobuf:"varint,4,opt,name=custom_only,json=customOnly,proto3" json:"custom_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -510,8 +510,8 @@ type SuggestionsRequest struct {
 	Text string `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
 	// Language to get suggestions in.
 	Language string `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
-	// CustomOnly limits suggestions to the custom dictionary, skipping the
-	// hunspell pass.
+	// CustomOnly limits suggestions to the custom dictionary and rules, skipping
+	// the hunspell pass.
 	CustomOnly    bool `protobuf:"varint,3,opt,name=custom_only,json=customOnly,proto3" json:"custom_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -802,8 +802,8 @@ type CustomEntry struct {
 	Status string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
 	// Description of the entry.
 	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// CommonMistakes when writing the word or phrase. This is used to pre-filter
-	// text that is spell-checked.
+	// CommonMistakes are misspellings or alternative spellings that should be
+	// flagged and corrected to the entry text. Supports {A|B} expansion.
 	CommonMistakes []string `protobuf:"bytes,5,rep,name=common_mistakes,json=commonMistakes,proto3" json:"common_mistakes,omitempty"`
 	// Level to use when offering corrections based on this entry. Optional,
 	// defaults to LEVEL_ERROR.
@@ -816,9 +816,12 @@ type CustomEntry struct {
 	Updated string `protobuf:"bytes,8,opt,name=updated,proto3" json:"updated,omitempty"`
 	// UpdatedBy is the identity of the party that last updated the entry.
 	UpdatedBy string `protobuf:"bytes,9,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
-	// CaseSensitive controls whether the entry only matches with the exact
-	// casing of its text and common mistakes. Defaults to false (case-insensitive
-	// matching), which suits ordinary words; proper nouns should set it to true.
+	// CaseSensitive controls whether the entry matches only with the exact casing
+	// of its text and common mistakes. Defaults to false (case-insensitive
+	// matching), which suits ordinary words. Enable it for proper nouns; a
+	// case-sensitive entry additionally flags leading-letter miscasings of its
+	// text and common mistakes (e.g. "mexico city") and suggests the exact
+	// casing.
 	CaseSensitive bool `protobuf:"varint,10,opt,name=case_sensitive,json=caseSensitive,proto3" json:"case_sensitive,omitempty"`
 	// Before, when set, only flags a match when immediately preceded by one of
 	// these words.
@@ -1492,12 +1495,15 @@ func (*DeleteEntryResponse) Descriptor() ([]byte, []int) {
 	return file_spell_service_proto_rawDescGZIP(), []int{24}
 }
 
-// Rule is a named token-pattern matcher. The pattern uses a small DSL: literals
-// match tokens case-insensitively, ":digit" matches a number, ":word" matches a
-// word, and ":gap" / ":gap(N)" match up to N intervening words. Capturing
-// tokens (classes and gaps) are referenced in the replacement template as {1},
-// {2}, … in order. For example pattern ":digit - :digit" with replacement
-// "{1}–{2}" turns "12-15" into "12–15".
+// Rule is a named pattern matcher. The pattern is matched against the text
+// directly using a small DSL: "{digit}" matches a run of digits, "{word}" a run
+// of letters, and "{gap}" / "{gap(N)}" up to 4 (or N) whitespace-separated
+// words in between. Any other text is literal and, by default, matched
+// case-insensitively. Whitespace is significant: a run of spaces means "one or
+// more whitespace" and adjacency means none, so "{digit}-{digit}" matches
+// "12-15" but not "12 - 15". The placeholders capture their match; reference
+// them in the replacement template as {1}, {2}, … in order. For example
+// "{digit}-{digit}" with replacement "{1}–{2}" turns "12-15" into "12–15".
 type Rule struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID is the sequential primary key of the rule. Zero when creating a new
@@ -1513,17 +1519,19 @@ type Rule struct {
 	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
 	// Level to use when offering corrections. Optional, defaults to LEVEL_ERROR.
 	Level CorrectionLevel `protobuf:"varint,5,opt,name=level,proto3,enum=elephant.spell.CorrectionLevel" json:"level,omitempty"`
-	// Pattern to match, in the rule DSL.
+	// Pattern to match, in the rule DSL (see the message documentation).
 	Pattern string `protobuf:"bytes,6,opt,name=pattern,proto3" json:"pattern,omitempty"`
-	// Replacement template for the suggestion.
+	// Replacement template for the suggestion, referencing captures as {1}, {2}, …
 	Replacement string `protobuf:"bytes,7,opt,name=replacement,proto3" json:"replacement,omitempty"`
-	// Before, when set, requires one of these tokens immediately before a match.
+	// Before, when set, only matches when immediately preceded by one of these
+	// words.
 	Before []string `protobuf:"bytes,8,rep,name=before,proto3" json:"before,omitempty"`
-	// After, when set, requires one of these tokens immediately after a match.
+	// After, when set, only matches when immediately followed by one of these
+	// words.
 	After []string `protobuf:"bytes,9,rep,name=after,proto3" json:"after,omitempty"`
-	// NotBefore suppresses the match when preceded by one of these tokens.
+	// NotBefore suppresses the match when preceded by one of these words.
 	NotBefore []string `protobuf:"bytes,10,rep,name=not_before,json=notBefore,proto3" json:"not_before,omitempty"`
-	// NotAfter suppresses the match when followed by one of these tokens.
+	// NotAfter suppresses the match when followed by one of these words.
 	NotAfter []string `protobuf:"bytes,11,rep,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
 	// Updated is the last update time in RFC3339 format.
 	Updated string `protobuf:"bytes,12,opt,name=updated,proto3" json:"updated,omitempty"`

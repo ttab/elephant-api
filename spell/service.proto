@@ -54,9 +54,9 @@ message TextRequest {
   // interactive applications this should normally be done by calling the
   // Suggestions method on demand.
   bool suggestions         = 3;
-  // CustomOnly limits checks to the custom dictionary, skipping the
-  // hunspell pass. Useful when you only want to surface custom writing
-  // rules without the noise of hunspell corrections.
+  // CustomOnly limits checks to the custom dictionary and rules, skipping the
+  // hunspell pass. Useful when you only want to surface custom corrections
+  // without the noise of hunspell results.
   bool custom_only         = 4;
 }
 
@@ -109,8 +109,8 @@ message SuggestionsRequest {
   string text              = 1;
   // Language to get suggestions in.
   string language          = 2;
-  // CustomOnly limits suggestions to the custom dictionary, skipping the
-  // hunspell pass.
+  // CustomOnly limits suggestions to the custom dictionary and rules, skipping
+  // the hunspell pass.
   bool custom_only         = 3;
 }
 
@@ -152,8 +152,8 @@ message CustomEntry {
   string status                   = 3;
   // Description of the entry.
   string description              = 4;
-  // CommonMistakes when writing the word or phrase. This is used to pre-filter
-  // text that is spell-checked.
+  // CommonMistakes are misspellings or alternative spellings that should be
+  // flagged and corrected to the entry text. Supports {A|B} expansion.
   repeated string common_mistakes = 5;
   // Level to use when offering corrections based on this entry. Optional,
   // defaults to LEVEL_ERROR.
@@ -166,9 +166,12 @@ message CustomEntry {
   string updated                  = 8;
   // UpdatedBy is the identity of the party that last updated the entry.
   string updated_by               = 9;
-  // CaseSensitive controls whether the entry only matches with the exact
-  // casing of its text and common mistakes. Defaults to false (case-insensitive
-  // matching), which suits ordinary words; proper nouns should set it to true.
+  // CaseSensitive controls whether the entry matches only with the exact casing
+  // of its text and common mistakes. Defaults to false (case-insensitive
+  // matching), which suits ordinary words. Enable it for proper nouns; a
+  // case-sensitive entry additionally flags leading-letter miscasings of its
+  // text and common mistakes (e.g. "mexico city") and suggests the exact
+  // casing.
   bool case_sensitive             = 10;
   // Before, when set, only flags a match when immediately preceded by one of
   // these words.
@@ -241,8 +244,9 @@ message DeleteEntryRequest {
 
 message DeleteEntryResponse {}
 
-// Rules manages pattern rules, which match a token pattern rather than literal
-// text. They are a separate kind of entity from dictionary words.
+// Rules manages pattern rules, which match a text pattern with placeholders
+// rather than fixed strings. They are a separate kind of entity from dictionary
+// words.
 service Rules {
   // ListRules lists pattern rules.
   rpc ListRules(ListRulesRequest) returns (ListRulesResponse);
@@ -256,12 +260,15 @@ service Rules {
   rpc DeleteRule(DeleteRuleRequest) returns (DeleteRuleResponse);
 }
 
-// Rule is a named token-pattern matcher. The pattern uses a small DSL: literals
-// match tokens case-insensitively, ":digit" matches a number, ":word" matches a
-// word, and ":gap" / ":gap(N)" match up to N intervening words. Capturing
-// tokens (classes and gaps) are referenced in the replacement template as {1},
-// {2}, … in order. For example pattern ":digit - :digit" with replacement
-// "{1}–{2}" turns "12-15" into "12–15".
+// Rule is a named pattern matcher. The pattern is matched against the text
+// directly using a small DSL: "{digit}" matches a run of digits, "{word}" a run
+// of letters, and "{gap}" / "{gap(N)}" up to 4 (or N) whitespace-separated
+// words in between. Any other text is literal and, by default, matched
+// case-insensitively. Whitespace is significant: a run of spaces means "one or
+// more whitespace" and adjacency means none, so "{digit}-{digit}" matches
+// "12-15" but not "12 - 15". The placeholders capture their match; reference
+// them in the replacement template as {1}, {2}, … in order. For example
+// "{digit}-{digit}" with replacement "{1}–{2}" turns "12-15" into "12–15".
 message Rule {
   // ID is the sequential primary key of the rule. Zero when creating a new
   // rule; the server assigns it.
@@ -276,17 +283,19 @@ message Rule {
   string description         = 4;
   // Level to use when offering corrections. Optional, defaults to LEVEL_ERROR.
   CorrectionLevel level      = 5;
-  // Pattern to match, in the rule DSL.
+  // Pattern to match, in the rule DSL (see the message documentation).
   string pattern             = 6;
-  // Replacement template for the suggestion.
+  // Replacement template for the suggestion, referencing captures as {1}, {2}, …
   string replacement         = 7;
-  // Before, when set, requires one of these tokens immediately before a match.
+  // Before, when set, only matches when immediately preceded by one of these
+  // words.
   repeated string before     = 8;
-  // After, when set, requires one of these tokens immediately after a match.
+  // After, when set, only matches when immediately followed by one of these
+  // words.
   repeated string after      = 9;
-  // NotBefore suppresses the match when preceded by one of these tokens.
+  // NotBefore suppresses the match when preceded by one of these words.
   repeated string not_before = 10;
-  // NotAfter suppresses the match when followed by one of these tokens.
+  // NotAfter suppresses the match when followed by one of these words.
   repeated string not_after  = 11;
   // Updated is the last update time in RFC3339 format.
   string updated             = 12;

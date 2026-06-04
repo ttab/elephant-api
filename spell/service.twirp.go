@@ -2986,8 +2986,9 @@ func (s *dictionariesServer) PathPrefix() string {
 // Rules Interface
 // ===============
 
-// Rules manages pattern rules, which match a token pattern rather than literal
-// text. They are a separate kind of entity from dictionary words.
+// Rules manages pattern rules, which match a text pattern with placeholders
+// rather than fixed strings. They are a separate kind of entity from dictionary
+// words.
 type Rules interface {
 	// ListRules lists pattern rules.
 	ListRules(context.Context, *ListRulesRequest) (*ListRulesResponse, error)
