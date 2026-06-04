@@ -57,6 +57,9 @@
           "level": {
             "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
           },
+          "rule": {
+            "$ref": "#/components/schemas/elephant.spell.Rule"
+          },
           "status": {
             "description": "Status of the entry, this is used for moderation.",
             "type": "string"
@@ -201,6 +204,48 @@
           },
           "text": {
             "description": "Text that was used in the source text.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.Rule": {
+        "description": "Rule is a token-pattern matcher. The pattern uses a small DSL: literals match tokens case-insensitively, \":digit\" matches a number, \":word\" matches a word, and \":gap\" / \":gap(N)\" match up to N intervening words. Capturing tokens (classes and gaps) are referenced in the replacement template as {1}, {2}, … in order. For example pattern \":digit - :digit\" with replacement \"{1}–{2}\" turns \"12-15\" into \"12–15\".",
+        "properties": {
+          "after": {
+            "description": "After, when set, requires one of these tokens immediately after a match.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "before": {
+            "description": "Before, when set, requires one of these tokens immediately before a match.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_after": {
+            "description": "NotAfter suppresses the match when followed by one of these tokens.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_before": {
+            "description": "NotBefore suppresses the match when preceded by one of these tokens.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pattern": {
+            "description": "Pattern to match, in the rule DSL.",
+            "type": "string"
+          },
+          "replacement": {
+            "description": "Replacement template for the suggestion.",
             "type": "string"
           }
         },
