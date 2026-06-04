@@ -28,6 +28,10 @@
       },
       "elephant.spell.CustomEntry": {
         "properties": {
+          "case_sensitive": {
+            "description": "CaseSensitive controls whether the entry only matches with the exact casing of its text and common mistakes. Defaults to false (case-insensitive matching), which suits ordinary words; proper nouns should set it to true.",
+            "type": "boolean"
+          },
           "common_mistakes": {
             "description": "CommonMistakes when writing the word or phrase. This is used to pre-filter text that is spell-checked.",
             "items": {

@@ -149,6 +149,10 @@ message CustomEntry {
   string updated                  = 8;
   // UpdatedBy is the identity of the party that last updated the entry.
   string updated_by               = 9;
+  // CaseSensitive controls whether the entry only matches with the exact
+  // casing of its text and common mistakes. Defaults to false (case-insensitive
+  // matching), which suits ordinary words; proper nouns should set it to true.
+  bool case_sensitive             = 10;
 }
 
 message ListDictionariesRequest {}
