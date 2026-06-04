@@ -36,6 +36,20 @@
       },
       "elephant.spell.CustomEntry": {
         "properties": {
+          "after": {
+            "description": "After, when set, only flags a match when immediately followed by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "before": {
+            "description": "Before, when set, only flags a match when immediately preceded by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "case_sensitive": {
             "description": "CaseSensitive controls whether the entry only matches with the exact casing of its text and common mistakes. Defaults to false (case-insensitive matching), which suits ordinary words; proper nouns should set it to true.",
             "type": "boolean"
@@ -64,6 +78,20 @@
           },
           "level": {
             "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
+          },
+          "not_after": {
+            "description": "NotAfter suppresses the match when followed by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_before": {
+            "description": "NotBefore suppresses the match when preceded by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "status": {
             "description": "Status of the entry, this is used for moderation.",
