@@ -314,6 +314,26 @@
         },
         "type": "object"
       },
+      "elephant.spell.RenameEntryRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the entry is for.",
+            "type": "string"
+          },
+          "new_text": {
+            "description": "NewText is the text to rename the entry to.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text is the current entry text.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.RenameEntryResponse": {
+        "type": "object"
+      },
       "elephant.spell.Rule": {
         "description": "Rule is a named pattern matcher. The pattern is matched against the text directly using a small DSL: \"{digit}\" matches a run of digits, \"{word}\" a run of letters, and \"{gap}\" / \"{gap(N)}\" up to 4 (or N) whitespace-separated words in between. Any other text is literal and, by default, matched case-insensitively. Whitespace is significant: a run of spaces means \"one or more whitespace\" and adjacency means none, so \"{digit}-{digit}\" matches \"12-15\" but not \"12 - 15\". The placeholders capture their match; reference them in the replacement template as {1}, {2}, … in order. For example \"{digit}-{digit}\" with replacement \"{1}–{2}\" turns \"12-15\" into \"12–15\".",
         "properties": {
@@ -797,6 +817,44 @@
           }
         ],
         "summary": "ListEntries",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/RenameEntry": {
+      "post": {
+        "description": "RenameEntry changes the text of a custom dictionary entry, keeping the rest of its data. The text is the entry's identity, so renaming is a dedicated operation rather than a SetEntry.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.RenameEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.RenameEntryResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RenameEntry",
         "tags": [
           "Dictionaries"
         ]

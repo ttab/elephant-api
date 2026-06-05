@@ -31,6 +31,10 @@ service Dictionaries {
   rpc SetEntryStatus(SetEntryStatusRequest) returns (SetEntryStatusResponse);
   // DeleteEntry is used to remove an entry.
   rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+  // RenameEntry changes the text of a custom dictionary entry, keeping the rest
+  // of its data. The text is the entry's identity, so renaming is a dedicated
+  // operation rather than a SetEntry.
+  rpc RenameEntry(RenameEntryRequest) returns (RenameEntryResponse);
 }
 
 message SupportedLanguagesRequest {}
@@ -243,6 +247,17 @@ message DeleteEntryRequest {
 }
 
 message DeleteEntryResponse {}
+
+message RenameEntryRequest {
+  // Language the entry is for.
+  string language = 1;
+  // Text is the current entry text.
+  string text     = 2;
+  // NewText is the text to rename the entry to.
+  string new_text = 3;
+}
+
+message RenameEntryResponse {}
 
 // Rules manages pattern rules, which match a text pattern with placeholders
 // rather than fixed strings. They are a separate kind of entity from dictionary
