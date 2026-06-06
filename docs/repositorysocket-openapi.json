@@ -2730,11 +2730,18 @@
       "elephant.repositorysocket.GetEventlog": {
         "properties": {
           "after": {
-            "description": "After allows the client to subscribe from after a given event ID. The server only buffers a limited amount of events (defaults to 100) and requesting events from before the range of that buffer will result in a resume out of bounds \"eventlog_resume_oob\" error.",
+            "description": "After allows the client to subscribe from after a given event ID. The server only buffers a limited amount of events (defaults to 500) and requesting events from before the range of that buffer will result in a resume out of bounds \"eventlog_resume_oob\" error.",
             "type": "integer"
           },
           "document_types": {
             "description": "DocumentTypes for which the client wants events for. If no types are provided all types will be included.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "events": {
+            "description": "Events are the event types the client wants events for, one of: \"document\", \"status\", \"acl\", \"delete_document\", \"restore_finished\", \"workflow\". If no event types are provided all event types will be included.",
             "items": {
               "type": "string"
             },
