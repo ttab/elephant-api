@@ -18,14 +18,44 @@
           "language": {
             "description": "Language the dictionary is for.",
             "type": "string"
+          },
+          "pending_count": {
+            "description": "PendingCount is the number of entries awaiting moderation.",
+            "type": "integer"
+          },
+          "rule_count": {
+            "description": "RuleCount is the number of pattern rules for the language.",
+            "type": "integer"
+          },
+          "rule_pending_count": {
+            "description": "RulePendingCount is the number of rules awaiting moderation.",
+            "type": "integer"
           }
         },
         "type": "object"
       },
       "elephant.spell.CustomEntry": {
         "properties": {
+          "after": {
+            "description": "After, when set, only flags a match when immediately followed by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "before": {
+            "description": "Before, when set, only flags a match when immediately preceded by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "case_sensitive": {
+            "description": "CaseSensitive controls whether the entry matches only with the exact casing of its text and common mistakes. Defaults to false (case-insensitive matching), which suits ordinary words. Enable it for proper nouns; a case-sensitive entry additionally flags leading-letter miscasings of its text and common mistakes (e.g. \"mexico city\") and suggests the exact casing.",
+            "type": "boolean"
+          },
           "common_mistakes": {
-            "description": "CommonMistakes when writing the word or phrase. This is used to pre-filter text that is spell-checked.",
+            "description": "CommonMistakes are misspellings or alternative spellings that should be flagged and corrected to the entry text. Supports {A|B} expansion.",
             "items": {
               "type": "string"
             },
@@ -48,6 +78,20 @@
           },
           "level": {
             "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
+          },
+          "not_after": {
+            "description": "NotAfter suppresses the match when followed by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_before": {
+            "description": "NotBefore suppresses the match when preceded by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "status": {
             "description": "Status of the entry, this is used for moderation.",
@@ -84,6 +128,18 @@
       "elephant.spell.DeleteEntryResponse": {
         "type": "object"
       },
+      "elephant.spell.DeleteRuleRequest": {
+        "properties": {
+          "id": {
+            "description": "ID of the rule to delete.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.DeleteRuleResponse": {
+        "type": "object"
+      },
       "elephant.spell.GetEntryRequest": {
         "properties": {
           "language": {
@@ -101,6 +157,23 @@
         "properties": {
           "entry": {
             "$ref": "#/components/schemas/elephant.spell.CustomEntry"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.GetRuleRequest": {
+        "properties": {
+          "id": {
+            "description": "ID of the rule to get.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.GetRuleResponse": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/elephant.spell.Rule"
           }
         },
         "type": "object"
@@ -138,8 +211,12 @@
             "description": "Page to return.",
             "type": "integer"
           },
-          "prefix": {
-            "description": "Prefix to filter entries by.",
+          "page_size": {
+            "description": "PageSize is the number of entries to return per page. Optional, defaults to 100 when zero.",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Query filters entries by a free-text substring, matched against the entry text, its description, and its common mistakes.",
             "type": "string"
           },
           "status": {
@@ -154,6 +231,42 @@
           "entries": {
             "items": {
               "$ref": "#/components/schemas/elephant.spell.CustomEntry"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.ListRulesRequest": {
+        "properties": {
+          "language": {
+            "description": "Language to list rules for.",
+            "type": "string"
+          },
+          "page": {
+            "description": "Page to return.",
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "PageSize is the number of rules per page. Optional, defaults to 100.",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Query filters rules by a free-text substring, matched against the name, description, pattern and replacement.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status to filter rules by.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.ListRulesResponse": {
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.Rule"
             },
             "type": "array"
           }
@@ -176,6 +289,17 @@
           "level": {
             "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
           },
+          "spans": {
+            "description": "Spans are the character ranges in the source text where this specific correction applies. The same text can occur several times with different outcomes (e.g. only one occurrence is corrected), so clients should act on these ranges rather than searching for the text. Empty for corrections that apply wherever the text appears, such as plain hunspell results.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.spell.TextSpan"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Status of the custom entry the correction is based on, e.g. \"accepted\" or \"pending\". Empty for corrections that don't originate from a custom entry (such as plain hunspell results). Clients can use this to indicate that a correction comes from an unreviewed (pending) entry.",
+            "type": "string"
+          },
           "suggestions": {
             "description": "Suggestions for replacements.",
             "items": {
@@ -185,6 +309,103 @@
           },
           "text": {
             "description": "Text that was used in the source text.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.RenameEntryRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the entry is for.",
+            "type": "string"
+          },
+          "new_text": {
+            "description": "NewText is the text to rename the entry to.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text is the current entry text.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.RenameEntryResponse": {
+        "type": "object"
+      },
+      "elephant.spell.Rule": {
+        "description": "Rule is a named pattern matcher. The pattern is matched against the text directly using a small DSL: \"{digit}\" matches a run of digits, \"{word}\" a run of letters, and \"{gap}\" / \"{gap(N)}\" up to 4 (or N) whitespace-separated words in between. Any other text is literal and, by default, matched case-insensitively. Whitespace is significant: a run of spaces means \"one or more whitespace\" and adjacency means none, so \"{digit}-{digit}\" matches \"12-15\" but not \"12 - 15\". The placeholders capture their match; reference them in the replacement template as {1}, {2}, … in order. For example \"{digit}-{digit}\" with replacement \"{1}–{2}\" turns \"12-15\" into \"12–15\".",
+        "properties": {
+          "after": {
+            "description": "After, when set, only matches when immediately followed by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "before": {
+            "description": "Before, when set, only matches when immediately preceded by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "case_sensitive": {
+            "description": "CaseSensitive matches the pattern and guards with their exact casing when set. Defaults to case-insensitive matching.",
+            "type": "boolean"
+          },
+          "description": {
+            "description": "Description shown to editors as context for the correction.",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID is the sequential primary key of the rule. Zero when creating a new rule; the server assigns it.",
+            "type": "integer"
+          },
+          "language": {
+            "description": "Language the rule is for.",
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/elephant.spell.CorrectionLevel"
+          },
+          "name": {
+            "description": "Name is a human-readable label for the rule. It is not unique.",
+            "type": "string"
+          },
+          "not_after": {
+            "description": "NotAfter suppresses the match when followed by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_before": {
+            "description": "NotBefore suppresses the match when preceded by one of these words.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pattern": {
+            "description": "Pattern to match, in the rule DSL (see the message documentation).",
+            "type": "string"
+          },
+          "replacement": {
+            "description": "Replacement template for the suggestion, referencing captures as {1}, {2}, …",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status of the rule, used for moderation.",
+            "type": "string"
+          },
+          "updated": {
+            "description": "Updated is the last update time in RFC3339 format.",
+            "type": "string"
+          },
+          "updated_by": {
+            "description": "UpdatedBy is the identity of the party that last updated the rule.",
             "type": "string"
           }
         },
@@ -201,6 +422,59 @@
       "elephant.spell.SetEntryResponse": {
         "type": "object"
       },
+      "elephant.spell.SetEntryStatusRequest": {
+        "properties": {
+          "language": {
+            "description": "Language the entry is for.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status to set, e.g. \"accepted\" or \"pending\".",
+            "type": "string"
+          },
+          "text": {
+            "description": "Text is the word or phrase to update.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetEntryStatusResponse": {
+        "type": "object"
+      },
+      "elephant.spell.SetRuleRequest": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/elephant.spell.Rule"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetRuleResponse": {
+        "properties": {
+          "id": {
+            "description": "ID of the created or updated rule.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetRuleStatusRequest": {
+        "properties": {
+          "id": {
+            "description": "ID of the rule to update.",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Status to set, e.g. \"accepted\" or \"pending\".",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.SetRuleStatusResponse": {
+        "type": "object"
+      },
       "elephant.spell.Suggestion": {
         "properties": {
           "description": {
@@ -215,7 +489,7 @@
       "elephant.spell.SuggestionsRequest": {
         "properties": {
           "custom_only": {
-            "description": "CustomOnly limits suggestions to the custom dictionary, skipping the hunspell pass.",
+            "description": "CustomOnly limits suggestions to the custom dictionary and rules, skipping the hunspell pass.",
             "type": "boolean"
           },
           "language": {
@@ -259,7 +533,7 @@
       "elephant.spell.TextRequest": {
         "properties": {
           "custom_only": {
-            "description": "CustomOnly limits checks to the custom dictionary, skipping the hunspell pass. Useful when you only want to surface custom writing rules without the noise of hunspell corrections.",
+            "description": "CustomOnly limits checks to the custom dictionary and rules, skipping the hunspell pass. Useful when you only want to surface custom corrections without the noise of hunspell results.",
             "type": "boolean"
           },
           "language": {
@@ -287,6 +561,20 @@
               "$ref": "#/components/schemas/elephant.spell.Misspelled"
             },
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.spell.TextSpan": {
+        "description": "TextSpan is a half-open range [start, end) into a source text, counted in Unicode characters (code points / runes), not bytes. For text within the Basic Multilingual Plane this matches JavaScript/UTF-16 string offsets.",
+        "properties": {
+          "end": {
+            "description": "End is the character offset just past the match.",
+            "type": "integer"
+          },
+          "start": {
+            "description": "Start is the character offset of the match in the source text.",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -534,6 +822,44 @@
         ]
       }
     },
+    "/twirp/elephant.spell.Dictionaries/RenameEntry": {
+      "post": {
+        "description": "RenameEntry changes the text of a custom dictionary entry, keeping the rest of its data. The text is the entry's identity, so renaming is a dedicated operation rather than a SetEntry.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.RenameEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.RenameEntryResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RenameEntry",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
     "/twirp/elephant.spell.Dictionaries/SetEntry": {
       "post": {
         "description": "SetEntry is used to add or update custom dictionary entries.",
@@ -567,6 +893,44 @@
           }
         ],
         "summary": "SetEntry",
+        "tags": [
+          "Dictionaries"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Dictionaries/SetEntryStatus": {
+      "post": {
+        "description": "SetEntryStatus updates only the moderation status of an entry. It is a lightweight alternative to SetEntry for accept/reject workflows that don't need to round-trip the whole entry.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SetEntryStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SetEntryStatusResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetEntryStatus",
         "tags": [
           "Dictionaries"
         ]
@@ -609,6 +973,196 @@
           "Dictionaries"
         ]
       }
+    },
+    "/twirp/elephant.spell.Rules/DeleteRule": {
+      "post": {
+        "description": "DeleteRule removes a rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.DeleteRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.DeleteRuleResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "DeleteRule",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/GetRule": {
+      "post": {
+        "description": "GetRule returns the details of a single rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.GetRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.GetRuleResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetRule",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/ListRules": {
+      "post": {
+        "description": "ListRules lists pattern rules.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.ListRulesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.ListRulesResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListRules",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/SetRule": {
+      "post": {
+        "description": "SetRule adds or updates a rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SetRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SetRuleResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetRule",
+        "tags": [
+          "Rules"
+        ]
+      }
+    },
+    "/twirp/elephant.spell.Rules/SetRuleStatus": {
+      "post": {
+        "description": "SetRuleStatus updates only the moderation status of a rule.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.spell.SetRuleStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.spell.SetRuleStatusResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SetRuleStatus",
+        "tags": [
+          "Rules"
+        ]
+      }
     }
   },
   "servers": [
@@ -627,6 +1181,10 @@
     {
       "description": "Dictionaries is used to manage custom dictionary entries. Custom dictionaries can be used to add both words and phrases.",
       "name": "Dictionaries"
+    },
+    {
+      "description": "Rules manages pattern rules, which match a text pattern with placeholders rather than fixed strings. They are a separate kind of entity from dictionary words.",
+      "name": "Rules"
     }
   ]
 }
