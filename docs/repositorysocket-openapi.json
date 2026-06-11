@@ -28,6 +28,9 @@
             "description": "Free-form comment string. Optional.",
             "type": "string"
           },
+          "exclusivity": {
+            "$ref": "#/components/schemas/elephant.repository.LockExclusivity"
+          },
           "ttl": {
             "description": "Lock TTL in milliseconds.",
             "type": "integer"
@@ -1699,6 +1702,9 @@
             "description": "Created timestamp is the RFC3339 timestamp for when the lock was created.",
             "type": "string"
           },
+          "exclusivity": {
+            "$ref": "#/components/schemas/elephant.repository.LockExclusivity"
+          },
           "expires": {
             "description": "Expires timestamp is the RFC3339 timestamp for when the lock will expire.",
             "type": "string"
@@ -1713,6 +1719,16 @@
           }
         },
         "type": "object"
+      },
+      "elephant.repository.LockExclusivity": {
+        "description": "LockExclusivity controls which operations a document lock blocks for callers that don't hold the lock token. Document updates (new versions, deletes) are always blocked by a lock; the exclusivity level can extend the lock to also cover status and ACL updates.",
+        "enum": [
+          "LOCK_DOCUMENT",
+          "LOCK_STATUS",
+          "LOCK_ACL",
+          "LOCK_EXCLUSIVE"
+        ],
+        "type": "string"
       },
       "elephant.repository.LockGrant": {
         "description": "LockGrant is the lock returned when a GetDocument request successfully acquired a lock via its lock field. It mirrors LockResponse.",
@@ -1737,6 +1753,9 @@
           "comment": {
             "description": "Free-form comment string. Optional.",
             "type": "string"
+          },
+          "exclusivity": {
+            "$ref": "#/components/schemas/elephant.repository.LockExclusivity"
           },
           "ttl": {
             "description": "Lock TTL in milliseconds",

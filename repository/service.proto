@@ -495,8 +495,10 @@ message GetDocumentRequest {
   // status update. Can be used instead of specifying a version.
   string status               = 3;
   // Lock, when set, acquires a write lock on the document as part of the Get
-  // request. The lock only affects the creation of new versions; statuses can
-  // still be updated. The granted lock is returned in the response on success.
+  // request. By default the lock only affects the creation of new versions;
+  // statuses and ACLs can still be updated. Set the lock exclusivity to also
+  // block status and/or ACL updates. The granted lock is returned in the
+  // response on success.
   AcquireLock lock            = 4;
   // MetaDocument controls the inclusion of associated meta
   // documents. "META_INCLUDE" will include the document if it
@@ -916,6 +918,24 @@ message Lock {
   string app = 5;
   // Optional free-form comment.
   string comment = 6;
+  // Exclusivity level of the lock.
+  LockExclusivity exclusivity = 7;
+}
+
+// LockExclusivity controls which operations a document lock blocks for
+// callers that don't hold the lock token. Document updates (new versions,
+// deletes) are always blocked by a lock; the exclusivity level can extend
+// the lock to also cover status and ACL updates.
+enum LockExclusivity {
+  // Block document updates only. Statuses and ACLs can still be updated
+  // by others. This is the default.
+  LOCK_DOCUMENT = 0;
+  // Block document and status updates.
+  LOCK_STATUS = 1;
+  // Block document and ACL updates.
+  LOCK_ACL = 2;
+  // Block document, status, and ACL updates.
+  LOCK_EXCLUSIVE = 3;
 }
 
 message RegisterMetaTypeRequest {
@@ -1181,6 +1201,9 @@ message LockRequest {
   string app = 3;
   // Free-form comment string. Optional.
   string comment = 4;
+  // Exclusivity controls which operations the lock blocks. Defaults to
+  // LOCK_DOCUMENT, which only blocks document updates.
+  LockExclusivity exclusivity = 5;
 }
 
 message LockResponse {
@@ -1199,6 +1222,9 @@ message AcquireLock {
   string app     = 2;
   // Free-form comment string. Optional.
   string comment = 3;
+  // Exclusivity controls which operations the lock blocks. Defaults to
+  // LOCK_DOCUMENT, which only blocks document updates.
+  LockExclusivity exclusivity = 4;
 }
 
 // LockGrant is the lock returned when a GetDocument request successfully
