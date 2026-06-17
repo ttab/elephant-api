@@ -3003,7 +3003,7 @@
   },
   "info": {
     "title": "repositorysocket API",
-    "version": "v0.24.0"
+    "version": "v0.24.1"
   },
   "openapi": "3.0.0",
   "paths": {
