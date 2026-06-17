@@ -144,6 +144,42 @@
         },
         "type": "object"
       },
+      "elephant.index.GetFlatDocumentRequest": {
+        "properties": {
+          "status": {
+            "description": "Status name used to select the document version to fetch, as an alternative to version. Optional. Ignored when stored is set.",
+            "type": "string"
+          },
+          "stored": {
+            "description": "Stored returns the flattened document as it is currently stored in the active index instead of converting the current version from the repository. This reflects the indexed state, and is therefore subject to the eventual consistency of the index.",
+            "type": "boolean"
+          },
+          "uuid": {
+            "description": "UUID of the document to flatten.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version of the document to fetch. Optional, defaults to the current version. Ignored when stored is set.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.index.GetFlatDocumentResponse": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/newsdoc.Document"
+          },
+          "fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/elephant.index.FieldValuesV1"
+            },
+            "description": "Fields is the flattened representation of the document, keyed by field name.",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "elephant.index.GetMappingsRequestV1": {
         "properties": {
           "document_type": {
@@ -1314,6 +1350,44 @@
           }
         ],
         "summary": "EndSubscription",
+        "tags": [
+          "SearchV1"
+        ]
+      }
+    },
+    "/twirp/elephant.index.SearchV1/GetFlatDocument": {
+      "post": {
+        "description": "GetFlatDocument fetches a document directly from the repository and returns it in the flattened representation used for indexing. This bypasses OpenSearch, so the result always reflects the current state of the repository without the eventual consistency of the index.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.index.GetFlatDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.index.GetFlatDocumentResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetFlatDocument",
         "tags": [
           "SearchV1"
         ]
