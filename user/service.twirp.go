@@ -4662,6 +4662,2191 @@ func (s *messagesServer) PathPrefix() string {
 	return baseServicePath(s.pathPrefix, "elephant.user", "Messages")
 }
 
+// =======================
+// Configuration Interface
+// =======================
+
+// Configuration manages the revisor schemas that the user service
+// validates settings documents and inbox messages against. Schemas are
+// grouped into config generations that are registered and switched
+// atomically.
+type Configuration interface {
+	// Registers a new config generation. Registration is idempotent: a
+	// generation containing the same set of schemas returns the already
+	// registered generation (its description is left unchanged). If
+	// activate is set and the matched generation is inactive it will be
+	// activated.
+	RegisterConfigGeneration(context.Context, *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error)
+
+	// Activates a registered config generation, deactivating the
+	// previously active generation.
+	ActivateConfigGeneration(context.Context, *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error)
+
+	// Gets the currently active config generation. Supports long-polling
+	// for generation changes.
+	GetActiveConfigGeneration(context.Context, *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error)
+
+	// Lists registered config generations, newest first.
+	ListConfigGenerations(context.Context, *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error)
+
+	// Gets a stored schema.
+	GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error)
+
+	// Lists the deprecation statuses.
+	GetDeprecations(context.Context, *GetDeprecationsRequest) (*GetDeprecationsResponse, error)
+
+	// Creates or updates a deprecation status.
+	UpdateDeprecation(context.Context, *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error)
+}
+
+// =============================
+// Configuration Protobuf Client
+// =============================
+
+type configurationProtobufClient struct {
+	client      HTTPClient
+	urls        [7]string
+	interceptor twirp.Interceptor
+	opts        twirp.ClientOptions
+}
+
+// NewConfigurationProtobufClient creates a Protobuf client that implements the Configuration interface.
+// It communicates using Protobuf and can be configured with a custom HTTPClient.
+func NewConfigurationProtobufClient(baseURL string, client HTTPClient, opts ...twirp.ClientOption) Configuration {
+	if c, ok := client.(*http.Client); ok {
+		client = withoutRedirects(c)
+	}
+
+	clientOpts := twirp.ClientOptions{}
+	for _, o := range opts {
+		o(&clientOpts)
+	}
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	literalURLs := false
+	_ = clientOpts.ReadOpt("literalURLs", &literalURLs)
+	var pathPrefix string
+	if ok := clientOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
+	serviceURL := sanitizeBaseURL(baseURL)
+	serviceURL += baseServicePath(pathPrefix, "elephant.user", "Configuration")
+	urls := [7]string{
+		serviceURL + "RegisterConfigGeneration",
+		serviceURL + "ActivateConfigGeneration",
+		serviceURL + "GetActiveConfigGeneration",
+		serviceURL + "ListConfigGenerations",
+		serviceURL + "GetSchema",
+		serviceURL + "GetDeprecations",
+		serviceURL + "UpdateDeprecation",
+	}
+
+	return &configurationProtobufClient{
+		client:      client,
+		urls:        urls,
+		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
+		opts:        clientOpts,
+	}
+}
+
+func (c *configurationProtobufClient) RegisterConfigGeneration(ctx context.Context, in *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "RegisterConfigGeneration")
+	caller := c.callRegisterConfigGeneration
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RegisterConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RegisterConfigGenerationRequest) when calling interceptor")
+					}
+					return c.callRegisterConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RegisterConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RegisterConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationProtobufClient) callRegisterConfigGeneration(ctx context.Context, in *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+	out := new(RegisterConfigGenerationResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationProtobufClient) ActivateConfigGeneration(ctx context.Context, in *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "ActivateConfigGeneration")
+	caller := c.callActivateConfigGeneration
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ActivateConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ActivateConfigGenerationRequest) when calling interceptor")
+					}
+					return c.callActivateConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ActivateConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ActivateConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationProtobufClient) callActivateConfigGeneration(ctx context.Context, in *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+	out := new(ActivateConfigGenerationResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationProtobufClient) GetActiveConfigGeneration(ctx context.Context, in *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "GetActiveConfigGeneration")
+	caller := c.callGetActiveConfigGeneration
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetActiveConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetActiveConfigGenerationRequest) when calling interceptor")
+					}
+					return c.callGetActiveConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetActiveConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetActiveConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationProtobufClient) callGetActiveConfigGeneration(ctx context.Context, in *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+	out := new(GetActiveConfigGenerationResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationProtobufClient) ListConfigGenerations(ctx context.Context, in *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "ListConfigGenerations")
+	caller := c.callListConfigGenerations
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListConfigGenerationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListConfigGenerationsRequest) when calling interceptor")
+					}
+					return c.callListConfigGenerations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListConfigGenerationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListConfigGenerationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationProtobufClient) callListConfigGenerations(ctx context.Context, in *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+	out := new(ListConfigGenerationsResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationProtobufClient) GetSchema(ctx context.Context, in *GetSchemaRequest) (*GetSchemaResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "GetSchema")
+	caller := c.callGetSchema
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetSchemaRequest) (*GetSchemaResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetSchemaRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetSchemaRequest) when calling interceptor")
+					}
+					return c.callGetSchema(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetSchemaResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetSchemaResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationProtobufClient) callGetSchema(ctx context.Context, in *GetSchemaRequest) (*GetSchemaResponse, error) {
+	out := new(GetSchemaResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationProtobufClient) GetDeprecations(ctx context.Context, in *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "GetDeprecations")
+	caller := c.callGetDeprecations
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDeprecationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDeprecationsRequest) when calling interceptor")
+					}
+					return c.callGetDeprecations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDeprecationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDeprecationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationProtobufClient) callGetDeprecations(ctx context.Context, in *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+	out := new(GetDeprecationsResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationProtobufClient) UpdateDeprecation(ctx context.Context, in *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDeprecation")
+	caller := c.callUpdateDeprecation
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDeprecationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDeprecationRequest) when calling interceptor")
+					}
+					return c.callUpdateDeprecation(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDeprecationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDeprecationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationProtobufClient) callUpdateDeprecation(ctx context.Context, in *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+	out := new(UpdateDeprecationResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+// =========================
+// Configuration JSON Client
+// =========================
+
+type configurationJSONClient struct {
+	client      HTTPClient
+	urls        [7]string
+	interceptor twirp.Interceptor
+	opts        twirp.ClientOptions
+}
+
+// NewConfigurationJSONClient creates a JSON client that implements the Configuration interface.
+// It communicates using JSON and can be configured with a custom HTTPClient.
+func NewConfigurationJSONClient(baseURL string, client HTTPClient, opts ...twirp.ClientOption) Configuration {
+	if c, ok := client.(*http.Client); ok {
+		client = withoutRedirects(c)
+	}
+
+	clientOpts := twirp.ClientOptions{}
+	for _, o := range opts {
+		o(&clientOpts)
+	}
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	literalURLs := false
+	_ = clientOpts.ReadOpt("literalURLs", &literalURLs)
+	var pathPrefix string
+	if ok := clientOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
+	serviceURL := sanitizeBaseURL(baseURL)
+	serviceURL += baseServicePath(pathPrefix, "elephant.user", "Configuration")
+	urls := [7]string{
+		serviceURL + "RegisterConfigGeneration",
+		serviceURL + "ActivateConfigGeneration",
+		serviceURL + "GetActiveConfigGeneration",
+		serviceURL + "ListConfigGenerations",
+		serviceURL + "GetSchema",
+		serviceURL + "GetDeprecations",
+		serviceURL + "UpdateDeprecation",
+	}
+
+	return &configurationJSONClient{
+		client:      client,
+		urls:        urls,
+		interceptor: twirp.ChainInterceptors(clientOpts.Interceptors...),
+		opts:        clientOpts,
+	}
+}
+
+func (c *configurationJSONClient) RegisterConfigGeneration(ctx context.Context, in *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "RegisterConfigGeneration")
+	caller := c.callRegisterConfigGeneration
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RegisterConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RegisterConfigGenerationRequest) when calling interceptor")
+					}
+					return c.callRegisterConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RegisterConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RegisterConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationJSONClient) callRegisterConfigGeneration(ctx context.Context, in *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+	out := new(RegisterConfigGenerationResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationJSONClient) ActivateConfigGeneration(ctx context.Context, in *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "ActivateConfigGeneration")
+	caller := c.callActivateConfigGeneration
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ActivateConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ActivateConfigGenerationRequest) when calling interceptor")
+					}
+					return c.callActivateConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ActivateConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ActivateConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationJSONClient) callActivateConfigGeneration(ctx context.Context, in *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+	out := new(ActivateConfigGenerationResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationJSONClient) GetActiveConfigGeneration(ctx context.Context, in *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "GetActiveConfigGeneration")
+	caller := c.callGetActiveConfigGeneration
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetActiveConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetActiveConfigGenerationRequest) when calling interceptor")
+					}
+					return c.callGetActiveConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetActiveConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetActiveConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationJSONClient) callGetActiveConfigGeneration(ctx context.Context, in *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+	out := new(GetActiveConfigGenerationResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationJSONClient) ListConfigGenerations(ctx context.Context, in *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "ListConfigGenerations")
+	caller := c.callListConfigGenerations
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListConfigGenerationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListConfigGenerationsRequest) when calling interceptor")
+					}
+					return c.callListConfigGenerations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListConfigGenerationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListConfigGenerationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationJSONClient) callListConfigGenerations(ctx context.Context, in *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+	out := new(ListConfigGenerationsResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationJSONClient) GetSchema(ctx context.Context, in *GetSchemaRequest) (*GetSchemaResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "GetSchema")
+	caller := c.callGetSchema
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetSchemaRequest) (*GetSchemaResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetSchemaRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetSchemaRequest) when calling interceptor")
+					}
+					return c.callGetSchema(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetSchemaResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetSchemaResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationJSONClient) callGetSchema(ctx context.Context, in *GetSchemaRequest) (*GetSchemaResponse, error) {
+	out := new(GetSchemaResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationJSONClient) GetDeprecations(ctx context.Context, in *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "GetDeprecations")
+	caller := c.callGetDeprecations
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDeprecationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDeprecationsRequest) when calling interceptor")
+					}
+					return c.callGetDeprecations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDeprecationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDeprecationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationJSONClient) callGetDeprecations(ctx context.Context, in *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+	out := new(GetDeprecationsResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *configurationJSONClient) UpdateDeprecation(ctx context.Context, in *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDeprecation")
+	caller := c.callUpdateDeprecation
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDeprecationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDeprecationRequest) when calling interceptor")
+					}
+					return c.callUpdateDeprecation(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDeprecationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDeprecationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *configurationJSONClient) callUpdateDeprecation(ctx context.Context, in *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+	out := new(UpdateDeprecationResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+// ============================
+// Configuration Server Handler
+// ============================
+
+type configurationServer struct {
+	Configuration
+	interceptor      twirp.Interceptor
+	hooks            *twirp.ServerHooks
+	pathPrefix       string // prefix for routing
+	jsonSkipDefaults bool   // do not include unpopulated fields (default values) in the response
+	jsonCamelCase    bool   // JSON fields are serialized as lowerCamelCase rather than keeping the original proto names
+}
+
+// NewConfigurationServer builds a TwirpServer that can be used as an http.Handler to handle
+// HTTP requests that are routed to the right method in the provided svc implementation.
+// The opts are twirp.ServerOption modifiers, for example twirp.WithServerHooks(hooks).
+func NewConfigurationServer(svc Configuration, opts ...interface{}) TwirpServer {
+	serverOpts := newServerOpts(opts)
+
+	// Using ReadOpt allows backwards and forwards compatibility with new options in the future
+	jsonSkipDefaults := false
+	_ = serverOpts.ReadOpt("jsonSkipDefaults", &jsonSkipDefaults)
+	jsonCamelCase := false
+	_ = serverOpts.ReadOpt("jsonCamelCase", &jsonCamelCase)
+	var pathPrefix string
+	if ok := serverOpts.ReadOpt("pathPrefix", &pathPrefix); !ok {
+		pathPrefix = "/twirp" // default prefix
+	}
+
+	return &configurationServer{
+		Configuration:    svc,
+		hooks:            serverOpts.Hooks,
+		interceptor:      twirp.ChainInterceptors(serverOpts.Interceptors...),
+		pathPrefix:       pathPrefix,
+		jsonSkipDefaults: jsonSkipDefaults,
+		jsonCamelCase:    jsonCamelCase,
+	}
+}
+
+// writeError writes an HTTP response with a valid Twirp error format, and triggers hooks.
+// If err is not a twirp.Error, it will get wrapped with twirp.InternalErrorWith(err)
+func (s *configurationServer) writeError(ctx context.Context, resp http.ResponseWriter, err error) {
+	writeError(ctx, resp, err, s.hooks)
+}
+
+// handleRequestBodyError is used to handle error when the twirp server cannot read request
+func (s *configurationServer) handleRequestBodyError(ctx context.Context, resp http.ResponseWriter, msg string, err error) {
+	if context.Canceled == ctx.Err() {
+		s.writeError(ctx, resp, twirp.NewError(twirp.Canceled, "failed to read request: context canceled"))
+		return
+	}
+	if context.DeadlineExceeded == ctx.Err() {
+		s.writeError(ctx, resp, twirp.NewError(twirp.DeadlineExceeded, "failed to read request: deadline exceeded"))
+		return
+	}
+	s.writeError(ctx, resp, twirp.WrapError(malformedRequestError(msg), err))
+}
+
+// ConfigurationPathPrefix is a convenience constant that may identify URL paths.
+// Should be used with caution, it only matches routes generated by Twirp Go clients,
+// with the default "/twirp" prefix and default CamelCase service and method names.
+// More info: https://twitchtv.github.io/twirp/docs/routing.html
+const ConfigurationPathPrefix = "/twirp/elephant.user.Configuration/"
+
+func (s *configurationServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	ctx = ctxsetters.WithPackageName(ctx, "elephant.user")
+	ctx = ctxsetters.WithServiceName(ctx, "Configuration")
+	ctx = ctxsetters.WithResponseWriter(ctx, resp)
+
+	var err error
+	ctx, err = callRequestReceived(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	if req.Method != "POST" {
+		msg := fmt.Sprintf("unsupported method %q (only POST is allowed)", req.Method)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+
+	// Verify path format: [<prefix>]/<package>.<Service>/<Method>
+	prefix, pkgService, method := parseTwirpPath(req.URL.Path)
+	if pkgService != "elephant.user.Configuration" {
+		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+	if prefix != s.pathPrefix {
+		msg := fmt.Sprintf("invalid path prefix %q, expected %q, on path %q", prefix, s.pathPrefix, req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+
+	switch method {
+	case "RegisterConfigGeneration":
+		s.serveRegisterConfigGeneration(ctx, resp, req)
+		return
+	case "ActivateConfigGeneration":
+		s.serveActivateConfigGeneration(ctx, resp, req)
+		return
+	case "GetActiveConfigGeneration":
+		s.serveGetActiveConfigGeneration(ctx, resp, req)
+		return
+	case "ListConfigGenerations":
+		s.serveListConfigGenerations(ctx, resp, req)
+		return
+	case "GetSchema":
+		s.serveGetSchema(ctx, resp, req)
+		return
+	case "GetDeprecations":
+		s.serveGetDeprecations(ctx, resp, req)
+		return
+	case "UpdateDeprecation":
+		s.serveUpdateDeprecation(ctx, resp, req)
+		return
+	default:
+		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
+		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
+		return
+	}
+}
+
+func (s *configurationServer) serveRegisterConfigGeneration(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveRegisterConfigGenerationJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveRegisterConfigGenerationProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *configurationServer) serveRegisterConfigGenerationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "RegisterConfigGeneration")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(RegisterConfigGenerationRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Configuration.RegisterConfigGeneration
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RegisterConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RegisterConfigGenerationRequest) when calling interceptor")
+					}
+					return s.Configuration.RegisterConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RegisterConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RegisterConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *RegisterConfigGenerationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *RegisterConfigGenerationResponse and nil error while calling RegisterConfigGeneration. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveRegisterConfigGenerationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "RegisterConfigGeneration")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(RegisterConfigGenerationRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Configuration.RegisterConfigGeneration
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *RegisterConfigGenerationRequest) (*RegisterConfigGenerationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RegisterConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RegisterConfigGenerationRequest) when calling interceptor")
+					}
+					return s.Configuration.RegisterConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RegisterConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RegisterConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *RegisterConfigGenerationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *RegisterConfigGenerationResponse and nil error while calling RegisterConfigGeneration. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveActivateConfigGeneration(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveActivateConfigGenerationJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveActivateConfigGenerationProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *configurationServer) serveActivateConfigGenerationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ActivateConfigGeneration")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(ActivateConfigGenerationRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Configuration.ActivateConfigGeneration
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ActivateConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ActivateConfigGenerationRequest) when calling interceptor")
+					}
+					return s.Configuration.ActivateConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ActivateConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ActivateConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ActivateConfigGenerationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ActivateConfigGenerationResponse and nil error while calling ActivateConfigGeneration. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveActivateConfigGenerationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ActivateConfigGeneration")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(ActivateConfigGenerationRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Configuration.ActivateConfigGeneration
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ActivateConfigGenerationRequest) (*ActivateConfigGenerationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ActivateConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ActivateConfigGenerationRequest) when calling interceptor")
+					}
+					return s.Configuration.ActivateConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ActivateConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ActivateConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ActivateConfigGenerationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ActivateConfigGenerationResponse and nil error while calling ActivateConfigGeneration. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveGetActiveConfigGeneration(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetActiveConfigGenerationJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetActiveConfigGenerationProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *configurationServer) serveGetActiveConfigGenerationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetActiveConfigGeneration")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetActiveConfigGenerationRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Configuration.GetActiveConfigGeneration
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetActiveConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetActiveConfigGenerationRequest) when calling interceptor")
+					}
+					return s.Configuration.GetActiveConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetActiveConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetActiveConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetActiveConfigGenerationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetActiveConfigGenerationResponse and nil error while calling GetActiveConfigGeneration. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveGetActiveConfigGenerationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetActiveConfigGeneration")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetActiveConfigGenerationRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Configuration.GetActiveConfigGeneration
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetActiveConfigGenerationRequest) (*GetActiveConfigGenerationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetActiveConfigGenerationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetActiveConfigGenerationRequest) when calling interceptor")
+					}
+					return s.Configuration.GetActiveConfigGeneration(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetActiveConfigGenerationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetActiveConfigGenerationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetActiveConfigGenerationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetActiveConfigGenerationResponse and nil error while calling GetActiveConfigGeneration. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveListConfigGenerations(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveListConfigGenerationsJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveListConfigGenerationsProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *configurationServer) serveListConfigGenerationsJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ListConfigGenerations")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(ListConfigGenerationsRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Configuration.ListConfigGenerations
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListConfigGenerationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListConfigGenerationsRequest) when calling interceptor")
+					}
+					return s.Configuration.ListConfigGenerations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListConfigGenerationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListConfigGenerationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ListConfigGenerationsResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ListConfigGenerationsResponse and nil error while calling ListConfigGenerations. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveListConfigGenerationsProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ListConfigGenerations")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(ListConfigGenerationsRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Configuration.ListConfigGenerations
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ListConfigGenerationsRequest) (*ListConfigGenerationsResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ListConfigGenerationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ListConfigGenerationsRequest) when calling interceptor")
+					}
+					return s.Configuration.ListConfigGenerations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ListConfigGenerationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ListConfigGenerationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ListConfigGenerationsResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ListConfigGenerationsResponse and nil error while calling ListConfigGenerations. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveGetSchema(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetSchemaJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetSchemaProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *configurationServer) serveGetSchemaJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetSchema")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetSchemaRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Configuration.GetSchema
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetSchemaRequest) (*GetSchemaResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetSchemaRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetSchemaRequest) when calling interceptor")
+					}
+					return s.Configuration.GetSchema(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetSchemaResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetSchemaResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetSchemaResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetSchemaResponse and nil error while calling GetSchema. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveGetSchemaProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetSchema")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetSchemaRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Configuration.GetSchema
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetSchemaRequest) (*GetSchemaResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetSchemaRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetSchemaRequest) when calling interceptor")
+					}
+					return s.Configuration.GetSchema(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetSchemaResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetSchemaResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetSchemaResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetSchemaResponse and nil error while calling GetSchema. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveGetDeprecations(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetDeprecationsJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetDeprecationsProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *configurationServer) serveGetDeprecationsJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetDeprecations")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetDeprecationsRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Configuration.GetDeprecations
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDeprecationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDeprecationsRequest) when calling interceptor")
+					}
+					return s.Configuration.GetDeprecations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDeprecationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDeprecationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetDeprecationsResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetDeprecationsResponse and nil error while calling GetDeprecations. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveGetDeprecationsProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetDeprecations")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetDeprecationsRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Configuration.GetDeprecations
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetDeprecationsRequest) (*GetDeprecationsResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetDeprecationsRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetDeprecationsRequest) when calling interceptor")
+					}
+					return s.Configuration.GetDeprecations(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetDeprecationsResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetDeprecationsResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetDeprecationsResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetDeprecationsResponse and nil error while calling GetDeprecations. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveUpdateDeprecation(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveUpdateDeprecationJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveUpdateDeprecationProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *configurationServer) serveUpdateDeprecationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDeprecation")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(UpdateDeprecationRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Configuration.UpdateDeprecation
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDeprecationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDeprecationRequest) when calling interceptor")
+					}
+					return s.Configuration.UpdateDeprecation(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDeprecationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDeprecationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *UpdateDeprecationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *UpdateDeprecationResponse and nil error while calling UpdateDeprecation. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) serveUpdateDeprecationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateDeprecation")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(UpdateDeprecationRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Configuration.UpdateDeprecation
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *UpdateDeprecationRequest) (*UpdateDeprecationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateDeprecationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateDeprecationRequest) when calling interceptor")
+					}
+					return s.Configuration.UpdateDeprecation(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateDeprecationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateDeprecationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *UpdateDeprecationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *UpdateDeprecationResponse and nil error while calling UpdateDeprecation. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *configurationServer) ServiceDescriptor() ([]byte, int) {
+	return twirpFileDescriptor0, 2
+}
+
+func (s *configurationServer) ProtocGenTwirpVersion() string {
+	return "v8.1.3"
+}
+
+// PathPrefix returns the base service path, in the form: "/<prefix>/<package>.<Service>/"
+// that is everything in a Twirp route except for the <Method>. This can be used for routing,
+// for example to identify the requests that are targeted to this service in a mux.
+func (s *configurationServer) PathPrefix() string {
+	return baseServicePath(s.pathPrefix, "elephant.user", "Configuration")
+}
+
 // =====
 // Utils
 // =====
@@ -5228,102 +7413,144 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 1546 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x58, 0xef, 0x72, 0xdb, 0x44,
-	0x10, 0x47, 0x72, 0x6c, 0xcb, 0x9b, 0xc4, 0xa4, 0xd7, 0xb8, 0x51, 0x9c, 0x66, 0xea, 0x2a, 0x94,
-	0x86, 0x76, 0x70, 0x98, 0x94, 0x52, 0xa6, 0x33, 0xfd, 0x40, 0x6b, 0x51, 0x4c, 0xd3, 0xc4, 0x23,
-	0x3b, 0x85, 0x66, 0x86, 0xf1, 0x28, 0xd2, 0x35, 0xd1, 0x54, 0x91, 0x8c, 0xfe, 0xa4, 0x98, 0x8f,
-	0x3c, 0x02, 0x0f, 0xc0, 0x5b, 0xf0, 0x06, 0x7c, 0x80, 0x07, 0xe0, 0x1b, 0x0f, 0xc1, 0x23, 0x30,
-	0x3a, 0x9d, 0xac, 0x3f, 0x77, 0xb6, 0xd3, 0x30, 0xed, 0x27, 0xeb, 0xf6, 0xf6, 0x76, 0xf7, 0x7e,
-	0xfb, 0xdb, 0xdb, 0x3b, 0x03, 0x0a, 0x7d, 0xec, 0xed, 0xf8, 0xd8, 0x3b, 0xb7, 0x0c, 0xdc, 0x1e,
-	0x79, 0x6e, 0xe0, 0xa2, 0x65, 0x6c, 0xe3, 0xd1, 0xa9, 0xee, 0x04, 0xed, 0x68, 0xb2, 0xd9, 0x70,
-	0xf0, 0x1b, 0xdf, 0x74, 0x8d, 0x1d, 0xfa, 0x1b, 0x6b, 0x29, 0x1e, 0xa0, 0xa7, 0x38, 0xe8, 0xb8,
-	0x46, 0x78, 0x86, 0x9d, 0x40, 0xc3, 0x3f, 0x86, 0xd8, 0x0f, 0xd0, 0x2a, 0x94, 0xdd, 0x37, 0x0e,
-	0xf6, 0x64, 0xa1, 0x25, 0x6c, 0xd7, 0xb4, 0x78, 0x80, 0x5a, 0xb0, 0xa8, 0x8f, 0x46, 0xb6, 0x65,
-	0xe8, 0x81, 0xe5, 0x3a, 0xb2, 0x48, 0xe6, 0xb2, 0x22, 0x84, 0x60, 0x21, 0x18, 0x8f, 0xb0, 0x5c,
-	0x22, 0x53, 0xe4, 0x1b, 0xad, 0x40, 0xe9, 0x35, 0x1e, 0xcb, 0x0b, 0x44, 0x14, 0x7d, 0x2a, 0xdf,
-	0xc2, 0xd5, 0x9c, 0x4f, 0x7f, 0xe4, 0x3a, 0x3e, 0x46, 0xf7, 0x40, 0x32, 0xa9, 0x8c, 0xf8, 0x5d,
-	0xdc, 0x5d, 0x6b, 0xe7, 0xf6, 0xd0, 0x9e, 0x2c, 0x99, 0x28, 0x2a, 0xff, 0x88, 0x20, 0x25, 0xe2,
-	0x77, 0x1b, 0x36, 0x92, 0xa1, 0x7a, 0x8e, 0x3d, 0x3f, 0xb2, 0x51, 0x6e, 0x09, 0xdb, 0x25, 0x2d,
-	0x19, 0xa2, 0x5b, 0x50, 0xf7, 0x8d, 0x53, 0x7c, 0xa6, 0x0f, 0x13, 0x85, 0x0a, 0x59, 0xb6, 0x1c,
-	0x4b, 0x5f, 0x50, 0xb5, 0x0d, 0xa8, 0x79, 0x58, 0x37, 0x87, 0xae, 0x63, 0x8f, 0xe5, 0x6a, 0x4b,
-	0xd8, 0x96, 0x34, 0x29, 0x12, 0x1c, 0x38, 0xf6, 0x38, 0x8a, 0x3d, 0xb0, 0x02, 0x1b, 0xcb, 0x52,
-	0x1c, 0x3b, 0x19, 0x44, 0x3e, 0x0d, 0x0f, 0xeb, 0x01, 0x36, 0xe5, 0x1a, 0x91, 0x27, 0xc3, 0x68,
-	0x26, 0x1c, 0x99, 0x64, 0x06, 0xe2, 0x19, 0x3a, 0x44, 0x9b, 0x00, 0xf4, 0x73, 0x78, 0x3c, 0x96,
-	0x17, 0xc9, 0x64, 0x8d, 0x4a, 0x1e, 0x8f, 0xd1, 0x5d, 0xa8, 0x8e, 0xf4, 0xb1, 0xed, 0xea, 0xa6,
-	0xbc, 0x44, 0x50, 0xbe, 0xd2, 0x4e, 0x28, 0x31, 0xc1, 0x37, 0xd1, 0x50, 0x42, 0x58, 0xdd, 0xb3,
-	0xfc, 0x49, 0xae, 0xfc, 0x84, 0x20, 0x05, 0x4c, 0x85, 0xe9, 0x98, 0x8a, 0x19, 0x4c, 0x6f, 0xc3,
-	0x87, 0x96, 0x63, 0xd8, 0xa1, 0x89, 0x87, 0x49, 0x08, 0x25, 0x02, 0x43, 0x9d, 0x8a, 0x7b, 0xd4,
-	0xed, 0x3e, 0x34, 0x0a, 0x6e, 0x29, 0x47, 0xee, 0x43, 0x2d, 0x49, 0xbd, 0x2f, 0x0b, 0xad, 0xd2,
-	0x2c, 0x92, 0xa4, 0x9a, 0xca, 0x5f, 0x02, 0x34, 0x0e, 0x09, 0x02, 0xef, 0x95, 0xe9, 0x1c, 0x62,
-	0x94, 0x79, 0xc4, 0xc8, 0xa4, 0xa4, 0x32, 0x37, 0x25, 0x32, 0x5c, 0x2b, 0x6e, 0x25, 0x06, 0x47,
-	0x09, 0xa1, 0xd1, 0xc1, 0x36, 0x7e, 0xcf, 0x9b, 0x8c, 0x02, 0x2a, 0xba, 0xa5, 0x01, 0xfd, 0x26,
-	0x80, 0xd4, 0xf3, 0xdc, 0x11, 0xf6, 0x82, 0xf1, 0xa5, 0x83, 0xa0, 0x0e, 0x4b, 0x29, 0xaa, 0xab,
-	0x50, 0x3e, 0xd7, 0xed, 0x10, 0xd3, 0x20, 0xe2, 0x41, 0xb6, 0x54, 0xca, 0x53, 0x4b, 0xa5, 0x92,
-	0x2b, 0x15, 0x65, 0x0f, 0x56, 0x9f, 0xe2, 0x80, 0x86, 0x68, 0xe1, 0xb7, 0xa3, 0xf7, 0x6b, 0x3c,
-	0xf6, 0x65, 0xb1, 0x55, 0x8a, 0xa0, 0x89, 0xbe, 0x95, 0x1e, 0x34, 0x0a, 0xd6, 0x28, 0x6b, 0x1f,
-	0x00, 0x8c, 0x26, 0xd2, 0x29, 0xb4, 0x4d, 0x70, 0xd2, 0x32, 0xaa, 0xca, 0x11, 0xd4, 0x13, 0x79,
-	0x9c, 0xf3, 0x0b, 0x44, 0x46, 0xf1, 0x12, 0x39, 0x78, 0x95, 0x32, 0x78, 0x29, 0x87, 0xb0, 0xda,
-	0xe7, 0xed, 0xfd, 0x11, 0x27, 0xd8, 0xcd, 0x29, 0xc1, 0xc6, 0x41, 0xe5, 0x42, 0x5e, 0x83, 0x46,
-	0x9f, 0x07, 0x82, 0xd2, 0x49, 0xf7, 0x12, 0xd3, 0xe5, 0x32, 0x7b, 0x51, 0xbe, 0x87, 0xb5, 0x78,
-	0xf5, 0xff, 0x0b, 0x3c, 0xb6, 0x91, 0x0b, 0xbc, 0x09, 0x32, 0x6b, 0x99, 0xc6, 0xfe, 0x19, 0x5c,
-	0xed, 0xb9, 0xb6, 0xad, 0x9e, 0x63, 0x27, 0xd8, 0x73, 0x4f, 0x12, 0x8f, 0xeb, 0x20, 0xe9, 0xaf,
-	0x02, 0xec, 0x0d, 0x2d, 0x93, 0x44, 0x5f, 0xd2, 0xaa, 0x64, 0xdc, 0x35, 0x95, 0x13, 0x58, 0xcd,
-	0xaf, 0xa0, 0x54, 0x58, 0x83, 0xaa, 0xad, 0xfb, 0x41, 0xba, 0xa2, 0x12, 0x0d, 0xbb, 0x26, 0xfa,
-	0x02, 0xaa, 0xd8, 0x09, 0xbc, 0x28, 0x74, 0x91, 0x84, 0x7e, 0xbd, 0x10, 0x7a, 0x62, 0x4a, 0x75,
-	0x02, 0x6f, 0xac, 0x25, 0xca, 0xca, 0x9f, 0x22, 0x2c, 0xe7, 0xa6, 0x50, 0x1d, 0xc4, 0x89, 0x75,
-	0xd1, 0x32, 0xd3, 0xc2, 0x13, 0xb3, 0x85, 0xf7, 0x79, 0xa6, 0xb6, 0xeb, 0xbb, 0xad, 0x59, 0xce,
-	0x06, 0xe3, 0x11, 0xa6, 0xd5, 0xbf, 0x03, 0x0b, 0xaf, 0x2d, 0xc7, 0x24, 0x95, 0x57, 0xdf, 0xdd,
-	0x28, 0xac, 0xd2, 0xb0, 0xef, 0x86, 0x9e, 0x81, 0x9f, 0x59, 0x8e, 0xa9, 0x11, 0xc5, 0x62, 0x8e,
-	0xcb, 0x6c, 0x8e, 0xb7, 0x60, 0x39, 0x39, 0xa8, 0x87, 0x24, 0xa2, 0xb8, 0x46, 0x97, 0x12, 0xe1,
-	0x20, 0x73, 0xea, 0x54, 0xb9, 0xdd, 0x58, 0xca, 0x77, 0xe3, 0x7c, 0xff, 0xab, 0x15, 0xfb, 0x5f,
-	0xe6, 0x9c, 0x80, 0xdc, 0x39, 0xa1, 0xfc, 0x22, 0x02, 0xea, 0x85, 0xfe, 0xe9, 0x73, 0xec, 0xfb,
-	0xfa, 0x09, 0x4e, 0xb2, 0x9c, 0x9c, 0x82, 0x42, 0xe6, 0x14, 0xbc, 0x1e, 0xb5, 0x72, 0xc3, 0x1a,
-	0x59, 0xd1, 0x65, 0x25, 0xc6, 0x35, 0x15, 0x44, 0xbc, 0x30, 0x5d, 0x63, 0x18, 0x86, 0x96, 0x49,
-	0x6b, 0xae, 0x6a, 0xba, 0xc6, 0x61, 0x68, 0x99, 0xc9, 0x14, 0x31, 0xb8, 0x30, 0x99, 0x22, 0x7b,
-	0xfc, 0x26, 0xed, 0x02, 0x65, 0xc2, 0x80, 0x76, 0x91, 0xbc, 0x4c, 0x6c, 0x6d, 0xda, 0x30, 0x29,
-	0x27, 0xe8, 0xf2, 0xe6, 0x43, 0x58, 0xca, 0x4e, 0x24, 0xe8, 0x09, 0x9c, 0x23, 0x41, 0xcc, 0x1c,
-	0x09, 0x0f, 0xc5, 0x2f, 0x05, 0xa5, 0x01, 0x57, 0x73, 0x7e, 0x68, 0x05, 0x98, 0xb0, 0x16, 0x89,
-	0xbb, 0xce, 0xb1, 0xfb, 0x53, 0x01, 0x9f, 0x1c, 0x16, 0x42, 0x11, 0x8b, 0x4c, 0x6f, 0x13, 0xe7,
-	0xf6, 0xb6, 0x26, 0xc8, 0xac, 0x97, 0x7c, 0x0d, 0x52, 0xb1, 0x7f, 0x81, 0x1a, 0x34, 0xe2, 0x1a,
-	0x4c, 0x57, 0xcc, 0xab, 0xc1, 0x5d, 0x90, 0xce, 0xa8, 0x32, 0x2d, 0xc2, 0x6b, 0x85, 0x14, 0x24,
-	0x41, 0x4d, 0xf4, 0x94, 0xdf, 0x45, 0xa8, 0x52, 0x29, 0x53, 0x79, 0xbc, 0x3b, 0x50, 0x86, 0x7e,
-	0xa5, 0x7c, 0x9b, 0xda, 0x04, 0xa0, 0x9f, 0x11, 0x6f, 0x63, 0x72, 0xd4, 0xa8, 0xe4, 0xf1, 0x38,
-	0x0f, 0x73, 0x79, 0x16, 0xe5, 0x2a, 0xd3, 0x29, 0x57, 0xcd, 0x53, 0xee, 0x51, 0x9a, 0x1c, 0x89,
-	0xec, 0x77, 0x8b, 0xbf, 0xdf, 0x77, 0xc0, 0xb3, 0xfb, 0x20, 0x47, 0xc9, 0xc9, 0xa6, 0xfa, 0x22,
-	0x39, 0x3d, 0x83, 0x75, 0xce, 0xb2, 0x79, 0x89, 0x7d, 0xc0, 0x24, 0xb6, 0x78, 0x74, 0xe5, 0x28,
-	0x97, 0x66, 0xf7, 0x6f, 0x01, 0x96, 0xb2, 0x53, 0x73, 0xc8, 0x1e, 0x13, 0x40, 0x9c, 0x10, 0xe0,
-	0xd2, 0xc9, 0xce, 0x5c, 0x59, 0xca, 0xf9, 0xdb, 0xfd, 0x1a, 0x54, 0x2d, 0x7f, 0x18, 0x3d, 0x1b,
-	0x48, 0x9e, 0x25, 0xad, 0x62, 0xf9, 0x1a, 0xd6, 0xcd, 0x6c, 0xa1, 0x55, 0xe7, 0x16, 0xda, 0x33,
-	0x90, 0xa3, 0x0b, 0x36, 0x17, 0xfd, 0x0d, 0xa8, 0x1d, 0xe3, 0x57, 0xae, 0x87, 0x53, 0x1c, 0xa5,
-	0x58, 0xd0, 0x25, 0x94, 0xf6, 0xad, 0x9f, 0x31, 0xdd, 0x23, 0xf9, 0x56, 0x7e, 0x15, 0x60, 0x9d,
-	0x63, 0x8d, 0x26, 0x65, 0x03, 0x6a, 0xb6, 0x1e, 0xe0, 0x6c, 0x5a, 0xa4, 0x58, 0xd0, 0x35, 0xd1,
-	0x0d, 0x58, 0xc4, 0xba, 0x67, 0x5b, 0x74, 0x3a, 0xb6, 0x0a, 0x89, 0xa8, 0x90, 0xb9, 0xd2, 0xdb,
-	0x64, 0xae, 0x03, 0xeb, 0xf1, 0xed, 0x84, 0x77, 0x64, 0x15, 0x0b, 0x35, 0x03, 0xaa, 0x98, 0x05,
-	0x55, 0xb9, 0x0e, 0x4d, 0x9e, 0x15, 0x7a, 0x24, 0xdd, 0x85, 0xf5, 0xf8, 0xca, 0x70, 0x01, 0x1f,
-	0x91, 0x29, 0x9e, 0x72, 0x6c, 0xea, 0x8e, 0x0d, 0x57, 0x98, 0x9e, 0x8b, 0x6e, 0xc0, 0x86, 0xfa,
-	0x42, 0xdd, 0x1f, 0x0c, 0xf7, 0x0e, 0x9e, 0x0e, 0xd5, 0xfd, 0x81, 0xf6, 0x72, 0x78, 0xb8, 0xdf,
-	0xef, 0xa9, 0x4f, 0xba, 0x5f, 0x77, 0xd5, 0xce, 0xca, 0x07, 0xa8, 0x09, 0xd7, 0x18, 0x85, 0x5e,
-	0xe7, 0xab, 0x81, 0xba, 0x22, 0xf0, 0xe6, 0x3a, 0xea, 0x9e, 0x3a, 0x50, 0x57, 0xc4, 0x3b, 0x18,
-	0x96, 0xb2, 0xbd, 0x1a, 0x6d, 0xc2, 0xba, 0xa6, 0xf6, 0x0f, 0x0e, 0xb5, 0x27, 0xea, 0xf0, 0x59,
-	0x77, 0xbf, 0xc3, 0xba, 0xc9, 0x4f, 0x77, 0x0e, 0x9e, 0x1c, 0x3e, 0x57, 0xf7, 0x07, 0xb1, 0x9b,
-	0xfc, 0x5c, 0x4f, 0x3b, 0xe8, 0xa9, 0xda, 0xe0, 0xe5, 0x8a, 0xb8, 0xfb, 0x6f, 0x19, 0xa4, 0x3e,
-	0x0e, 0x02, 0xcb, 0x39, 0xf1, 0xd1, 0x00, 0x16, 0x33, 0xaf, 0x7e, 0x74, 0xb3, 0x90, 0x46, 0xf6,
-	0x5f, 0x88, 0xa6, 0x32, 0x4b, 0x85, 0xb2, 0xeb, 0x08, 0x96, 0x73, 0x2f, 0x45, 0x54, 0x3c, 0xc1,
-	0x78, 0xcf, 0xd7, 0xe6, 0x47, 0xb3, 0x95, 0xa8, 0xed, 0x1f, 0xa0, 0x9e, 0x7f, 0x69, 0xa1, 0xe2,
-	0x3a, 0xee, 0x9b, 0xb2, 0x79, 0x6b, 0x8e, 0x56, 0x6a, 0x3e, 0xff, 0x6e, 0x62, 0xcc, 0x73, 0x5f,
-	0x73, 0x8c, 0x79, 0xfe, 0xe3, 0x2b, 0x42, 0x26, 0xf7, 0x1a, 0x61, 0x90, 0xe1, 0xbd, 0x7c, 0x18,
-	0x64, 0xf8, 0x0f, 0x9a, 0x23, 0x58, 0xee, 0xcf, 0xb4, 0xdd, 0xbf, 0x88, 0x6d, 0xee, 0x3b, 0x01,
-	0x19, 0xb0, 0x52, 0xbc, 0x87, 0xa3, 0x8f, 0xb9, 0x5b, 0x66, 0x3d, 0xdc, 0x9e, 0xab, 0x47, 0x9d,
-	0x7c, 0x07, 0x4b, 0xd9, 0xeb, 0x39, 0x2a, 0x52, 0x8d, 0x73, 0xdb, 0x6f, 0x6e, 0xcd, 0xd4, 0x89,
-	0x0d, 0xef, 0xfe, 0x51, 0x06, 0x29, 0x39, 0x02, 0x23, 0xca, 0x67, 0xee, 0x52, 0x0c, 0xe5, 0xd9,
-	0xfb, 0x1c, 0x43, 0x79, 0xce, 0x55, 0x2c, 0x02, 0xa8, 0x78, 0x49, 0x62, 0x00, 0x9a, 0x72, 0x57,
-	0x63, 0x00, 0x9a, 0x76, 0xdb, 0x4a, 0x00, 0x9a, 0x6c, 0x85, 0x07, 0x50, 0xa1, 0x71, 0x70, 0x01,
-	0x62, 0xda, 0xc1, 0x2b, 0xb8, 0xc2, 0x34, 0x70, 0x74, 0x9b, 0xb3, 0x92, 0xd7, 0x9b, 0x9a, 0xdb,
-	0xf3, 0x15, 0x53, 0x3f, 0x4c, 0x4f, 0x62, 0xfc, 0x4c, 0xeb, 0x81, 0x8c, 0x9f, 0xe9, 0xed, 0xcd,
-	0x02, 0xc4, 0x76, 0x08, 0xb4, 0xcd, 0x3d, 0x02, 0x78, 0x19, 0xf9, 0xe4, 0x02, 0x9a, 0xa9, 0x2b,
-	0xb6, 0x83, 0x30, 0xae, 0xa6, 0x76, 0x24, 0xc6, 0xd5, 0xf4, 0x76, 0xf4, 0x78, 0xeb, 0xe8, 0xe6,
-	0x89, 0x15, 0x9c, 0x86, 0xc7, 0x6d, 0xc3, 0x3d, 0xdb, 0x09, 0x02, 0xfd, 0x78, 0x27, 0x59, 0xfb,
-	0xa9, 0x3e, 0xb2, 0x76, 0xa2, 0xf5, 0xc7, 0x15, 0xf2, 0x17, 0xf2, 0xbd, 0xff, 0x02, 0x00, 0x00,
-	0xff, 0xff, 0xdc, 0xf9, 0xbf, 0x9b, 0x7e, 0x16, 0x00, 0x00,
+	// 2221 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x1a, 0x5d, 0x73, 0xe3, 0x48,
+	0x11, 0xc9, 0xf1, 0x57, 0x3b, 0xc9, 0x79, 0x67, 0xf3, 0xa1, 0x38, 0x49, 0xc5, 0xab, 0x65, 0x6f,
+	0xc3, 0x2e, 0x24, 0x4b, 0x8e, 0xe3, 0xa8, 0x2b, 0x8e, 0x25, 0x1b, 0x8b, 0x9c, 0xd9, 0x6c, 0x92,
+	0x92, 0x9d, 0xe3, 0x76, 0xab, 0x28, 0xa3, 0x48, 0x13, 0x47, 0xb5, 0x8e, 0x64, 0x24, 0x39, 0x8b,
+	0xb9, 0x2a, 0x1e, 0x8e, 0x57, 0x9e, 0x78, 0xe1, 0x85, 0xa2, 0xf8, 0x13, 0xfc, 0x03, 0x1e, 0xe0,
+	0x07, 0xf0, 0xc6, 0x8f, 0xe0, 0x27, 0x50, 0x23, 0x8d, 0xac, 0x91, 0x66, 0x64, 0xfb, 0xf6, 0xee,
+	0xf6, 0xc9, 0x9a, 0x9e, 0x9e, 0xee, 0x9e, 0xfe, 0x9a, 0xee, 0x4e, 0x00, 0x8d, 0x7c, 0xec, 0xed,
+	0xfb, 0xd8, 0xbb, 0xb5, 0x4d, 0xbc, 0x37, 0xf4, 0xdc, 0xc0, 0x45, 0x4b, 0x78, 0x80, 0x87, 0xd7,
+	0x86, 0x13, 0xec, 0x91, 0xcd, 0xc6, 0xaa, 0x83, 0xdf, 0xf8, 0x96, 0x6b, 0xee, 0xd3, 0xdf, 0x08,
+	0x4b, 0xf5, 0x00, 0x1d, 0xe3, 0xa0, 0xe5, 0x9a, 0xa3, 0x1b, 0xec, 0x04, 0x3a, 0xfe, 0xed, 0x08,
+	0xfb, 0x01, 0x5a, 0x81, 0xa2, 0xfb, 0xc6, 0xc1, 0x9e, 0x22, 0x35, 0xa5, 0xdd, 0xaa, 0x1e, 0x2d,
+	0x50, 0x13, 0x6a, 0xc6, 0x70, 0x38, 0xb0, 0x4d, 0x23, 0xb0, 0x5d, 0x47, 0x91, 0xc3, 0x3d, 0x16,
+	0x84, 0x10, 0x2c, 0x04, 0xe3, 0x21, 0x56, 0x0a, 0xe1, 0x56, 0xf8, 0x8d, 0xea, 0x50, 0x78, 0x8d,
+	0xc7, 0xca, 0x42, 0x08, 0x22, 0x9f, 0xea, 0x2f, 0xe1, 0x6e, 0x8a, 0xa7, 0x3f, 0x74, 0x1d, 0x1f,
+	0xa3, 0x0f, 0xa0, 0x62, 0x51, 0x58, 0xc8, 0xb7, 0x76, 0xb0, 0xbe, 0x97, 0xba, 0xc3, 0xde, 0xe4,
+	0xc8, 0x04, 0x51, 0xfd, 0xaf, 0x0c, 0x95, 0x18, 0xfc, 0xed, 0x8a, 0x8d, 0x14, 0x28, 0xdf, 0x62,
+	0xcf, 0x27, 0x34, 0x8a, 0x4d, 0x69, 0xb7, 0xa0, 0xc7, 0x4b, 0xf4, 0x00, 0x96, 0x7d, 0xf3, 0x1a,
+	0xdf, 0x18, 0xbd, 0x18, 0xa1, 0x14, 0x1e, 0x5b, 0x8a, 0xa0, 0x9f, 0x51, 0xb4, 0x4d, 0xa8, 0x7a,
+	0xd8, 0xb0, 0x7a, 0xae, 0x33, 0x18, 0x2b, 0xe5, 0xa6, 0xb4, 0x5b, 0xd1, 0x2b, 0x04, 0x70, 0xe6,
+	0x0c, 0xc6, 0x44, 0xf6, 0xc0, 0x0e, 0x06, 0x58, 0xa9, 0x44, 0xb2, 0x87, 0x0b, 0xc2, 0xd3, 0xf4,
+	0xb0, 0x11, 0x60, 0x4b, 0xa9, 0x86, 0xf0, 0x78, 0x49, 0x76, 0x46, 0x43, 0x2b, 0xdc, 0x81, 0x68,
+	0x87, 0x2e, 0xd1, 0x36, 0x00, 0xfd, 0xec, 0x5d, 0x8e, 0x95, 0x5a, 0xb8, 0x59, 0xa5, 0x90, 0x67,
+	0x63, 0xf4, 0x18, 0xca, 0x43, 0x63, 0x3c, 0x70, 0x0d, 0x4b, 0x59, 0x0c, 0xb5, 0x7c, 0x67, 0x2f,
+	0x76, 0x89, 0x89, 0x7e, 0x63, 0x0c, 0x75, 0x04, 0x2b, 0x27, 0xb6, 0x3f, 0xb1, 0x95, 0x1f, 0x3b,
+	0x48, 0x46, 0xa7, 0x52, 0xbe, 0x4e, 0x65, 0x46, 0xa7, 0x0f, 0xe1, 0x3d, 0xdb, 0x31, 0x07, 0x23,
+	0x0b, 0xf7, 0x62, 0x11, 0x0a, 0xa1, 0x1a, 0x96, 0x29, 0xf8, 0x9c, 0xb2, 0x3d, 0x85, 0xd5, 0x0c,
+	0x5b, 0xea, 0x23, 0x1f, 0x42, 0x35, 0x36, 0xbd, 0xaf, 0x48, 0xcd, 0xc2, 0x34, 0x27, 0x49, 0x30,
+	0xd5, 0x7f, 0x4b, 0xb0, 0x7a, 0x11, 0x6a, 0xe0, 0x9d, 0x7a, 0xba, 0xc0, 0x31, 0x8a, 0x22, 0xc7,
+	0x60, 0x4c, 0x52, 0x9a, 0x69, 0x12, 0x05, 0xd6, 0xb2, 0x57, 0x89, 0x94, 0xa3, 0x8e, 0x60, 0xb5,
+	0x85, 0x07, 0xf8, 0x1d, 0x5f, 0x92, 0x08, 0x94, 0x65, 0x4b, 0x05, 0xfa, 0x9b, 0x04, 0x95, 0x73,
+	0xcf, 0x1d, 0x62, 0x2f, 0x18, 0xbf, 0xb5, 0x10, 0x94, 0x61, 0x21, 0xd1, 0xea, 0x0a, 0x14, 0x6f,
+	0x8d, 0xc1, 0x08, 0x53, 0x21, 0xa2, 0x05, 0x1b, 0x2a, 0xc5, 0xdc, 0x50, 0x29, 0xa5, 0x42, 0x45,
+	0x3d, 0x81, 0x95, 0x63, 0x1c, 0x50, 0x11, 0x6d, 0xfc, 0xd5, 0xdc, 0xfb, 0x35, 0x1e, 0xfb, 0x8a,
+	0xdc, 0x2c, 0x10, 0xd5, 0x90, 0x6f, 0xf5, 0x1c, 0x56, 0x33, 0xd4, 0xa8, 0xd7, 0x7e, 0x04, 0x30,
+	0x9c, 0x40, 0x73, 0xdc, 0x36, 0xd6, 0x93, 0xce, 0xa0, 0xaa, 0xaf, 0x60, 0x39, 0x86, 0x47, 0x36,
+	0x9f, 0x43, 0x32, 0xaa, 0x2f, 0x59, 0xa0, 0xaf, 0x02, 0xa3, 0x2f, 0xf5, 0x02, 0x56, 0x3a, 0xa2,
+	0xbb, 0x7f, 0x22, 0x10, 0x76, 0x3b, 0x47, 0xd8, 0x48, 0xa8, 0x94, 0xc8, 0xeb, 0xb0, 0xda, 0x11,
+	0x29, 0x41, 0x6d, 0x25, 0x77, 0x89, 0xdc, 0xe5, 0x6d, 0xee, 0xa2, 0x7e, 0x0e, 0xeb, 0xd1, 0xe9,
+	0xaf, 0x27, 0x78, 0x44, 0x23, 0x25, 0x78, 0x03, 0x14, 0x9e, 0x32, 0x95, 0xfd, 0x09, 0xdc, 0x3d,
+	0x77, 0x07, 0x03, 0xed, 0x16, 0x3b, 0xc1, 0x89, 0xdb, 0x8f, 0x39, 0x6e, 0x40, 0xc5, 0xb8, 0x0a,
+	0xb0, 0xd7, 0xb3, 0xad, 0x50, 0xfa, 0x82, 0x5e, 0x0e, 0xd7, 0x6d, 0x4b, 0xed, 0xc3, 0x4a, 0xfa,
+	0x04, 0x75, 0x85, 0x75, 0x28, 0x0f, 0x0c, 0x3f, 0x48, 0x4e, 0x94, 0xc8, 0xb2, 0x6d, 0xa1, 0x1f,
+	0x43, 0x19, 0x3b, 0x81, 0x47, 0x44, 0x97, 0x43, 0xd1, 0xb7, 0x32, 0xa2, 0xc7, 0xa4, 0x34, 0x27,
+	0xf0, 0xc6, 0x7a, 0x8c, 0xac, 0xfe, 0x4b, 0x86, 0xa5, 0xd4, 0x16, 0x5a, 0x06, 0x79, 0x42, 0x5d,
+	0xb6, 0xad, 0x24, 0xf0, 0x64, 0x36, 0xf0, 0x7e, 0xc4, 0xc4, 0xf6, 0xf2, 0x41, 0x73, 0x1a, 0xb3,
+	0xee, 0x78, 0x88, 0x69, 0xf4, 0xef, 0xc3, 0xc2, 0x6b, 0xdb, 0xb1, 0xc2, 0xc8, 0x5b, 0x3e, 0xd8,
+	0xcc, 0x9c, 0xd2, 0xb1, 0xef, 0x8e, 0x3c, 0x13, 0x3f, 0xb7, 0x1d, 0x4b, 0x0f, 0x11, 0xb3, 0x36,
+	0x2e, 0xf2, 0x36, 0xbe, 0x0f, 0x4b, 0x71, 0xa2, 0xee, 0x85, 0x12, 0x45, 0x31, 0xba, 0x18, 0x03,
+	0xbb, 0x4c, 0xd6, 0x29, 0x0b, 0x5f, 0xe3, 0x4a, 0xfa, 0x35, 0x4e, 0xbf, 0x7f, 0xd5, 0xec, 0xfb,
+	0xc7, 0xe4, 0x09, 0x48, 0xe5, 0x09, 0xf5, 0x4b, 0x19, 0xd0, 0xf9, 0xc8, 0xbf, 0x7e, 0x81, 0x7d,
+	0xdf, 0xe8, 0xe3, 0xd8, 0xca, 0x71, 0x16, 0x94, 0x98, 0x2c, 0xb8, 0x45, 0x9e, 0x72, 0xd3, 0x1e,
+	0xda, 0xa4, 0x58, 0x89, 0xf4, 0x9a, 0x00, 0x88, 0x5f, 0x58, 0xae, 0xd9, 0x1b, 0x8d, 0x6c, 0x8b,
+	0xc6, 0x5c, 0xd9, 0x72, 0xcd, 0x8b, 0x91, 0x6d, 0xc5, 0x5b, 0x21, 0xc1, 0x85, 0xc9, 0x56, 0x78,
+	0xc7, 0x4f, 0x93, 0x57, 0xa0, 0x18, 0x7a, 0xc0, 0x5e, 0xd6, 0x79, 0x39, 0xd9, 0xf6, 0xe8, 0x83,
+	0x49, 0x7d, 0x82, 0x1e, 0x6f, 0x7c, 0x0c, 0x8b, 0xec, 0x46, 0xac, 0x3d, 0x49, 0x90, 0x12, 0x64,
+	0x26, 0x25, 0x7c, 0x2c, 0xff, 0x44, 0x52, 0x57, 0xe1, 0x6e, 0x8a, 0x0f, 0x8d, 0x00, 0x0b, 0xd6,
+	0x09, 0xb8, 0xed, 0x5c, 0xba, 0xbf, 0xcb, 0xe8, 0x27, 0xa5, 0x0b, 0x29, 0xab, 0x0b, 0xe6, 0x6d,
+	0x93, 0x67, 0xbe, 0x6d, 0x0d, 0x50, 0x78, 0x2e, 0xe9, 0x18, 0xa4, 0x60, 0x7f, 0x8e, 0x18, 0x34,
+	0xa3, 0x18, 0x4c, 0x4e, 0xcc, 0x8a, 0xc1, 0x03, 0xa8, 0xdc, 0x50, 0x64, 0x1a, 0x84, 0x6b, 0x19,
+	0x13, 0xc4, 0x42, 0x4d, 0xf0, 0xd4, 0x7f, 0xc8, 0x50, 0xa6, 0x50, 0x2e, 0xf2, 0x44, 0x35, 0x10,
+	0xe3, 0x7e, 0x85, 0xf4, 0x33, 0xb5, 0x0d, 0x40, 0x3f, 0x89, 0xdf, 0x46, 0xce, 0x51, 0xa5, 0x90,
+	0x67, 0xe3, 0xb4, 0x9a, 0x8b, 0xd3, 0x5c, 0xae, 0x94, 0xef, 0x72, 0xe5, 0xb4, 0xcb, 0x7d, 0x92,
+	0x18, 0xa7, 0x12, 0xde, 0xf7, 0xbe, 0xf8, 0xbe, 0xdf, 0x82, 0x9f, 0x7d, 0x08, 0x0a, 0x31, 0x0e,
+	0x6b, 0xea, 0x79, 0x6c, 0x7a, 0x03, 0x1b, 0x82, 0x63, 0xb3, 0x0c, 0xfb, 0x11, 0x67, 0xd8, 0x6c,
+	0xea, 0x4a, 0xb9, 0x5c, 0x62, 0xdd, 0xff, 0x48, 0xb0, 0xc8, 0x6e, 0xcd, 0x70, 0xf6, 0xc8, 0x01,
+	0xe4, 0x89, 0x03, 0xbc, 0xb5, 0xb1, 0x99, 0x92, 0xa5, 0x98, 0xae, 0xee, 0xd7, 0xa1, 0x6c, 0xfb,
+	0x3d, 0xd2, 0x36, 0x84, 0x76, 0xae, 0xe8, 0x25, 0xdb, 0xd7, 0xb1, 0x61, 0xb1, 0x81, 0x56, 0x9e,
+	0x19, 0x68, 0xcf, 0x41, 0x21, 0x05, 0xb6, 0x50, 0xfb, 0x9b, 0x50, 0xbd, 0xc4, 0x57, 0xae, 0x87,
+	0x13, 0x3d, 0x56, 0x22, 0x40, 0x3b, 0x74, 0x69, 0xdf, 0xfe, 0x3d, 0xa6, 0x77, 0x0c, 0xbf, 0xd5,
+	0x3f, 0x4b, 0xb0, 0x21, 0xa0, 0x46, 0x8d, 0xb2, 0x09, 0xd5, 0x81, 0x11, 0x60, 0xd6, 0x2c, 0x95,
+	0x08, 0xd0, 0xb6, 0xd0, 0x0e, 0xd4, 0xb0, 0xe1, 0x0d, 0x6c, 0xba, 0x1d, 0x51, 0x85, 0x18, 0x94,
+	0xb1, 0x5c, 0xe1, 0xab, 0x58, 0xae, 0x05, 0x1b, 0x51, 0x75, 0x22, 0x4a, 0x59, 0xd9, 0x40, 0x65,
+	0x94, 0x2a, 0xb3, 0x4a, 0x55, 0xb7, 0xa0, 0x21, 0xa2, 0x42, 0x53, 0xd2, 0x63, 0xd8, 0x88, 0x4a,
+	0x86, 0x39, 0x78, 0x10, 0x52, 0x22, 0x64, 0x4a, 0xea, 0x4f, 0x12, 0xac, 0x1d, 0xb9, 0xce, 0x95,
+	0xdd, 0x3f, 0xc6, 0x0e, 0xf6, 0xc2, 0xa7, 0xb1, 0x13, 0x36, 0x09, 0x44, 0xe5, 0x8e, 0x71, 0x33,
+	0x79, 0x7f, 0xc8, 0x37, 0xfb, 0xfa, 0x45, 0x91, 0x35, 0x79, 0xfd, 0x88, 0x81, 0x86, 0xd8, 0x8c,
+	0x6b, 0x76, 0xf2, 0x8d, 0x9e, 0x40, 0x71, 0x44, 0xb8, 0xd1, 0x67, 0xbb, 0x91, 0xd1, 0x60, 0xc4,
+	0xe7, 0x22, 0x94, 0x27, 0x42, 0x24, 0x7e, 0x5f, 0xcf, 0x8a, 0xc3, 0x69, 0xad, 0x09, 0x35, 0x0b,
+	0xfb, 0xa6, 0x67, 0x0f, 0xd9, 0xda, 0x9d, 0x01, 0xa1, 0x35, 0x28, 0x19, 0x66, 0x60, 0xdf, 0x62,
+	0xda, 0xe7, 0xd1, 0x15, 0x1b, 0x17, 0x0b, 0xe9, 0xb8, 0xd8, 0x82, 0x6a, 0x88, 0xc3, 0xb8, 0x7e,
+	0x02, 0x40, 0x4f, 0xa1, 0x1c, 0x75, 0x4e, 0xbe, 0x52, 0x0a, 0x9d, 0xe1, 0x41, 0xe6, 0x2a, 0x62,
+	0x15, 0xea, 0xf1, 0x29, 0xf5, 0xef, 0x12, 0xec, 0xe8, 0xb8, 0x6f, 0xfb, 0x01, 0xf6, 0xb2, 0xb8,
+	0x4c, 0xf1, 0xcf, 0x5e, 0x4b, 0xe2, 0xaf, 0xc5, 0x88, 0x21, 0xbf, 0x8d, 0x18, 0xa8, 0x01, 0x95,
+	0xf8, 0x52, 0x54, 0x33, 0x93, 0xb5, 0x6a, 0x42, 0x33, 0x5f, 0x42, 0x1a, 0x53, 0x4f, 0x01, 0xfa,
+	0x13, 0x28, 0x1d, 0x96, 0xec, 0xcc, 0x90, 0x41, 0x67, 0x8e, 0xa8, 0x3f, 0x84, 0x9d, 0x43, 0xca,
+	0x30, 0x4f, 0x0d, 0x59, 0xff, 0x35, 0xa1, 0x99, 0x7f, 0xe4, 0x9b, 0x92, 0xeb, 0x8f, 0x12, 0x34,
+	0x8f, 0x71, 0x10, 0x32, 0xca, 0x95, 0xec, 0x1e, 0x2c, 0xbe, 0x31, 0xec, 0xa0, 0xe7, 0x63, 0xd3,
+	0x75, 0x2c, 0x9f, 0xca, 0x58, 0x23, 0xb0, 0x4e, 0x04, 0x22, 0x2f, 0xc8, 0x6b, 0xc7, 0x7d, 0xe3,
+	0x24, 0x49, 0xa5, 0x1c, 0xae, 0xdb, 0x16, 0x39, 0xed, 0x3a, 0x83, 0x71, 0xcf, 0xbc, 0x36, 0x9c,
+	0x3e, 0x8e, 0x27, 0x10, 0x35, 0x02, 0x3b, 0x8a, 0x40, 0xea, 0x97, 0x12, 0xdc, 0x9b, 0x22, 0xc5,
+	0x37, 0x74, 0x59, 0xe2, 0xeb, 0x23, 0x27, 0x16, 0x23, 0xca, 0x3b, 0x09, 0x40, 0xed, 0xc0, 0x16,
+	0x49, 0xaa, 0x59, 0x0a, 0x93, 0x34, 0xbd, 0x06, 0xa5, 0x28, 0x2b, 0xc7, 0x6f, 0x5d, 0xb4, 0x22,
+	0xf9, 0x76, 0x68, 0xf4, 0x71, 0x8f, 0x49, 0xd3, 0x15, 0x02, 0xe8, 0x90, 0x54, 0x7d, 0x09, 0xdb,
+	0x39, 0x44, 0xe9, 0xa5, 0x0e, 0xa1, 0x96, 0x48, 0x18, 0x77, 0x51, 0x33, 0x6f, 0xc5, 0x9e, 0x51,
+	0x7f, 0x0e, 0xf5, 0x63, 0x1c, 0x50, 0x97, 0x4f, 0x6a, 0xe8, 0xf9, 0x73, 0x98, 0xea, 0xc3, 0x1d,
+	0x86, 0x02, 0x95, 0x8c, 0x41, 0x97, 0xc4, 0x29, 0x4f, 0x16, 0xa5, 0xbc, 0xc2, 0xbc, 0x29, 0xef,
+	0x29, 0xd4, 0x5a, 0x78, 0xe8, 0x61, 0xda, 0x96, 0xac, 0x40, 0x71, 0x60, 0x5c, 0xe2, 0x41, 0x3c,
+	0xae, 0x08, 0x17, 0x24, 0x70, 0xb1, 0x73, 0xe5, 0x7a, 0xe6, 0xc4, 0x62, 0x93, 0xb5, 0xaa, 0xc0,
+	0xda, 0x31, 0x0e, 0x18, 0x1a, 0xb1, 0xa9, 0xd4, 0x97, 0xb0, 0xce, 0xed, 0xd0, 0x5b, 0xfd, 0x0c,
+	0x16, 0x2d, 0x06, 0x4e, 0x15, 0x9e, 0x15, 0x97, 0x39, 0xaa, 0xa7, 0xf0, 0xd5, 0xcf, 0x41, 0xa1,
+	0xd3, 0x20, 0x06, 0x85, 0x2a, 0xfd, 0xa7, 0x24, 0x91, 0x4d, 0xa0, 0xd4, 0x43, 0xa7, 0x91, 0x66,
+	0xd1, 0xd5, 0xcd, 0xf8, 0x01, 0x4d, 0x51, 0x8e, 0xc4, 0x7e, 0x34, 0x80, 0x3b, 0x5c, 0x8b, 0x88,
+	0x76, 0x60, 0x53, 0xfb, 0x4c, 0x3b, 0xed, 0xf6, 0x4e, 0xce, 0x8e, 0x7b, 0xda, 0x69, 0x57, 0x7f,
+	0xd9, 0xbb, 0x38, 0xed, 0x9c, 0x6b, 0x47, 0xed, 0x5f, 0xb4, 0xb5, 0x56, 0xfd, 0x3b, 0xa8, 0x01,
+	0x6b, 0x1c, 0xc2, 0x79, 0xeb, 0xb0, 0xab, 0xd5, 0x25, 0xd1, 0x5e, 0x4b, 0x3b, 0xd1, 0xba, 0x5a,
+	0x5d, 0x7e, 0x84, 0x61, 0x91, 0x6d, 0x2d, 0xd1, 0x36, 0x6c, 0xe8, 0x5a, 0xe7, 0xec, 0x42, 0x3f,
+	0xd2, 0x7a, 0xcf, 0xdb, 0xa7, 0x2d, 0x9e, 0x4d, 0x7a, 0xbb, 0x75, 0x76, 0x74, 0xf1, 0x42, 0x3b,
+	0xed, 0x46, 0x6c, 0xd2, 0x7b, 0xe7, 0xfa, 0xd9, 0xb9, 0xa6, 0x77, 0x5f, 0xd6, 0xe5, 0x47, 0x7f,
+	0x95, 0xa0, 0xc6, 0x38, 0x06, 0xda, 0x02, 0xa5, 0x73, 0xf4, 0xa9, 0xf6, 0xe2, 0xb0, 0x77, 0xd1,
+	0x39, 0x3c, 0xd6, 0x78, 0x2e, 0xa9, 0x5d, 0xad, 0xd5, 0xee, 0x9e, 0xe9, 0xed, 0xc3, 0x93, 0xba,
+	0x44, 0x04, 0x4c, 0xed, 0xb5, 0xda, 0x9d, 0xae, 0xde, 0x7e, 0x76, 0xd1, 0x6d, 0x9f, 0x9d, 0xd6,
+	0x65, 0xb4, 0x01, 0xab, 0xa9, 0xed, 0x8e, 0xd6, 0xed, 0xb6, 0x4f, 0x8f, 0x3b, 0xf5, 0x02, 0xb7,
+	0xf5, 0x42, 0xeb, 0x90, 0xdf, 0x4e, 0x7d, 0xe1, 0xe0, 0x7f, 0x45, 0xa8, 0x74, 0x70, 0x10, 0xd8,
+	0x4e, 0xdf, 0x47, 0x5d, 0xa8, 0x31, 0x33, 0x74, 0x74, 0x2f, 0x63, 0x55, 0x7e, 0xa6, 0xdf, 0x50,
+	0xa7, 0xa1, 0x50, 0x6f, 0x7c, 0x05, 0x4b, 0xa9, 0xb9, 0x2b, 0xca, 0xf6, 0x03, 0xa2, 0x61, 0x70,
+	0xe3, 0xbb, 0xd3, 0x91, 0x28, 0xed, 0x5f, 0xc3, 0x72, 0x7a, 0x6e, 0x89, 0xb2, 0xe7, 0x84, 0x13,
+	0xda, 0xc6, 0x83, 0x19, 0x58, 0x09, 0xf9, 0xf4, 0x14, 0x92, 0x23, 0x2f, 0x9c, 0x8d, 0x72, 0xe4,
+	0xc5, 0xa3, 0x4c, 0xa2, 0x99, 0xd4, 0x6c, 0x8f, 0xd3, 0x8c, 0x68, 0x8e, 0xc8, 0x69, 0x46, 0x3c,
+	0x1e, 0x7c, 0x05, 0x4b, 0x9d, 0xa9, 0xb4, 0x3b, 0xf3, 0xd0, 0x16, 0x4e, 0xdd, 0x90, 0x09, 0xf5,
+	0xec, 0x54, 0x0b, 0xbd, 0x2f, 0xbc, 0x32, 0xcf, 0xe1, 0xe1, 0x4c, 0x3c, 0xca, 0xe4, 0x57, 0xb0,
+	0xc8, 0x0e, 0xbb, 0x50, 0xd6, 0xd5, 0x04, 0xb3, 0xb3, 0xc6, 0xfd, 0xa9, 0x38, 0x11, 0xe1, 0x83,
+	0x7f, 0x16, 0xa1, 0x12, 0x37, 0x14, 0xc4, 0xe5, 0x99, 0xc9, 0x04, 0xe7, 0xf2, 0xfc, 0x74, 0x84,
+	0x73, 0x79, 0xc1, 0x60, 0x83, 0x28, 0x28, 0x3b, 0x72, 0xe0, 0x14, 0x94, 0x33, 0xf9, 0xe0, 0x14,
+	0x94, 0x37, 0xbb, 0x88, 0x15, 0x34, 0xb9, 0x8a, 0x48, 0x41, 0x99, 0x36, 0x4c, 0xa8, 0x20, 0xae,
+	0xb9, 0xba, 0x82, 0x3b, 0x5c, 0x3b, 0x8c, 0x1e, 0x0a, 0x4e, 0x8a, 0x3a, 0xbd, 0xc6, 0xee, 0x6c,
+	0xc4, 0x84, 0x0f, 0xd7, 0xe1, 0x71, 0x7c, 0xf2, 0x3a, 0x4a, 0x8e, 0x4f, 0x7e, 0xb3, 0x68, 0x03,
+	0xe2, 0xfb, 0x2d, 0xb4, 0x2b, 0x4c, 0x01, 0x22, 0x8b, 0x7c, 0x6f, 0x0e, 0xcc, 0x84, 0x15, 0xdf,
+	0x8f, 0x71, 0xac, 0x72, 0xfb, 0x3b, 0x8e, 0x55, 0x7e, 0x73, 0x77, 0xf0, 0x97, 0x12, 0x2c, 0x45,
+	0x35, 0xd3, 0x88, 0x96, 0x7e, 0x5f, 0x80, 0x92, 0x57, 0xe4, 0xa3, 0x3d, 0x6e, 0xaa, 0x3a, 0xb5,
+	0x5f, 0x69, 0xec, 0xcf, 0x8d, 0x4f, 0x6f, 0xfe, 0x05, 0x28, 0x79, 0x95, 0x3c, 0xc7, 0x7c, 0x46,
+	0x97, 0xc0, 0x31, 0x9f, 0xd9, 0x22, 0xfc, 0x01, 0x36, 0x72, 0x4b, 0x6b, 0xb4, 0xcf, 0xe7, 0xcb,
+	0xa9, 0xad, 0x40, 0xe3, 0xc9, 0xfc, 0x07, 0x28, 0x7f, 0x2f, 0xfa, 0xd3, 0x22, 0x57, 0x01, 0xa3,
+	0xc7, 0x02, 0x27, 0xcd, 0x2b, 0xbe, 0x1b, 0xdf, 0x9f, 0x0f, 0x99, 0xf2, 0x3c, 0x85, 0xea, 0xa4,
+	0x9e, 0x45, 0x3b, 0xbc, 0xc8, 0xa9, 0x5a, 0xb9, 0xd1, 0xcc, 0x47, 0xa0, 0xf4, 0x7e, 0x03, 0xef,
+	0x65, 0xea, 0x49, 0xf4, 0x40, 0xf0, 0xba, 0xf3, 0x95, 0x68, 0xe3, 0xfd, 0x59, 0x68, 0x49, 0xbc,
+	0x73, 0xc5, 0x1f, 0x17, 0xef, 0x79, 0x85, 0x67, 0x63, 0x77, 0x36, 0x62, 0xc4, 0xe7, 0xd9, 0xfd,
+	0x57, 0xf7, 0xfa, 0x76, 0x70, 0x3d, 0xba, 0xdc, 0x33, 0xdd, 0x9b, 0xfd, 0x20, 0x30, 0x2e, 0xf7,
+	0xe3, 0xa3, 0x3f, 0x30, 0x86, 0xf6, 0x3e, 0x39, 0x7e, 0x59, 0x0a, 0xff, 0x55, 0xe1, 0x83, 0xff,
+	0x07, 0x00, 0x00, 0xff, 0xff, 0xb4, 0xa9, 0x17, 0x6c, 0xe6, 0x20, 0x00, 0x00,
 }
