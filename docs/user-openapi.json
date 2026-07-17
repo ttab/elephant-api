@@ -1,6 +1,76 @@
 {
   "components": {
     "schemas": {
+      "elephant.user.ActivateConfigGenerationRequest": {
+        "properties": {
+          "id": {
+            "description": "ID of the generation to activate.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.ActivateConfigGenerationResponse": {
+        "properties": {
+          "generation": {
+            "$ref": "#/components/schemas/elephant.user.ConfigGeneration"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.ConfigGeneration": {
+        "properties": {
+          "activated": {
+            "description": "Activated is the RFC3339 timestamp of the last activation, or empty if the generation never has been activated.",
+            "type": "string"
+          },
+          "active": {
+            "description": "Active is true for the currently active generation.",
+            "type": "boolean"
+          },
+          "created": {
+            "description": "Created is the RFC3339 timestamp of registration.",
+            "type": "string"
+          },
+          "description": {
+            "description": "Description is an optional human-readable tag.",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID is assigned by the server on registration.",
+            "type": "integer"
+          },
+          "schemas": {
+            "description": "Schemas in the generation, in registration order. Specs are omitted in list responses.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.ConfigGenerationSchema"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.ConfigGenerationSchema": {
+        "description": "ConfigGenerationSchema references a schema included in a generation.",
+        "properties": {
+          "name": {
+            "description": "Name of the schema.",
+            "type": "string"
+          },
+          "spec": {
+            "description": "Spec is the JSON-encoded revisor constraint set. Optional when the (name, version) pair is already stored; when supplied for a stored schema it must match the stored spec.",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/elephant.user.SchemaUsage"
+          },
+          "version": {
+            "description": "Version of the schema.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.user.DeleteDocumentRequest": {
         "properties": {
           "application": {
@@ -49,6 +119,20 @@
         "type": "object"
       },
       "elephant.user.DeletePropertiesResponse": {
+        "type": "object"
+      },
+      "elephant.user.Deprecation": {
+        "description": "Deprecation is the enforcement status for a deprecation label used in schemas.",
+        "properties": {
+          "enforced": {
+            "description": "Enforced deprecations block writes that use the deprecated construct; unenforced deprecations are only logged and counted.",
+            "type": "boolean"
+          },
+          "label": {
+            "description": "Label identifying the deprecation.",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "elephant.user.Document": {
@@ -154,6 +238,50 @@
         ],
         "type": "string"
       },
+      "elephant.user.GetActiveConfigGenerationRequest": {
+        "properties": {
+          "known_id": {
+            "description": "KnownId is the generation ID the client already has; the call returns as soon as the active generation differs. Optional.",
+            "type": "integer"
+          },
+          "only_changed": {
+            "description": "OnlyChanged returns an empty response (with unchanged set to true) if the active generation still matches KnownId.",
+            "type": "boolean"
+          },
+          "wait_seconds": {
+            "description": "WaitSeconds is the maximum number of seconds to wait for the active generation to differ from KnownId. Clamped to a maximum of 10, defaults to 10. Optional.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.GetActiveConfigGenerationResponse": {
+        "properties": {
+          "generation": {
+            "$ref": "#/components/schemas/elephant.user.ConfigGeneration"
+          },
+          "unchanged": {
+            "description": "Unchanged is true if KnownId matched the active generation and OnlyChanged was set.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.GetDeprecationsRequest": {
+        "type": "object"
+      },
+      "elephant.user.GetDeprecationsResponse": {
+        "properties": {
+          "deprecations": {
+            "description": "Deprecations sorted by label.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.Deprecation"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "elephant.user.GetDocumentRequest": {
         "properties": {
           "application": {
@@ -210,6 +338,35 @@
         },
         "type": "object"
       },
+      "elephant.user.GetSchemaRequest": {
+        "properties": {
+          "name": {
+            "description": "Name of the schema.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version of the schema. When empty the version from the active generation is returned.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.GetSchemaResponse": {
+        "properties": {
+          "spec": {
+            "description": "Spec is the JSON-encoded revisor constraint set.",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/elephant.user.SchemaUsage"
+          },
+          "version": {
+            "description": "Version of the returned schema.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "elephant.user.InboxMessage": {
         "properties": {
           "created": {
@@ -238,6 +395,31 @@
           "updated": {
             "description": "Updated timestamp is the RFC3339 timestamp for when the message was last updated.",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.ListConfigGenerationsRequest": {
+        "properties": {
+          "before": {
+            "description": "Before is the highest generation ID to return; defaults to the latest. Use the smallest returned ID to paginate further into the past.",
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "PageSize defaults to 50, max 200.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.ListConfigGenerationsResponse": {
+        "properties": {
+          "generations": {
+            "description": "Generations sorted in descending order by ID (newest first). Schema specs are not populated.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.ConfigGeneration"
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -524,11 +706,50 @@
       "elephant.user.PushMessageResponse": {
         "type": "object"
       },
+      "elephant.user.RegisterConfigGenerationRequest": {
+        "properties": {
+          "activate": {
+            "description": "Activate the generation immediately.",
+            "type": "boolean"
+          },
+          "description": {
+            "description": "Description is an optional human-readable tag for the generation.",
+            "type": "string"
+          },
+          "schemas": {
+            "description": "Schemas the generation should contain. Order is preserved.",
+            "items": {
+              "$ref": "#/components/schemas/elephant.user.ConfigGenerationSchema"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.RegisterConfigGenerationResponse": {
+        "properties": {
+          "generation": {
+            "$ref": "#/components/schemas/elephant.user.ConfigGeneration"
+          }
+        },
+        "type": "object"
+      },
       "elephant.user.ResourceKind": {
         "enum": [
           "RESOURCE_KIND_UNSPECIFIED",
           "RESOURCE_KIND_DOCUMENT",
           "RESOURCE_KIND_PROPERTY"
+        ],
+        "type": "string"
+      },
+      "elephant.user.SchemaUsage": {
+        "description": "SchemaUsage declares what a schema is used for. The values mirror the ecosystem-wide schema usage categorisation; the user service only accepts SCHEMA_USAGE_SETTINGS and SCHEMA_USAGE_MESSAGES.",
+        "enum": [
+          "SCHEMA_USAGE_UNSPECIFIED",
+          "SCHEMA_USAGE_EDITORIAL",
+          "SCHEMA_USAGE_DISTRIBUTION",
+          "SCHEMA_USAGE_SETTINGS",
+          "SCHEMA_USAGE_MESSAGES"
         ],
         "type": "string"
       },
@@ -544,6 +765,17 @@
         "type": "object"
       },
       "elephant.user.SetPropertiesResponse": {
+        "type": "object"
+      },
+      "elephant.user.UpdateDeprecationRequest": {
+        "properties": {
+          "deprecation": {
+            "$ref": "#/components/schemas/elephant.user.Deprecation"
+          }
+        },
+        "type": "object"
+      },
+      "elephant.user.UpdateDeprecationResponse": {
         "type": "object"
       },
       "elephant.user.UpdateDocumentRequest": {
@@ -741,6 +973,272 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/twirp/elephant.user.Configuration/ActivateConfigGeneration": {
+      "post": {
+        "description": "Activates a registered config generation, deactivating the previously active generation.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.ActivateConfigGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.ActivateConfigGenerationResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ActivateConfigGeneration",
+        "tags": [
+          "Configuration"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Configuration/GetActiveConfigGeneration": {
+      "post": {
+        "description": "Gets the currently active config generation. Supports long-polling for generation changes.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.GetActiveConfigGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.GetActiveConfigGenerationResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetActiveConfigGeneration",
+        "tags": [
+          "Configuration"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Configuration/GetDeprecations": {
+      "post": {
+        "description": "Lists the deprecation statuses.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.GetDeprecationsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.GetDeprecationsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetDeprecations",
+        "tags": [
+          "Configuration"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Configuration/GetSchema": {
+      "post": {
+        "description": "Gets a stored schema.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.GetSchemaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.GetSchemaResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "GetSchema",
+        "tags": [
+          "Configuration"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Configuration/ListConfigGenerations": {
+      "post": {
+        "description": "Lists registered config generations, newest first.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.ListConfigGenerationsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.ListConfigGenerationsResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "ListConfigGenerations",
+        "tags": [
+          "Configuration"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Configuration/RegisterConfigGeneration": {
+      "post": {
+        "description": "Registers a new config generation. Registration is idempotent: a generation containing the same set of schemas returns the already registered generation (its description is left unchanged). If activate is set and the matched generation is inactive it will be activated.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.RegisterConfigGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.RegisterConfigGenerationResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "RegisterConfigGeneration",
+        "tags": [
+          "Configuration"
+        ]
+      }
+    },
+    "/twirp/elephant.user.Configuration/UpdateDeprecation": {
+      "post": {
+        "description": "Creates or updates a deprecation status.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/elephant.user.UpdateDeprecationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/elephant.user.UpdateDeprecationResponse"
+                }
+              }
+            },
+            "description": "Method response"
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "UpdateDeprecation",
+        "tags": [
+          "Configuration"
+        ]
+      }
+    },
     "/twirp/elephant.user.Messages/DeleteInboxMessage": {
       "post": {
         "description": "Deletes an inbox message.",
@@ -1327,6 +1825,10 @@
     },
     {
       "name": "Messages"
+    },
+    {
+      "description": "Configuration manages the revisor schemas that the user service validates settings documents and inbox messages against. Schemas are grouped into config generations that are registered and switched atomically.",
+      "name": "Configuration"
     }
   ]
 }
