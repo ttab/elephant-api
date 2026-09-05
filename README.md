@@ -162,8 +162,19 @@ and `<package>connect/service.connect.go` plus
 `<package>connect/service.elephant.go` (the Connect clients and handlers, and
 the adapters that put them on the plain interface).
 
-To change an API, edit its `service.proto`, run `mage rpc:generate`, and commit
-the proto together with the regenerated files.
+`protoc-gen-elephant-rpc`, the plugin that writes the `service.elephant.go`
+adapters, lives in `elephantine` and has no released version for `ttab/mage` to
+pin yet. Until it has one, `mage rpc:generate` skips it — refreshing the
+messages, the Connect code and the Twirp code while leaving the adapters as
+they were, with no error — unless `ELEPHANT_RPC_PLUGIN` points it at a checkout
+or a `module@version`:
+
+```bash
+ELEPHANT_RPC_PLUGIN=../elephantine mage rpc:generate
+```
+
+To change an API, edit its `service.proto`, regenerate, and commit the proto
+together with the regenerated files.
 
 ## Releasing
 
@@ -182,6 +193,11 @@ git push origin main && git push origin vX.Y.Z
 The only expected change from the release step is the `version` field in each
 `docs/*-openapi.json`. If anything else changes, a proto edit was left
 ungenerated.
+
+A release waits for `ttab/mage` to pin `protoc-gen-elephant-rpc`, which in turn
+waits for the elephantine release that ships it. Cutting a tag while the plugin
+is still driven by `ELEPHANT_RPC_PLUGIN` ships adapters that only one machine
+can reproduce.
 
 ## License
 

@@ -51,7 +51,10 @@ and `mage rpc:stub`, replacing the `twirp:` ones. `mage newsdoc` keeps its name
 and now regenerates every service afterwards, since a changed NewsDoc message
 changes the descriptors the services embed. The `go` directive moves to 1.26.5
 and `google.golang.org/protobuf` to v1.36.12, both required by the generator
-pin.
+pin. `protoc-gen-elephant-rpc`, which writes the adapters, has no release for
+`ttab/mage` to pin yet, so regenerating needs `ELEPHANT_RPC_PLUGIN` pointed at
+an elephantine checkout until it does — without it the adapters are silently
+left as they are. `README.md` says so, and a release waits for the pin.
 
 Changes:
 
