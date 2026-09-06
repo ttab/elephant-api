@@ -4,19 +4,18 @@ Protobuf API declarations for the Elephant platform. Each service is defined in
 a `service.proto` file and shipped with generated Go code for two protocols:
 [Connect](https://connectrpc.com/), which also serves gRPC and gRPC-Web, and
 [Twirp](https://github.com/twitchtv/twirp), which is what the platform served
-before Connect and is still served everywhere. An OpenAPI 3 specification per
-service documents the Twirp surface for non-Go consumers.
+before Connect and is still served everywhere.
 
 ## The APIs
 
-| API | Package | Description | Specs |
+| API | Package | Description | Declaration |
 | --- | --- | --- | --- |
-| **Repository** | `elephant.repository` | The core document store. Read, write, validate, lock, and delete documents; query the event log; manage statuses and workflows; configure schemas, document types, and metrics. | [proto](repository/service.proto) · [openapi](docs/repository-openapi.json) |
-| **Repository socket** | `elephant.repositorysocket` | WebSocket protocol for live document access — authenticate a connection, fetch and subscribe to sets of documents, and receive update/removal events as they happen. | [proto](repositorysocket/service.proto) · [openapi](docs/repositorysocket-openapi.json) |
-| **Index** | `elephant.index` | Search and index management. Query and multi-search indexed documents, inspect mappings, manage subscriptions, and administer search clusters and index sets (reindexing, status). | [proto](index/service.proto) · [openapi](docs/index-openapi.json) |
-| **Spell** | `elephant.spell` | Spelling and language tooling. Check text and get suggestions, manage custom dictionaries (words and phrases) and pattern-matching rules. | [proto](spell/service.proto) · [openapi](docs/spell-openapi.json) |
-| **Replicant** | `elephant.replicant` | Document replication between repository instances. Configure replication targets that follow a source repository's event log and replicate documents onward. | [proto](replicant/service.proto) · [openapi](docs/replicant-openapi.json) |
-| **User** | `elephant.user` | Per-user settings and messaging. Store user settings documents and key-value properties, and push/poll user and inbox messages. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) · [openapi](docs/user-openapi.json) |
+| **Repository** | `elephant.repository` | The core document store. Read, write, validate, lock, and delete documents; query the event log; manage statuses and workflows; configure schemas, document types, and metrics. | [proto](repository/service.proto) |
+| **Repository socket** | `elephant.repositorysocket` | WebSocket protocol for live document access — authenticate a connection, fetch and subscribe to sets of documents, and receive update/removal events as they happen. | [proto](repositorysocket/service.proto) |
+| **Index** | `elephant.index` | Search and index management. Query and multi-search indexed documents, inspect mappings, manage subscriptions, and administer search clusters and index sets (reindexing, status). | [proto](index/service.proto) |
+| **Spell** | `elephant.spell` | Spelling and language tooling. Check text and get suggestions, manage custom dictionaries (words and phrases) and pattern-matching rules. | [proto](spell/service.proto) |
+| **Replicant** | `elephant.replicant` | Document replication between repository instances. Configure replication targets that follow a source repository's event log and replicate documents onward. | [proto](replicant/service.proto) |
+| **User** | `elephant.user` | Per-user settings and messaging. Store user settings documents and key-value properties, and push/poll user and inbox messages. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) |
 
 The [`newsdoc`](newsdoc/newsdoc.proto) package carries the shared NewsDoc
 document model used across the services. It is generated from the
@@ -99,10 +98,10 @@ content type. Connect clients send a `Connect-Protocol-Version: 1` header, and
 `Connect-Timeout-Ms` sets a deadline; the servers do not require either, so a
 plain `curl` or `fetch` works.
 
-The OpenAPI 3 specs under [`docs/`](docs/) describe the Twirp paths and Twirp's
-error schema, and say nothing about the Connect surface. They list the
-production and staging server URLs (`https://<service>.api.tt.se` and
-`https://<service>.api.stage.tt.se`).
+The services are reachable at `https://<service>.api.tt.se` in production and
+`https://<service>.api.stage.tt.se` in staging. There is no OpenAPI
+specification: the `.proto` file is the declaration, and a non-Go consumer
+generates its client from it with its language's Connect or protobuf tooling.
 
 ### Errors
 
@@ -142,7 +141,7 @@ from `elephantine/rpc`.
 
 ## Working in this repo
 
-Protobuf, Connect, Twirp and OpenAPI artifacts are generated through
+The Protobuf, Connect and Twirp artifacts are generated through
 [mage](https://magefile.org/) targets from [`ttab/mage`](https://github.com/ttab/mage).
 The compiler is [buf](https://buf.build/) and every plugin is pinned there and
 run as `go run <module>@<version>` — there is no Docker image and nothing is
@@ -151,8 +150,7 @@ bumped. Run all targets from the repository root.
 
 | Target | Purpose |
 | --- | --- |
-| `mage rpc:generate` | Regenerate Go, Connect, Twirp, and OpenAPI artifacts for every service, using the most recent git tag as the version. |
-| `mage rpc:release <version>` | Same as generate, but stamps the given version into the OpenAPI specs. Used for releases. |
+| `mage rpc:generate` | Regenerate the Go, Connect and Twirp artifacts for every service. |
 | `mage rpc:stub <app> <service> <method>` | Scaffold a new service proto. |
 | `mage newsdoc` | Regenerate the NewsDoc proto and conversion code from the newsdoc module, then regenerate every service. |
 
@@ -178,21 +176,14 @@ together with the regenerated files.
 
 ## Releasing
 
-Releases are version bumps stamped into the OpenAPI specs and then tagged — the
-git tag is the source of truth for the version. From a clean tree on `main`, to
-cut `vX.Y.Z`:
+A release is a git tag and nothing else — there is no version file and nothing
+is stamped with the version. From a clean tree on `main`, with the generated
+files up to date (`mage rpc:generate` produces no diff), cut `vX.Y.Z`:
 
 ```bash
-mage rpc:release vX.Y.Z            # regenerate specs with the new version
-git add docs/*.json
-git commit -m "bump to vX.Y.Z"
 git tag vX.Y.Z
-git push origin main && git push origin vX.Y.Z
+git push origin vX.Y.Z
 ```
-
-The only expected change from the release step is the `version` field in each
-`docs/*-openapi.json`. If anything else changes, a proto edit was left
-ungenerated.
 
 A release waits for `ttab/mage` to pin `protoc-gen-elephant-rpc`, which in turn
 waits for the elephantine release that ships it. Cutting a tag while the plugin

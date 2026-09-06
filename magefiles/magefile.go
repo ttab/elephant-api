@@ -25,8 +25,7 @@ const newsdocProto = "newsdoc/newsdoc.proto"
 
 func init() {
 	// The services are dual stack: the /twirp/ paths are still served, so
-	// the Twirp code and the OpenAPI 3 specifications that describe those
-	// paths are generated alongside the Connect code.
+	// the Twirp code is generated alongside the Connect code.
 	rpc.Twirp = true
 }
 
