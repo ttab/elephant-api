@@ -6,6 +6,8 @@ a `service.proto` file and shipped with generated Go code for two protocols:
 [Twirp](https://github.com/twitchtv/twirp), which is what the platform served
 before Connect and is still served everywhere.
 
+Consuming the Go code needs Go 1.27 or later.
+
 ## The APIs
 
 | API | Package | Description | Declaration |

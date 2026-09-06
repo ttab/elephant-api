@@ -6,6 +6,15 @@ pull requests hold the detail.
 
 ## [v0.25.0] - Unreleased
 
+**Build:** the `go` directive moves from 1.25.7 to 1.27.1, so every module that
+imports this one needs a `go` directive of at least 1.27 and a toolchain that
+can build it. That is the whole fleet, and it reaches further than the Connect
+work does: a consumer that only wants the message types has to move its floor
+too, and CI that pins a Go version rather than reading `go.mod` has to be
+updated before the bump lands. `google.golang.org/protobuf` moves to v1.36.12,
+which is the runtime version the pinned `protoc-gen-go` names in the generated
+headers.
+
 **New protocol (Connect):** every service now ships Connect clients and
 handlers alongside the Twirp ones, in a `<package>connect` subpackage —
 `repository/repositoryconnect`, `index/indexconnect`, `spell/spellconnect`,
@@ -49,10 +58,8 @@ Docker image, so regenerating needs no Docker and installs nothing. The mage
 targets are renamed to match: `mage rpc:generate` and `mage rpc:stub`,
 replacing the `twirp:` ones. `mage newsdoc` keeps its name
 and now regenerates every service afterwards, since a changed NewsDoc message
-changes the descriptors the services embed. The `go` directive moves to 1.26.5
-and `google.golang.org/protobuf` to v1.36.12, both required by the generator
-pin. `protoc-gen-elephant-rpc`, which writes the adapters, is pinned by
-`ttab/mage` like the other generators.
+changes the descriptors the services embed. `protoc-gen-elephant-rpc`, which
+writes the adapters, is pinned by `ttab/mage` like the other generators.
 
 **Removed (OpenAPI):** the OpenAPI 3 specifications under `docs/` are gone.
 They described the Twirp paths and Twirp's error schema only, nobody generated
