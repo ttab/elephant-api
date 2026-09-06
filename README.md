@@ -2,9 +2,11 @@
 
 Protobuf API declarations for the Elephant platform. Each service is defined in
 a `service.proto` file and shipped with generated Go code for two protocols:
-[Connect](https://connectrpc.com/), which also serves gRPC and gRPC-Web, and
+[Connect](https://connectrpc.com/) and
 [Twirp](https://github.com/twitchtv/twirp), which is what the platform served
-before Connect and is still served everywhere.
+before Connect and is still served everywhere. A Connect mount also answers
+gRPC and gRPC-Web on the same paths, but only from inside the cluster — see
+[Other languages](#other-languages).
 
 Consuming the Go code needs Go 1.27 or later.
 
@@ -95,10 +97,29 @@ different paths:
 | Connect | `/elephant.repository.Documents/Get` | `application/json`, `application/proto` |
 | Twirp | `/twirp/elephant.repository.Documents/Get` | `application/json`, `application/protobuf` |
 
-Connect additionally serves gRPC and gRPC-Web on its own paths, selected by
-content type. Connect clients send a `Connect-Protocol-Version: 1` header, and
+Connect clients send a `Connect-Protocol-Version: 1` header, and
 `Connect-Timeout-Ms` sets a deadline; the servers do not require either, so a
 plain `curl` or `fetch` works.
+
+A Connect mount also answers gRPC and gRPC-Web on those same paths, selected by
+content type, but **that reach ends at the cluster**: the platform's ingress
+speaks HTTP/1.1 to its targets, so neither protocol is reachable from outside.
+They are a supported way for one service to call another inside the cluster,
+and nothing more. gRPC-Web is in particular not a browser protocol here — a
+browser client uses Connect, which is what `@connectrpc/connect-web` speaks by
+default.
+
+**A Connect JSON response spells its fields differently from a Twirp one.**
+Twirp marshals with `protojson` and `UseProtoNames: true`, so its responses
+carry the names the `.proto` declares — `{"document_uuid": "…"}`. Connect's
+codec is `protojson` with its default options, which spell the same fields in
+lowerCamelCase — `{"documentUuid": "…"}`. Nothing else about the encoding
+differs: both omit unpopulated fields, both render an enum as its name and a
+`google.protobuf.Timestamp` as an RFC 3339 string, and requests are unaffected
+because `protojson` unmarshalling accepts both spellings on both stacks. A
+hand-written JSON caller that changes only the path prefix therefore reads
+`undefined` for every multi-word field; the generated clients — Go,
+`@protobuf-ts`, `connect-es` — parse into the generated types and see nothing.
 
 The services are reachable at `https://<service>.api.tt.se` in production and
 `https://<service>.api.stage.tt.se` in staging. There is no OpenAPI
@@ -182,10 +203,22 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-Until the Connect work in elephantine and `ttab/mage` is tagged, the `ttab/mage`
-requirement is a pseudo-version of its feature branch and the plugin it pins is
-one of elephantine's. Cut a release of this module only once both are tags, so
-the generated code in the tag comes from released generators.
+Until the Connect work is released, the `ttab/mage` requirement here is a
+pseudo-version of its feature branch, and the `protoc-gen-elephant-rpc` version
+that `ttab/mage` pins is a pseudo-version of elephantine's. The two branches
+pin each other, so the order the shared repositories are tagged in is fixed and
+nothing may be tagged out of it:
+
+1. `ttab/mage`, with `ElephantRPCVersion` still a pseudo-version of
+   elephantine's branch. It has to go first, because elephantine's own
+   magefile imports `github.com/ttab/mage/rpc`.
+2. `elephantine`, which is what makes the plugin version a tag.
+3. `ttab/mage` again, with `ElephantRPCVersion` repointed at that tag.
+4. This module: bump `ttab/mage` to the second tag, regenerate, commit, tag.
+
+Cut a release of this module only once steps 1 to 3 are done, so the generated
+code in the tag comes from released generators rather than from a branch that
+can be force-pushed out from under it.
 
 ## License
 
