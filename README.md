@@ -203,22 +203,12 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-Until the Connect work is released, the `ttab/mage` requirement here is a
-pseudo-version of its feature branch, and the `protoc-gen-elephant-rpc` version
-that `ttab/mage` pins is a pseudo-version of elephantine's. The two branches
-pin each other, so the order the shared repositories are tagged in is fixed and
-nothing may be tagged out of it:
-
-1. `ttab/mage`, with `ElephantRPCVersion` still a pseudo-version of
-   elephantine's branch. It has to go first, because elephantine's own
-   magefile imports `github.com/ttab/mage/rpc`.
-2. `elephantine`, which is what makes the plugin version a tag.
-3. `ttab/mage` again, with `ElephantRPCVersion` repointed at that tag.
-4. This module: bump `ttab/mage` to the second tag, regenerate, commit, tag.
-
-Cut a release of this module only once steps 1 to 3 are done, so the generated
-code in the tag comes from released generators rather than from a branch that
-can be force-pushed out from under it.
+The generators this module is built with are released: `ttab/mage` v0.13.1
+runs buf and the plugins at pinned versions and pins `protoc-gen-elephant-rpc`
+to elephantine v0.29.0, so the generated code in a tag is reproducible from
+released code. Keep it that way: a `ttab/mage` requirement that is a
+pseudo-version of a branch is a reason not to tag, since the branch can be
+force-pushed out from under the tag.
 
 ## License
 
