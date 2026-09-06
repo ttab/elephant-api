@@ -161,15 +161,10 @@ and `<package>connect/service.connect.go` plus
 the adapters that put them on the plain interface).
 
 `protoc-gen-elephant-rpc`, the plugin that writes the `service.elephant.go`
-adapters, lives in `elephantine` and has no released version for `ttab/mage` to
-pin yet. Until it has one, `mage rpc:generate` skips it — refreshing the
-messages, the Connect code and the Twirp code while leaving the adapters as
-they were, with no error — unless `ELEPHANT_RPC_PLUGIN` points it at a checkout
-or a `module@version`:
-
-```bash
-ELEPHANT_RPC_PLUGIN=../elephantine mage rpc:generate
-```
+adapters, lives in `elephantine` and is pinned by `ttab/mage` like the other
+generators, so `mage rpc:generate` needs nothing else. To try a plugin change
+against this repository before it is pinned, point `ELEPHANT_RPC_PLUGIN` at an
+elephantine checkout.
 
 To change an API, edit its `service.proto`, regenerate, and commit the proto
 together with the regenerated files.
@@ -185,10 +180,10 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-A release waits for `ttab/mage` to pin `protoc-gen-elephant-rpc`, which in turn
-waits for the elephantine release that ships it. Cutting a tag while the plugin
-is still driven by `ELEPHANT_RPC_PLUGIN` ships adapters that only one machine
-can reproduce.
+Until the Connect work in elephantine and `ttab/mage` is tagged, the `ttab/mage`
+requirement is a pseudo-version of its feature branch and the plugin it pins is
+one of elephantine's. Cut a release of this module only once both are tags, so
+the generated code in the tag comes from released generators.
 
 ## License
 

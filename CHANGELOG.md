@@ -51,10 +51,8 @@ replacing the `twirp:` ones. `mage newsdoc` keeps its name
 and now regenerates every service afterwards, since a changed NewsDoc message
 changes the descriptors the services embed. The `go` directive moves to 1.26.5
 and `google.golang.org/protobuf` to v1.36.12, both required by the generator
-pin. `protoc-gen-elephant-rpc`, which writes the adapters, has no release for
-`ttab/mage` to pin yet, so regenerating needs `ELEPHANT_RPC_PLUGIN` pointed at
-an elephantine checkout until it does — without it the adapters are silently
-left as they are. `README.md` says so, and a release waits for the pin.
+pin. `protoc-gen-elephant-rpc`, which writes the adapters, is pinned by
+`ttab/mage` like the other generators.
 
 **Removed (OpenAPI):** the OpenAPI 3 specifications under `docs/` are gone.
 They described the Twirp paths and Twirp's error schema only, nobody generated
