@@ -66,7 +66,7 @@ path. The constructors, one pair per service:
 | `repository/repositoryconnect` | `Documents`, `Schemas`, `Workflows`, `Metrics` |
 | `index/indexconnect` | `Management`, `SearchV1` |
 | `spell/spellconnect` | `Check`, `Dictionaries`, `Rules` |
-| `user/userconnect` | `Settings`, `Messages` |
+| `user/userconnect` | `Settings`, `Messages`, `Configuration` |
 | `replicant/replicantconnect` | `Replication` |
 
 `New<Service>ServiceHandler(svc, opts...)` is the server side. It takes an

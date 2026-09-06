@@ -13,15 +13,17 @@ import (
 // one implements the plain service interface. A regeneration that renames or
 // drops an adapter fails to compile here.
 var (
-	_ user.Settings = userconnect.NewSettingsServiceClient(nil, "")
-	_ user.Messages = userconnect.NewMessagesServiceClient(nil, "")
+	_ user.Settings      = userconnect.NewSettingsServiceClient(nil, "")
+	_ user.Messages      = userconnect.NewMessagesServiceClient(nil, "")
+	_ user.Configuration = userconnect.NewConfigurationServiceClient(nil, "")
 )
 
 // The handler adapters take the plain implementation and return the mount
 // path together with the handler, which is the pair the API server registers.
 var (
-	_ func(user.Settings, ...connect.HandlerOption) (string, http.Handler) = userconnect.NewSettingsServiceHandler
-	_ func(user.Messages, ...connect.HandlerOption) (string, http.Handler) = userconnect.NewMessagesServiceHandler
+	_ func(user.Settings, ...connect.HandlerOption) (string, http.Handler)      = userconnect.NewSettingsServiceHandler
+	_ func(user.Messages, ...connect.HandlerOption) (string, http.Handler)      = userconnect.NewMessagesServiceHandler
+	_ func(user.Configuration, ...connect.HandlerOption) (string, http.Handler) = userconnect.NewConfigurationServiceHandler
 )
 
 // TestHandlerPaths pins the Connect mount paths. They carry no "/twirp"
@@ -42,6 +44,12 @@ func TestHandlerPaths(t *testing.T) {
 			Service: userconnect.MessagesName,
 			Handler: func() (string, http.Handler) {
 				return userconnect.NewMessagesServiceHandler(nil)
+			},
+		},
+		{
+			Service: userconnect.ConfigurationName,
+			Handler: func() (string, http.Handler) {
+				return userconnect.NewConfigurationServiceHandler(nil)
 			},
 		},
 	}
