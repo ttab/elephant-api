@@ -1,0 +1,3 @@
+The message types for the [Elephant repository](https://github.com/ttab/elephant-repository)'s websocket protocol: live document access over a single connection, with `Call` and `Response` framing the request and reply messages declared here.
+
+This is neither a Twirp nor a Connect API. It declares no RPC service and has no `/twirp/` or Connect paths; the messages travel over the websocket the repository serves at `/websocket/:token`, and the `Error` message's `error_code` uses the same code strings as the RPC APIs (`invalid_argument`, `unauthenticated`, `permission_denied`, `not_found`, `internal`, ...), so a client can share its error handling between the socket and the RPC calls.

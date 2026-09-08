@@ -1,0 +1,113 @@
+# Changelog
+
+Everything from v0.25.0 onwards is documented here; earlier releases are not
+reconstructed. The entries are derived from the release tags, and the linked
+pull requests hold the detail.
+
+## [v0.25.0] - Unreleased
+
+**Build:** the `go` directive moves from 1.25.7 to 1.27.1, so every module that
+imports this one needs a `go` directive of at least 1.27 and a toolchain that
+can build it. That is the whole fleet, and it reaches further than the Connect
+work does: a consumer that only wants the message types has to move its floor
+too, and CI that pins a Go version rather than reading `go.mod` has to be
+updated before the bump lands. `google.golang.org/protobuf` moves to v1.36.12,
+which is the runtime version the pinned `protoc-gen-go` names in the generated
+headers.
+
+**New protocol (Connect):** every service now ships Connect clients and
+handlers alongside the Twirp ones, in a `<package>connect` subpackage —
+`repository/repositoryconnect`, `index/indexconnect`, `spell/spellconnect`,
+`user/userconnect` and `replicant/replicantconnect`.
+`New<Service>ServiceClient(httpClient, baseURL)` returns the same plain service
+interface `New<Service>ProtobufClient` returns, so switching a Go client is one
+constructor call and nothing downstream changes;
+`New<Service>ServiceHandler(svc, opts...)` takes an implementation of that
+interface and returns the mount path and the handler. connect-go's own
+`New<Service>Client` and `New<Service>Handler`, which speak in
+`*connect.Request[T]`, are generated too — the `Service` infix is what tells the
+two apart. Nothing about the Twirp clients, the Twirp server interfaces or the
+`/twirp/` paths changed, and `elephant.repositorysocket` declares no service so
+it has no `…connect` package.
+
+The Connect paths are the standard `/<package>.<Service>/<Method>`, with no
+prefix: `POST /elephant.repository.Documents/Get` against
+`POST /twirp/elephant.repository.Documents/Get`. They do not overlap, so both
+protocols are served by one server. An ingress rule that routes on `/twirp/`
+needs a sibling rule before a service can serve Connect. This module only
+declares the API — whether an environment answers on the Connect paths is
+decided by each service's own release.
+
+A Connect mount answers gRPC and gRPC-Web on those same paths too, selected by
+content type, but only from inside the cluster: the platform's ingress speaks
+HTTP/1.1 to its targets, so neither protocol is externally reachable and
+neither is offered to customers. They are a supported way for one service to
+call another in the cluster. gRPC-Web is in particular not a browser protocol
+here — a browser client uses Connect.
+
+**Behaviour change (Connect JSON field names):** a Connect JSON response spells
+its fields in lowerCamelCase (`{"documentUuid": "…"}`) where a Twirp response
+spells them the way the `.proto` declares them (`{"document_uuid": "…"}`).
+Twirp marshals with `protojson` and `UseProtoNames: true`; Connect's codec is
+`protojson` with its default options, and the services deliberately do not
+install a codec that makes Connect look like Twirp, since every Connect runtime
+and proxy assumes the standard encoding. Nothing else about the encoding
+differs — both omit unpopulated fields, both render an enum as its name and a
+`google.protobuf.Timestamp` as an RFC 3339 string — and requests are
+unaffected, because `protojson` unmarshalling accepts both spellings on both
+stacks. This reaches a caller that reads JSON responses by hand, with `fetch`
+or `curl`: change the path prefix without changing the field names and every
+multi-word field reads `undefined`. The generated clients — Go, `@protobuf-ts`,
+`connect-es` — parse into the generated types and see no difference at all.
+
+**Behaviour change (Connect error bodies):** a Connect error body is
+`{"code":…,"message":…,"details":[…]}` where Twirp's is
+`{"code":…,"msg":…,"meta":{…}}`. Connect has no free-form meta map, so the
+key/value metadata — `lock_holder_sub`, `required_any_of_scopes`, `argument`
+and the rest — travels as an `elephantine.rpc.ErrorMeta` error detail, which Go
+callers read with `rpc.Meta(err)` from `elephantine/rpc` and other clients read
+with `findDetails`. The codes and the messages are identical on both stacks.
+The HTTP status is identical except for three codes: `canceled` is 499 rather
+than 408, `deadline_exceeded` is 504 rather than 408, and `failed_precondition`
+— which document locks and workflow rules return — is **400** where Twirp sends
+412. Anything keyed on 412 for a lock conflict has to read the code from the
+body instead.
+
+**Build change (generation):** the artifacts are generated with buf and
+plugins pinned in `ttab/mage`, not with protoc in the `elephant-twirptools`
+Docker image, so regenerating needs no Docker and installs nothing. The mage
+targets are renamed to match: `mage rpc:generate` and `mage rpc:stub`,
+replacing the `twirp:` ones. `mage newsdoc` keeps its name
+and now regenerates every service afterwards, since a changed NewsDoc message
+changes the descriptors the services embed. `protoc-gen-elephant-rpc`, which
+writes the adapters, is pinned by `ttab/mage` like the other generators, and
+`ttab/mage` also pins the Go toolchain it runs every generator under, so the
+committed output no longer depends on which Go version the machine that
+regenerated it happened to have. Generation needs network access: buf and the
+plugins are resolved as `go run <module>@<version>`, which queries the module
+proxy on every run even with a warm cache.
+
+**Removed (OpenAPI):** the OpenAPI 3 specifications under `docs/` are gone.
+They described the Twirp paths and Twirp's error schema only, nobody generated
+a client from them, and the generator that wrote them cannot run under buf. The
+`.proto` files are the declaration a non-Go consumer generates from. With
+nothing left to stamp a version into, a release is a plain git tag: there is no
+`rpc:release` target and no "bump to vX.Y.Z" commit any more.
+
+Changes:
+
+- The module requires `connectrpc.com/connect` v1.20.0, and that is the only
+  new dependency the generated code brings with it. It still does not depend on
+  `elephantine`: the generated code imports connect, the standard library and
+  the message packages, and the error helpers, header propagation and
+  interceptors live in `elephantine/rpc`.
+- The Go code is generated by protoc-gen-go v1.36.12 where the image pinned
+  v1.36.2, which rewrites every `.pb.go`: the embedded descriptor becomes a
+  string constant rather than a byte slice, `unsafe` is imported, and the header
+  records `protoc (unknown)` because buf reports no protoc version. The
+  `service.twirp.go` files change only in the gzip encoding of their descriptor
+  blob. The compiled descriptors themselves are byte-identical to the ones the
+  image produced, so no message, field or method changed.
+- Each `<package>connect` package has a test that asserts the adapters still
+  satisfy the plain service interfaces and still mount on the unprefixed paths,
+  so a regeneration that loses them fails rather than compiling.
