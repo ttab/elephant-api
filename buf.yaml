@@ -1,0 +1,59 @@
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+  # The declarations that predate buf's conventions, grandfathered file by
+  # file. Every rule applies to every file that is not listed here, so a new
+  # declaration gets the full STANDARD set. The list only ever shrinks:
+  # entries are removed when a file is brought into line, never added. None of
+  # these can be fixed in place — a package name and a service name are both in
+  # the Connect and Twirp paths, a message name is in the generated Go every
+  # consumer compiles against, and a field name is what Twirp's JSON emits — so
+  # correcting one is a new declaration, not a rename.
+  ignore_only:
+    ENUM_VALUE_PREFIX:
+      - index/service.proto
+      - repository/service.proto
+      - spell/service.proto
+      - user/service.proto
+    ENUM_ZERO_VALUE_SUFFIX:
+      - repository/service.proto
+    FIELD_LOWER_SNAKE_CASE:
+      - repository/service.proto
+    PACKAGE_DIRECTORY_MATCH:
+      - index/service.proto
+      - replicant/service.proto
+      - repository/service.proto
+      - repositorysocket/service.proto
+      - spell/service.proto
+      - user/service.proto
+    PACKAGE_VERSION_SUFFIX:
+      - index/service.proto
+      - newsdoc/newsdoc.proto
+      - replicant/service.proto
+      - repository/service.proto
+      - repositorysocket/service.proto
+      - spell/service.proto
+      - user/service.proto
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - repository/service.proto
+    RPC_REQUEST_STANDARD_NAME:
+      - index/service.proto
+      - repository/service.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - index/service.proto
+      - repository/service.proto
+    SERVICE_SUFFIX:
+      - index/service.proto
+      - replicant/service.proto
+      - repository/service.proto
+      - spell/service.proto
+      - user/service.proto
+breaking:
+  # FILE rather than WIRE_JSON: this repository publishes generated Go, so a
+  # rename that is wire-compatible still breaks every consumer that compiles
+  # against the package.
+  use:
+    - FILE
