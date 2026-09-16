@@ -3,7 +3,7 @@ module github.com/ttab/elephant-api
 go 1.27.1
 
 require (
-	connectrpc.com/connect v1.20.0
+	connectrpc.com/connect v1.21.0
 	github.com/magefile/mage v1.17.2
 	github.com/ttab/mage v0.15.0
 	github.com/ttab/newsdoc v1.1.0
