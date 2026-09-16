@@ -1,0 +1,38 @@
+name: Check protobuf declarations
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  proto:
+    name: Proto
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # rpc:breaking compares against the tip of main, and the default
+          # shallow checkout has no ref to compare with.
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Cheapest first, and a lint failure is the most local thing to read.
+      - name: Lint the declarations
+        run: go run github.com/magefile/mage rpc:lint
+
+      # Nothing else in CI regenerates, so a hand-edited service.pb.go would
+      # go unnoticed. Every generator runs as "go run <module>@<version>", so
+      # this needs the network even with a warm module cache.
+      - name: Check that the generated code is in step
+        run: |
+          go run github.com/magefile/mage rpc:generate
+          git diff --exit-code
+
+      # Last: a stale generated tree would make this result untrustworthy.
+      - name: Check for breaking changes
+        run: go run github.com/magefile/mage rpc:breaking
