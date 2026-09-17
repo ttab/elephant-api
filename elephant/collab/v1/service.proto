@@ -1,0 +1,1079 @@
+syntax = "proto3";
+
+package elephant.collab.v1;
+
+import "newsdoc/newsdoc.proto";
+
+option go_package = "github.com/ttab/elephant-api/elephant/collab/v1;collabv1";
+
+// CollaborationService is elephant-collab's API: the synchronous
+// control plane — snapshots, freeze management, inspection, and
+// administrative operations — plus Collaborate, the live editing
+// path for server-side clients.
+//
+// Live editing has two transports. Browsers speak the Hocuspocus
+// envelope over the WebSocket at GET /collab/socket; agents and
+// other server-side clients use the Collaborate bidi stream below.
+// Both are adapters over one connection implementation, so the two
+// differ in framing only.
+service CollaborationService {
+  // Collaborate is the live editing path: one stream carries any
+  // number of document subscriptions, keyed on the doc field of
+  // every message. It is the Connect counterpart of the WebSocket at
+  // GET /collab/socket and shares its implementation; the two differ
+  // only in framing and in how a connection-wide refusal is
+  // delivered (see CollaborateResponse.close).
+  //
+  // Requires HTTP/2. Auth: the bearer on the request opens the
+  // stream; per-document permission is resolved on Subscribe exactly
+  // as on the WebSocket (editors need w, observers r). The stream
+  // ends with unauthenticated when the bearer expires without an
+  // AuthRefresh, with resource_exhausted on the rate limit or the
+  // subscription cap, and with invalid_argument on an oversized
+  // payload; the structured reason is in the error metadata under
+  // "reason" and matches the collab_rejections_total vocabulary.
+  rpc Collaborate(stream CollaborateRequest) returns (stream CollaborateResponse);
+
+  // Snapshot materializes the live Y.Doc state for a document into
+  // a new published version in the repository. The collab service
+  // performs the Y.Doc → NewsDoc translation, runs Documents.Validate
+  // against the materialized document, and forwards the result to
+  // Documents.Update using the lock token from doc_lock_state.
+  //
+  // Returns FailedPrecondition with error metadata
+  //   freshness_violation_at: <RFC3339 timestamp>
+  //   server_state_vector: <base64>
+  // when if_state_vector_at_least is not dominated by the server's
+  // state vector at snapshot time.
+  rpc Snapshot(SnapshotRequest) returns (SnapshotResponse);
+
+  // BeginPublish takes the publish soft-stop: client updates for the
+  // doc are rejected with publish_in_progress until the soft-stop
+  // is resolved (consumed by a freezing Snapshot, dropped by
+  // CancelPublish, or expired by the worker). Awareness keeps
+  // flowing. Required precondition for a freezing Snapshot.
+  rpc BeginPublish(BeginPublishRequest) returns (BeginPublishResponse);
+
+  // CancelPublish drops an in-flight soft-stop owned by the caller.
+  // Returns OK whether or not a row existed; failing-closed on a
+  // mismatched owner is FailedPrecondition.
+  rpc CancelPublish(CancelPublishRequest) returns (CancelPublishResponse);
+
+  // InspectNamedDocument returns the current state of a named
+  // document, materialized as JSON by walking the Yjs tree
+  // (YMap → object, YArray → array, string → string). The state
+  // is materialized live (snapshot + stream replay).
+  //
+  // Auth: any authenticated caller may inspect a service-managed
+  // doc or their own user-scoped doc. Inspecting another user's
+  // user-scoped doc requires the doc_admin scope.
+  rpc InspectNamedDocument(InspectNamedDocumentRequest) returns (InspectNamedDocumentResponse);
+
+  // InspectDocument returns the current live collaborative state of a
+  // repository document, materialized as JSON by walking the Yjs tree
+  // (the same walk InspectNamedDocument uses). Unlike Snapshot, this
+  // is a read-only debugging view: it does NOT translate to a NewsDoc,
+  // write a version, or strip the application-private _collab key — it
+  // shows the raw Y.Doc the collab service is currently serving.
+  //
+  // The state is rebuilt live (per-session replay-cache snapshot +
+  // Redis stream tail), exactly as Snapshot rebuilds it. A repository
+  // doc only has collaborative state while a session holds it; when no
+  // session is active the response carries live=false and empty state
+  // rather than an error (read the canonical version from the
+  // repository in that case).
+  //
+  // Auth: collab_admin scope OR repository 'w' on doc_id — the same
+  // gate as GetCollaborativeStateSnapshot.
+  rpc InspectDocument(InspectDocumentRequest) returns (InspectDocumentResponse);
+
+  // ResetCollaborativeState force-evicts the current session for
+  // a doc and forces subscribers back to the canonical repository
+  // version. Used as an escape hatch when live Yjs state has
+  // diverged from a working state (frontend bug, corrupted update
+  // sequence) and clients can't recover normally. Data loss is the
+  // explicit price: anything in the live state that hasn't been
+  // materialized to a repository version is gone.
+  //
+  // Auth: 'w' permission on the doc (same gate as writing — anyone
+  // who can write is trusted to manage its session lifecycle).
+  //
+  // Fails with FailedPrecondition + error metadata when the doc is
+  // currently frozen; callers should redirect to unfreeze in that
+  // case. Idempotent: calling reset on a doc with no active session
+  // returns success with an empty aborted_session_id.
+  rpc ResetCollaborativeState(ResetCollaborativeStateRequest) returns (ResetCollaborativeStateResponse);
+
+  // Unfreeze clears the frozen_docs row for a doc (if any) and
+  // records an explicit_unfreeze_marks row attributed to the
+  // caller. The mark is what prevents the subscribe-time
+  // auto-freeze (see freeze_on_workflow_states on subscribe) from
+  // immediately re-freezing the doc on the next subscribe.
+  //
+  // Idempotent: calling Unfreeze on a doc that isn't frozen still
+  // upserts the unfreeze mark — preemptive unfreeze is the migration
+  // UX (the user clicks "open for collaborative editing" before any
+  // subscribe has triggered the auto-freeze gate).
+  //
+  // Auth: 'w' permission on the doc (anyone trusted to write is
+  // trusted to gate collaborative-editing access).
+  rpc Unfreeze(UnfreezeRequest) returns (UnfreezeResponse);
+
+  // ListCollaborativeSessions returns metadata for the
+  // collaborative sessions on a doc, newest first. Paginated.
+  // Includes closed, active, and purged sessions; purged sessions
+  // carry tombstone fields with content-bearing fields nulled.
+  //
+  // Auth: collab_admin scope OR repository `w` on doc_id (the
+  // same gate Subscribe uses — "if you can participate, you can
+  // see what happened in past sessions on this doc").
+  rpc ListCollaborativeSessions(ListCollaborativeSessionsRequest) returns (ListCollaborativeSessionsResponse);
+
+  // GetCollaborativeSession returns the full metadata for a single
+  // session by ID: the session row plus the repository versions
+  // created during it and the participants who joined.
+  //
+  // Auth: collab_admin scope OR repository `w` on the session's
+  // doc_id. The session row is resolved before the auth check;
+  // unknown session_id returns NotFound to any authenticated caller.
+  rpc GetCollaborativeSession(GetCollaborativeSessionRequest) returns (GetCollaborativeSessionResponse);
+
+  // ListActiveCollaborativeSessions returns currently-active
+  // sessions (closed_at IS NULL). Optional doc_id narrows the
+  // result to a single doc.
+  //
+  // Auth: with doc_id, collab_admin scope OR repository `w` on
+  // doc_id. Without doc_id (fleet-wide listing) collab_admin is
+  // required — there's no per-doc anchor for the replay-aligned
+  // check.
+  rpc ListActiveCollaborativeSessions(ListActiveCollaborativeSessionsRequest) returns (ListActiveCollaborativeSessionsResponse);
+
+  // GetCollaborativeStateSnapshot returns a union of "everything the
+  // collab service currently knows about doc X" — the doc's active
+  // session if any, frozen-doc state, explicit unfreeze mark,
+  // pending-publish soft-stop, Redis stream metadata, and recent
+  // archive chunk info.
+  //
+  // Read-only and lock-free; the response is a moment-in-time view
+  // that may be inconsistent in the strict sense (e.g. the active
+  // session might have evicted between two reads), which is fine
+  // for debugging use.
+  //
+  // Works on any doc kind. For named docs the frozen, unfreeze, and
+  // pending_publish fields are always null.
+  //
+  // Auth: repository-backed doc_id — collab_admin scope OR
+  // repository `w` on doc_id. Named-doc IDs (__presence__,
+  // __user:…) require collab_admin since they don't route through
+  // a repository ACL.
+  rpc GetCollaborativeStateSnapshot(GetCollaborativeStateSnapshotRequest) returns (GetCollaborativeStateSnapshotResponse);
+
+  // PurgeCollaborativeSession permanently deletes the S3 content
+  // (manifest.json, updates/*.bin, closed.json) for a single
+  // collaborative session and tombstones the corresponding Postgres
+  // row. A tombstone.json is written to S3 in place of the deleted
+  // artifacts so future audit queries can distinguish "this session
+  // never existed" from "this session was purged on date Y."
+  //
+  // Destructive and irreversible. The repository's document
+  // versions are NOT touched — the caller is responsible for any
+  // upstream deletion if the legal request requires it.
+  //
+  // Auth: data_purge scope (separate from collab_admin since
+  // destruction shouldn't be bundled with read access).
+  rpc PurgeCollaborativeSession(PurgeCollaborativeSessionRequest) returns (PurgeCollaborativeSessionResponse);
+
+  // PurgeDocumentSessions purges every collaborative session for a
+  // single document. Same semantics as PurgeCollaborativeSession,
+  // applied in a loop. Returns the count of sessions actually
+  // purged.
+  //
+  // Auth: data_purge scope.
+  rpc PurgeDocumentSessions(PurgeDocumentSessionsRequest) returns (PurgeDocumentSessionsResponse);
+
+  // GetSessionUpdates returns a page of the session's archived
+  // update log. Each record carries the raw Yjs update bytes plus
+  // origination metadata; decoding the update body is the caller's
+  // problem (callers may want "render a diff" or "feed to a Yjs
+  // replay tool" and a bake-in decode policy would be wrong here).
+  //
+  // For an active session, returns updates up to the most recent
+  // archive checkpoint; updates that have arrived at the collab
+  // service but not yet flushed to S3 are not visible. For a purged
+  // session, returns an empty result with purged=true.
+  //
+  // Auth: collab_admin scope OR repository `w` on the session's
+  // doc_id (resolved by loading the session row before the auth
+  // check).
+  rpc GetSessionUpdates(GetSessionUpdatesRequest) returns (GetSessionUpdatesResponse);
+
+  // StreamSessionUpdates streams the session's archived update log
+  // from the caller's cursor to the most recent archive checkpoint,
+  // and then ends: the records GetSessionUpdates pages through,
+  // without the pages. It does not follow a live session past the
+  // checkpoint.
+  //
+  // A purged session yields a single message with purged=true and no
+  // record. Every refusal — authorization, the arguments, a
+  // time-anchored cursor that would scan past the chunk ceiling —
+  // comes before the first message, so it is the call's status. Once
+  // records are flowing the stream ends with unauthenticated when the
+  // caller's token expires and with unavailable when the serving pod
+  // shuts down; either way the client resumes with after_redis_id set
+  // to the last redis_id it received.
+  //
+  // Auth: collab_admin scope OR repository `w` on the session's
+  // doc_id, the same gate as GetSessionUpdates.
+  rpc StreamSessionUpdates(StreamSessionUpdatesRequest) returns (stream StreamSessionUpdatesResponse);
+
+  // CreateSketch creates a new document sketch: a collaborative
+  // document that exists before its underlying repository document
+  // does. The caller may supply a UUID on the starting document
+  // (taken as-is after the repository conflict check) or leave it
+  // empty (the service generates a v4 UUID). The repository must
+  // not already have a doc with the resolved UUID; collisions are
+  // rejected with AlreadyExists.
+  //
+  // Auth: doc_write scope (mirrors the repository's create gate).
+  rpc CreateSketch(CreateSketchRequest) returns (CreateSketchResponse);
+
+  // UpdateSketchACL replaces the sketch's ACL in full. `w` gates
+  // editing (editor subscribe, forward, edit ACL, discard); `r`
+  // grants observer subscribe, and is also carried over when the
+  // sketch
+  // is promoted to a repository document.
+  //
+  // Auth: `w` on the sketch's current ACL.
+  rpc UpdateSketchACL(UpdateSketchACLRequest) returns (UpdateSketchACLResponse);
+
+  // DiscardSketch abandons a sketch: closes any active session,
+  // drops the Redis stream, deletes the sketch row. Idempotent on
+  // a missing sketch (returns success).
+  //
+  // Auth: `w` on the sketch's ACL.
+  rpc DiscardSketch(DiscardSketchRequest) returns (DiscardSketchResponse);
+
+  // ListSketches returns summaries of sketches the caller has
+  // access to. By default returns sketches the caller owns; with
+  // `shared=true` returns sketches the caller has been granted
+  // `w` on by someone else.
+  //
+  // Auth: authenticated; results are ACL-filtered server-side.
+  rpc ListSketches(ListSketchesRequest) returns (ListSketchesResponse);
+
+  // BulkSnapshot mirrors the repository's BulkUpdate: a list of
+  // SnapshotRequests forwarded as a single repository.BulkUpdate
+  // for atomic multi-document semantics. Mixed bulks (sketches +
+  // repo docs in the same call) are supported; each entry is
+  // classified independently by the collab service. Freezing is not
+  // supported in a bulk: an entry with freeze=true is rejected with
+  // InvalidArgument.
+  rpc BulkSnapshot(BulkSnapshotRequest) returns (BulkSnapshotResponse);
+
+  // GetSessionVersionAnchors returns the (version, redis_id,
+  // received_at) anchors for the repository versions produced during
+  // a session. Used by the replay UI to mark "we are now at version
+  // N" as the user scrubs through the session's update stream.
+  //
+  // Auth: collab_admin scope OR repository `w` on the session's
+  // doc_id (same as the other session-scoped replay RPCs).
+  //
+  // Legacy session_versions rows written before the redis_id column
+  // existed have an empty redis_id; the response carries them as-is
+  // so callers can render the version pill at session start and not
+  // at the precise scrubber moment.
+  rpc GetSessionVersionAnchors(GetSessionVersionAnchorsRequest) returns (GetSessionVersionAnchorsResponse);
+
+  // GetDocumentTimeline returns a merged, chronologically-ordered
+  // (newest-first) timeline of repository versions and collaborative
+  // sessions for a single document. The collab service composes the
+  // response from Documents.GetHistory (forwarded with the caller's
+  // bearer) and the local sessions tables; the
+  // `produced_by_session_id` cross-link is set from
+  // collaborative_session_versions so the UI doesn't have to do an
+  // N+1 to associate versions with the session that produced them.
+  //
+  // Auth: collab_admin scope OR repository `w` on doc_id (same as
+  // the other doc-scoped replay RPCs). The inner Documents.GetHistory
+  // call is forwarded with the caller's bearer for defence-in-depth
+  // — the repository re-checks reachability on its side.
+  rpc GetDocumentTimeline(GetDocumentTimelineRequest) returns (GetDocumentTimelineResponse);
+}
+
+message BeginPublishRequest {
+  // UUID of the document to soft-stop.
+  string doc_id = 1;
+  // Soft-stop TTL in milliseconds. Clamped to a server-side
+  // ceiling. Caller usually pings before expiry; the soft-stop
+  // sweeper reclaims expired rows.
+  int32 ttl = 2;
+}
+
+message BeginPublishResponse {
+  // InitiatedAt is the RFC3339 timestamp when the row was inserted.
+  string initiated_at = 1;
+  // ExpiresAt is the RFC3339 timestamp when the soft-stop expires.
+  string expires_at = 2;
+}
+
+message CancelPublishRequest {
+  string doc_id = 1;
+}
+
+message CancelPublishResponse {}
+
+// SnapshotRequest carries the freshness condition plus any
+// repository-side metadata to pass through to Documents.Update.
+// The collab service fills in the document content + lock_token
+// itself.
+message SnapshotRequest {
+  // UUID of the document being snapshotted.
+  string doc_id = 1;
+  // If non-empty, the server-side state vector at snapshot time
+  // must dominate this state vector. Use to express "publish what
+  // I'm currently seeing": pass the client's state vector at the
+  // moment of the publish click.
+  bytes if_state_vector_at_least = 2;
+  // Repository-side passthroughs forwarded to Documents.Update.
+  // The collab service does not interpret these fields. Multiple
+  // statuses can be set atomically by listing them here; the
+  // status-level if_match applies per entry.
+  repeated StatusUpdate statuses = 3;
+  // ACL changes to apply alongside the new version. Forwarded
+  // verbatim to Documents.Update.
+  repeated ACLEntry acl = 4;
+  // Metadata for the new repository version. Forwarded verbatim.
+  map<string, string> meta = 5;
+  // Freeze the doc after the snapshot completes. The freeze
+  // sequence runs after a successful repository.Update;
+  // non-freezing snapshots leave the session alive.
+  bool freeze = 6;
+  // RFC3339 timestamp the client last observed in a server-ping
+  // frame. Required for freezing snapshots: without it the server
+  // rejects the snapshot with FailedPrecondition +
+  // error_code=missing_witness, and it rejects it with
+  // error_code=excessive_skew when (server_now -
+  // client_last_server_ping) > max_skew, so a client whose pings
+  // stopped flowing can't freeze content they haven't actually
+  // seen. State-vector domination is the other half of the
+  // freshness witness; both must hold.
+  string client_last_server_ping = 7;
+  // Max allowed clock skew in milliseconds between server_now and
+  // client_last_server_ping. 0 → server default
+  // (DefaultMaxSkew). Ignored for non-freezing snapshots.
+  int32 max_skew_ms = 8;
+  // attach_objects is forwarded verbatim to Documents.Update; lets a
+  // snapshot attach repository objects (links, metablocks, etc.) to
+  // the new version as part of the same atomic write. Keys are
+  // object identifiers; values are the per-object metadata blobs
+  // the repository expects (already in the repository's encoding —
+  // collab does not transform).
+  map<string, string> attach_objects = 9;
+  // detach_objects is forwarded verbatim to Documents.Update; lets a
+  // snapshot remove previously-attached repository objects.
+  repeated string detach_objects = 10;
+}
+
+message SnapshotResponse {
+  // Version is the repository version number assigned to the
+  // newly-created document version.
+  int64 version = 1;
+  // SnapshotStateVector is the server-side state vector at
+  // snapshot time. Clients use it as a watermark for subsequent
+  // snapshots ("publish only if my view is no older than this").
+  bytes snapshot_state_vector = 2;
+}
+
+// StatusUpdate is a thin wrapper around the repository's
+// StatusUpdate shape. Carried as a nested message rather than
+// imported from elephant-api to keep collab's proto self-contained
+// while the upstream API stabilises.
+message StatusUpdate {
+  string name = 1;
+  int64 if_match = 2;
+  map<string, string> meta = 3;
+}
+
+// ACLEntry mirrors the repository's ACL entry shape.
+message ACLEntry {
+  string uri = 1;
+  repeated string permissions = 2;
+}
+
+message InspectNamedDocumentRequest {
+  // Named-document identifier. Must be a recognized kind:
+  // __presence__ or __user:{url-encoded sub}:{name}.
+  string doc_id = 1;
+}
+
+message InspectNamedDocumentResponse {
+  // JSON-shaped state of the document, serialized as opaque text
+  // so the protobuf surface doesn't have to encode arbitrary nested
+  // structure. Callers parse it as JSON. Empty docs serialize to
+  // "{}".
+  string state_json = 1;
+
+  // Classification of the doc: "named_service" or "named_user".
+  // Helps the caller interpret the JSON content.
+  string doc_kind = 2;
+
+  // True when the doc has been written to. Distinguishes "never
+  // written, empty state" from "exists and currently empty".
+  bool exists = 3;
+}
+
+message InspectDocumentRequest {
+  // UUID of the repository document to inspect.
+  string doc_id = 1;
+}
+
+message InspectDocumentResponse {
+  // JSON-shaped state of the live Y.Doc, serialized as opaque text
+  // (callers parse it as JSON). This is the raw collaborative tree
+  // including the application-private _collab key. "{}" when the doc
+  // has no active collaborative session.
+  string state_json = 1;
+
+  // True when a collaborative session is currently active and the
+  // state was rebuilt from it; false when no session holds the doc
+  // (state_json is then "{}").
+  bool live = 2;
+
+  // The active collaborative session's id, for cross-referencing with
+  // the session/admin RPCs. Empty when live is false.
+  string session_id = 3;
+}
+
+message ResetCollaborativeStateRequest {
+  // UUID of the document to reset.
+  string doc_id = 1;
+  // Free-form reason captured on the collaborative_sessions row
+  // and in the S3 closed.json tombstone. Operators reading
+  // forensic records expect a useful value here.
+  string reason = 2;
+}
+
+message ResetCollaborativeStateResponse {
+  // ULID of the session that was aborted. Empty when no session
+  // was active (the reset was a no-op).
+  string aborted_session_id = 1;
+  // RFC3339 timestamp when the session was aborted. Empty for
+  // the no-op case.
+  string aborted_at = 2;
+}
+
+message UnfreezeRequest {
+  // UUID of the document to unfreeze.
+  string doc_id = 1;
+  // Free-form reason captured on the explicit_unfreeze_marks row.
+  // Optional — empty is recorded verbatim.
+  string reason = 2;
+}
+
+message UnfreezeResponse {
+  // RFC3339 timestamp of the resulting explicit_unfreeze_marks
+  // row's unfrozen_at value.
+  string unfrozen_at = 1;
+  // Repository current_version captured at the moment of unfreeze
+  // (the watermark the auto-freeze gate uses on subsequent
+  // subscribes). Stringified — versions can exceed int32 in
+  // principle and the wire form mirrors the column.
+  string doc_version_at_unfreeze = 2;
+}
+
+// CollaborativeSession is the wire form of a collaborative_sessions
+// row plus the close/abort/purge flags that may be populated. The
+// content-bearing fields are nulled for purged sessions; consumers
+// should check the purged_at field before trusting them.
+message CollaborativeSession {
+  string session_id = 1;
+  string doc_id = 2;
+  string started_at = 3; // RFC3339
+  string closed_at = 4; // RFC3339, empty when active
+  string close_reason = 5; // evicted | frozen | aborted | abnormal | discarded | promoted
+  string starting_version = 6; // empty for purged sessions
+  string s3_prefix = 7; // empty for purged sessions
+  int64 update_count = 8;
+  int32 participant_count = 9;
+
+  // Reset-specific fields, populated only when close_reason='aborted'.
+  string aborted_by = 10;
+  string abort_reason = 11;
+
+  // Tombstone fields, populated only when the session has been
+  // purged. When purged_at is non-empty the content-bearing fields
+  // above are nulled and should not be trusted.
+  string purged_at = 12;
+  string purged_by = 13;
+  string purge_reason = 14;
+}
+
+message ListCollaborativeSessionsRequest {
+  // Document to list sessions for. Required.
+  string doc_id = 1;
+  // Page size; clamped server-side. 0 → server default.
+  int32 page_size = 2;
+  // Pagination token from a previous response. Empty starts from
+  // the newest session.
+  string page_token = 3;
+}
+
+message ListCollaborativeSessionsResponse {
+  repeated CollaborativeSession sessions = 1;
+  // Empty when there are no more pages.
+  string next_page_token = 2;
+}
+
+message GetCollaborativeSessionRequest {
+  string session_id = 1;
+}
+
+message GetCollaborativeSessionResponse {
+  CollaborativeSession metadata = 1;
+  // Repository versions created during the session, oldest first.
+  repeated string versions = 2;
+  // Participant rows in join-time order. Mirror of the
+  // `collaborative_session_participants` audit table, joined to the
+  // requested session.
+  repeated SessionParticipant participant_details = 3;
+}
+
+// SessionParticipant is one (subscription_id, joined_at, left_at,
+// identity) row from collaborative_session_participants. The
+// identity payload is the auth-layer-supplied descriptor of who
+// was subscribed.
+message SessionParticipant {
+  string subscription_id = 1;
+  // RFC3339 timestamps. left_at is the empty string while the
+  // subscription is still open.
+  string joined_at = 2;
+  string left_at = 3;
+  // Identity descriptor. Mirrors sub.Identity. Optional fields
+  // are unset when the auth layer didn't populate them.
+  ParticipantIdentity identity = 4;
+}
+
+// ParticipantIdentity is the wire shape of the auth-layer-supplied
+// identity descriptor stored on each
+// collaborative_session_participants row. Subject is canonical;
+// the rest are best-effort additions the auth layer may surface.
+// See docs/design.md §"Identity visibility and the tenancy
+// boundary" for the policy that gates which fields are safe to
+// broadcast tenant-wide.
+message ParticipantIdentity {
+  // Canonical JWT subject URI.
+  string subject = 1;
+  // Tenant-unit memberships of the caller.
+  repeated string units = 2;
+  // Tenant org URI.
+  string org = 3;
+  // Human display name (best-effort; auth layer may not populate).
+  string name = 4;
+  // IdP-specific key/value pairs the auth layer surfaces. Auth
+  // integrations are responsible for keeping PII out of this map
+  // — every field is forwarded verbatim through identity-broadcast
+  // surfaces (__presence__, the admin inspection RPCs).
+  map<string, string> custom = 5;
+}
+
+message ListActiveCollaborativeSessionsRequest {
+  // When set, restricts the result to sessions on this doc.
+  string doc_id = 1;
+}
+
+message ListActiveCollaborativeSessionsResponse {
+  repeated CollaborativeSession sessions = 1;
+}
+
+message GetCollaborativeStateSnapshotRequest {
+  string doc_id = 1;
+}
+
+// FrozenState is the wire form of a frozen_docs row.
+message FrozenState {
+  string frozen_at = 1; // RFC3339
+  string frozen_by = 2;
+  string version_id = 3;
+  string session_id = 4;
+}
+
+// SoftStopState is the wire form of a pending_publish row.
+message SoftStopState {
+  string session_id = 1;
+  string initiated_by = 2;
+  string initiated_at = 3; // RFC3339
+  string expires_at = 4; // RFC3339
+}
+
+// LockState is the wire form of a doc_lock_state row.
+message LockState {
+  string session_id = 1;
+  string lock_token = 2;
+  string acquired_at = 3; // RFC3339
+  string last_pinged = 4; // RFC3339
+}
+
+// RedisStreamState carries enough information about the live Redis
+// stream to debug "is something stuck in archival" / "how much is
+// in flight." Empty when the stream doesn't exist.
+message RedisStreamState {
+  int64 length = 1;
+  string oldest_id = 2; // Redis stream ID
+  string oldest_received_at = 3; // RFC3339
+  string newest_id = 4; // Redis stream ID
+  string newest_received_at = 5; // RFC3339
+  string last_archived_id = 6; // Cursor from collaborative_sessions
+}
+
+message PurgeCollaborativeSessionRequest {
+  string session_id = 1;
+  // Free-form reason; recorded in the S3 tombstone and on the
+  // Postgres row. Required.
+  string reason = 2;
+}
+
+message PurgeCollaborativeSessionResponse {
+  // RFC3339 timestamp of when the purge was applied.
+  string purged_at = 1;
+}
+
+message PurgeDocumentSessionsRequest {
+  string doc_id = 1;
+  string reason = 2;
+}
+
+message PurgeDocumentSessionsResponse {
+  // Number of sessions purged. Sessions that were already
+  // tombstoned (purged_at not null) are not re-purged and don't
+  // count toward the total.
+  int32 purged_session_count = 1;
+  string purged_at = 2; // RFC3339
+}
+
+message GetSessionUpdatesRequest {
+  string session_id = 1;
+  // Pagination cursor: Redis stream ID of the last record the
+  // caller already consumed. Empty starts from the beginning of
+  // the session's archive. Pass the response's next_after_redis_id
+  // verbatim to continue.
+  string after_redis_id = 2;
+  // Soft cap on the number of records to return. Server-side
+  // chunk granularity may exceed this; 0 → server default.
+  int32 page_size = 3;
+  // Time-anchored cursor: when set, the server returns records with
+  // received_at strictly greater than this RFC3339 timestamp. Mutually
+  // exclusive with after_redis_id (InvalidArgument when both are set
+  // and non-empty). Used by replay UIs that need to seek within a
+  // session by wall-clock time rather than by stream ID. The server
+  // walks chunks linearly, bounded by a per-call ceiling — a window
+  // that requires scanning past the ceiling returns
+  // ResourceExhausted with error_code=chunk_scan_exhausted, and the
+  // caller should fall back to after_redis_id pagination from the
+  // last known cursor.
+  string after_received_at = 4;
+}
+
+// SessionUpdateRecord is one update from the audit archive.
+message SessionUpdateRecord {
+  // Original Redis stream ID. Globally unique within the session
+  // and chronologically ordered.
+  string redis_id = 1;
+  // RFC3339 timestamp the collab service first received the update.
+  string received_at = 2;
+  // Originating subscription ID. Empty for server-issued entries
+  // (evict markers, stateless lifecycle events).
+  string subscription_id = 3;
+  // Encoding tag — "v1" / "v2" for Yjs document updates, "aw" for
+  // awareness, "evict" / "stateless" for server-issued markers.
+  string encoding = 4;
+  // Raw update bytes. Caller decodes based on encoding.
+  bytes data = 5;
+}
+
+message GetSessionUpdatesResponse {
+  repeated SessionUpdateRecord records = 1;
+  // Empty when the caller has consumed every available record.
+  string next_after_redis_id = 2;
+  // True when the session has been purged. Records will be empty
+  // and there is no further data to retrieve.
+  bool purged = 3;
+}
+
+message StreamSessionUpdatesRequest {
+  string session_id = 1;
+  // Redis stream ID of the last record the caller already has. Empty
+  // starts from the beginning of the session's archive; a client
+  // resuming a stream that ended early passes the last redis_id it
+  // received.
+  string after_redis_id = 2;
+  // Time-anchored cursor, as on GetSessionUpdatesRequest: records
+  // with received_at strictly greater than this RFC3339 timestamp.
+  // Mutually exclusive with after_redis_id.
+  string after_received_at = 3;
+}
+
+message StreamSessionUpdatesResponse {
+  // One archived update. Unset only on the single message a purged
+  // session yields.
+  SessionUpdateRecord record = 1;
+  // True when the session has been purged; nothing follows.
+  bool purged = 2;
+}
+
+// UnfreezeMark is the wire form of an explicit_unfreeze_marks row.
+// Populated by GetCollaborativeStateSnapshot when a doc has been
+// explicitly unfrozen for editing.
+message UnfreezeMark {
+  string unfrozen_at = 1; // RFC3339
+  string unfrozen_by = 2; // sub URI
+  string doc_version_at_unfreeze = 3;
+  string reason = 4;
+}
+
+// ArchiveChunkInfo describes one S3 chunk written for a session.
+// Used by GetCollaborativeStateSnapshot.recent_archive_chunks to
+// help operators see archive progress without listing S3 directly.
+message ArchiveChunkInfo {
+  string key = 1;
+  int64 size_bytes = 2;
+  string written_at = 3; // RFC3339
+}
+
+message GetCollaborativeStateSnapshotResponse {
+  // 'repository' | 'named_service' | 'named_user'
+  string doc_kind = 1;
+
+  // Active session metadata, when an active session exists.
+  CollaborativeSession active_session = 2;
+  // Active repository lock state, when one is held.
+  LockState lock_state = 3;
+  // Frozen-doc tombstone, when the doc is frozen.
+  FrozenState frozen = 4;
+  // Pending publish soft-stop, when one is active.
+  SoftStopState pending_publish = 5;
+  // Live Redis stream metadata, when a stream exists for this doc.
+  RedisStreamState redis_stream = 6;
+  // Explicit unfreeze mark, when one has been recorded for this
+  // doc.
+  UnfreezeMark explicit_unfreeze_mark = 7;
+  // Recent archive chunks for the active session, newest last.
+  // Empty when no archive store is configured or no chunks have
+  // been written yet.
+  repeated ArchiveChunkInfo recent_archive_chunks = 8;
+}
+
+// Sketches — collaborative documents that exist before their
+// underlying repository document does. See docs/sketches.md.
+
+message CreateSketchRequest {
+  // Starting NewsDoc. If document.uuid is empty the service
+  // generates a v4 UUID; otherwise the caller's UUID is used
+  // after the repository conflict check.
+  newsdoc.Document document = 1;
+  // Optional initial ACL. When empty, the service installs a
+  // single entry granting "r" + "w" to the caller's JWT subject.
+  // Subsequent updates replace the ACL in full via
+  // UpdateSketchACL.
+  repeated ACLEntry acl = 2;
+}
+
+message CreateSketchResponse {
+  // doc_id of the created sketch (caller-supplied or generated).
+  string doc_id = 1;
+}
+
+message UpdateSketchACLRequest {
+  string doc_id = 1;
+  // Replacement ACL. Provide the full intended ACL — partial
+  // patches are not supported.
+  repeated ACLEntry acl = 2;
+}
+
+message UpdateSketchACLResponse {}
+
+message DiscardSketchRequest {
+  string doc_id = 1;
+}
+
+message DiscardSketchResponse {}
+
+message ListSketchesRequest {
+  // false (default): sketches the caller owns.
+  // true: sketches that have been shared with the caller — an
+  // ACL entry naming the caller's JWT subject with the "w"
+  // permission, where the caller is not the owner. "r"-only
+  // entries don't count (they're forward-only on promotion).
+  bool shared = 1;
+  // Optional pagination. Server caps `limit` at 100.
+  int32 limit = 2;
+  // Opaque cursor returned by a previous call's next_cursor.
+  string cursor = 3;
+}
+
+message ListSketchesResponse {
+  repeated SketchSummary sketches = 1;
+  // Empty when no more pages.
+  string next_cursor = 2;
+}
+
+message SketchSummary {
+  string doc_id = 1;
+  string doc_type = 2;
+  // Title extracted from the latest materialised NewsDoc.
+  string title = 3;
+  // JWT subject of the owner.
+  string owner_sub = 4;
+  // RFC3339 timestamps.
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message BulkSnapshotRequest {
+  // The snapshots to take, as one atomic repository write. None of
+  // them may set freeze.
+  repeated SnapshotRequest snapshots = 1;
+}
+
+message BulkSnapshotResponse {
+  // Index-aligned with BulkSnapshotRequest.snapshots.
+  repeated SnapshotResponse responses = 1;
+}
+
+message GetSessionVersionAnchorsRequest {
+  string session_id = 1;
+}
+
+// VersionAnchor maps one collaborative_session_versions row onto a
+// scrubber position for the replay UI.
+message VersionAnchor {
+  // Repository version, stringified to mirror
+  // CollaborativeSession.starting_version's wire form.
+  string version = 1;
+  // Redis stream ID of the entry the snapshot materialiser folded in
+  // last before producing this version. Empty for legacy rows
+  // written before the redis_id column existed.
+  string redis_id = 2;
+  // RFC3339Nano timestamp; the created_at on the
+  // collaborative_session_versions row (the moment collab wrote the
+  // audit row, not the Redis entry's TS — those agree within a few
+  // ms in steady state and disagree only on a retry).
+  string received_at = 3;
+  // True when the snapshot that produced this version also froze
+  // the doc.
+  bool is_freezing = 4;
+}
+
+message GetSessionVersionAnchorsResponse {
+  // Oldest first.
+  repeated VersionAnchor anchors = 1;
+}
+
+message GetDocumentTimelineRequest {
+  string doc_id = 1;
+  // Opaque pagination cursor from a previous response. Empty starts
+  // from the newest entry. Pass next_page_token verbatim to continue.
+  // Encodes per-source cursors (last returned version + last returned
+  // session) so the merged stream advances in lockstep across pages.
+  string page_token = 2;
+  // Page size; clamped server-side (default 200, max 1000). 0 →
+  // default.
+  int32 page_size = 3;
+  // When true, session entries carry `participant_details`. Costs an
+  // extra DB hit per session row, scoped to sessions in this page;
+  // off by default so the timeline is cheap and the modal only pays
+  // the cost when it actually opens a session.
+  bool include_session_participants = 4;
+}
+
+message GetDocumentTimelineResponse {
+  // Entries are newest-first, matching the existing
+  // ListCollaborativeSessions ordering. The UI reverses for left-
+  // to-right rendering.
+  repeated TimelineEntry entries = 1;
+  // Empty when there are no more pages.
+  string next_page_token = 2;
+}
+
+message TimelineEntry {
+  // RFC3339Nano timestamp used for ordering. For a version entry
+  // this is DocumentVersion.created; for a session entry this is
+  // started_at.
+  string occurred_at = 1;
+  oneof entry {
+    TimelineVersion version = 2;
+    TimelineSession session = 3;
+  }
+}
+
+message TimelineVersion {
+  // String to match CollaborativeSession.starting_version's wire form.
+  // Mirrors elephant-api Documents.GetHistory.DocumentVersion.version
+  // (int64) but stringified for forward-compat. Use int64 parsing on
+  // the client.
+  string version = 1;
+  // RFC3339 timestamp; mirrors `occurred_at` on the entry.
+  string created = 2;
+  string creator = 3;
+  map<string, string> meta = 4;
+  // Status updates landed at this version, keyed by status name.
+  map<string, TimelineStatusList> statuses = 5;
+  // session_id of the collaborative session that produced this
+  // version, if any. Empty for versions written through the
+  // repository directly (non-collab writers).
+  string produced_by_session_id = 6;
+}
+
+message TimelineStatusList {
+  repeated TimelineStatus items = 1;
+}
+
+// TimelineStatus mirrors repository.Status. Kept as a local message
+// so the collab proto stays self-contained (same rationale as
+// StatusUpdate).
+message TimelineStatus {
+  int64 id = 1;
+  string creator = 2;
+  string created = 3; // RFC3339
+  // version-of-doc the status anchors to (stringified).
+  string version = 4;
+  map<string, string> meta = 5;
+}
+
+message TimelineSession {
+  // Full session metadata; same shape as ListCollaborativeSessions.
+  CollaborativeSession metadata = 1;
+  // Repository versions produced during this session, oldest first.
+  // Mirror of GetCollaborativeSessionResponse.versions but inline so
+  // the UI doesn't have to do an N+1.
+  repeated string versions = 2;
+  // Participant audit rows. Populated only when the request set
+  // `include_session_participants=true`.
+  repeated SessionParticipant participant_details = 3;
+}
+
+// The live editing messages follow: the Collaborate stream's own
+// message model. They are not framing — the WebSocket's Hocuspocus
+// envelope is converted into these same messages before the shared
+// connection core sees it — so a change here changes both
+// transports. lib0 still travels inside the payloads: state
+// vectors, updates and awareness are Yjs's own encoding and are
+// carried as opaque bytes.
+
+// CollaborateRequest is one client-to-server message. doc is the
+// multiplexing key and is required for every payload except
+// auth_refresh, which is connection-scoped.
+message CollaborateRequest {
+  string doc = 1;
+
+  oneof payload {
+    // Opens a subscription, or re-syncs an open one. Carries the
+    // client's state vector and the subscribe-time options in one
+    // message: the WebSocket sends them as two frames and buffers
+    // the options until SyncStep1 arrives; here there is nothing to
+    // buffer.
+    Subscribe subscribe = 2;
+    // A Yjs update produced by a local transaction.
+    Update update = 3;
+    // A y-protocols awareness update, shipped to peers verbatim.
+    Awareness awareness = 4;
+    // Asks for the awareness state; answered with an empty
+    // Awareness, see docs/architecture.md §"Transport".
+    QueryAwareness query_awareness = 5;
+    // Closes one subscription; the stream stays open.
+    Unsubscribe unsubscribe = 6;
+    // A fresh bearer for the same subject; extends the connection's
+    // expiry. Rejected refreshes are counted and ignored.
+    AuthRefresh auth_refresh = 7;
+  }
+}
+
+// CollaborateResponse is one server-to-client message.
+message CollaborateResponse {
+  string doc = 1;
+
+  oneof payload {
+    // The diff from the client's state vector to the server's
+    // materialised state. Sent once, before synced, on a fresh
+    // subscribe with a non-empty diff.
+    SyncStep2 sync_step2 = 2;
+    // A live update from another participant, or the client's own
+    // update echoed through the stream.
+    Update update = 3;
+    Awareness awareness = 4;
+    // Initial state transfer is complete; carries the granted mode.
+    Synced synced = 5;
+    // One subscription was closed by the server, with a structured
+    // reason (read_only, no_active_session, subscribe_failed,
+    // session_terminated, ...). Connection-wide refusals are not
+    // delivered this way on this transport: they end the stream
+    // with a coded error instead.
+    Close close = 6;
+    // A server-issued event scoped to a doc, such as
+    // publish_in_progress.
+    Event event = 7;
+    // The server's time witness; doc is empty. Echo server_time
+    // verbatim as SnapshotRequest.client_last_server_ping.
+    ServerPing server_ping = 8;
+  }
+}
+
+message Subscribe {
+  // lib0-encoded Yjs state vector. Empty means a fresh client.
+  bytes state_vector = 1;
+  // Unset means the doc-kind default: true for editors, false for
+  // observers.
+  optional bool advertise_presence = 2;
+  bool observer = 3;
+  repeated string freeze_on_workflow_states = 4;
+}
+
+message Update {
+  // A Yjs v1 update.
+  bytes update = 1;
+  // Structural seeding rather than authorship; stored with the seed
+  // encoding so replay and attribution can tell them apart.
+  bool seed = 2;
+}
+
+message Awareness {
+  bytes update = 1;
+}
+
+message QueryAwareness {}
+
+message Unsubscribe {}
+
+message AuthRefresh {
+  string token = 1;
+}
+
+message SyncStep2 {
+  bytes diff = 1;
+}
+
+enum SubscriptionMode {
+  SUBSCRIPTION_MODE_UNSPECIFIED = 0;
+  SUBSCRIPTION_MODE_READ_ONLY = 1;
+  SUBSCRIPTION_MODE_READ_WRITE = 2;
+}
+
+message Synced {
+  SubscriptionMode mode = 1;
+}
+
+message Close {
+  string reason = 1;
+  string message = 2;
+}
+
+message Event {
+  string name = 1;
+  // JSON, as the WebSocket stateless frame carries it today.
+  bytes data = 2;
+}
+
+message ServerPing {
+  // RFC3339Nano, the same string the WebSocket ping carries and
+  // that SnapshotRequest.client_last_server_ping expects back.
+  string server_time = 1;
+}

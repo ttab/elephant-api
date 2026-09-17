@@ -4,6 +4,43 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.26.0] - 2026-09-18
+
+**New service (collaborative editing):** `elephant.collab.v1` is the
+declaration for elephant-collab, which until now kept it in its own
+repository. It carries the synchronous control plane — `Snapshot`,
+`BeginPublish` and `CancelPublish`, the inspection, session and sketch RPCs,
+`BulkSnapshot` and `GetDocumentTimeline` — and `Collaborate`, a bidirectional
+stream that is the server-side counterpart of the WebSocket the service
+terminates for browsers. Go consumers import
+`github.com/ttab/elephant-api/elephant/collab/v1` and
+`github.com/ttab/elephant-api/elephant/collab/v1/collabv1connect`.
+
+**Connect only, on connect-go's own interface:** collab is the first service
+here that generates neither Twirp nor the plain protobuf service interface. A
+bidirectional stream has no room in an interface that returns a single
+response, so `collabv1connect` holds connect-go's own
+`NewCollaborationServiceClient` and `NewCollaborationServiceHandler`, which
+speak `*connect.Request[T]` and `*connect.Response[T]`. There is no `/twirp/`
+mount for it and no plain-interface adapter alongside them. The
+`Collaborate` stream needs an HTTP/2 transport; the unary RPCs on the same
+service do not.
+
+**New layout (versioned directories):** it is also the first declaration in
+the versioned layout, at `elephant/collab/v1/`, which is what buf's
+directory-match rule requires for the `elephant.collab.v1` package and what
+`mage rpc:stub` scaffolds for anything new. The shape follows the layout, so
+nothing in the magefile configures it, and none of the existing services
+moved or changed.
+
+Changes:
+
+- `elephant.collab.v1` is declared at `elephant/collab/v1/service.proto`, with
+  the messages generated into `elephant/collab/v1` and connect-go's client and
+  handler into `elephant/collab/v1/collabv1connect`.
+- The README's service table, Connect client section and generation notes
+  describe the Connect-only shape and the versioned layout.
+
 ## [v0.25.2] - 2026-09-17
 
 **New field (a hit says what it is):** `elephant.index.HitV1` gains

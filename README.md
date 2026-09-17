@@ -4,9 +4,9 @@ Protobuf API declarations for the Elephant platform. Each service is defined in
 a `service.proto` file and shipped with generated Go code for two protocols:
 [Connect](https://connectrpc.com/) and
 [Twirp](https://github.com/twitchtv/twirp), which is what the platform served
-before Connect and is still served everywhere. A Connect mount also answers
-gRPC and gRPC-Web on the same paths, but only from inside the cluster — see
-[Other languages](#other-languages).
+before Connect and is still served for every service but `elephant.collab.v1`.
+A Connect mount also answers gRPC and gRPC-Web on the same paths, but only from
+inside the cluster — see [Other languages](#other-languages).
 
 Consuming the Go code needs Go 1.27 or later.
 
@@ -20,6 +20,7 @@ Consuming the Go code needs Go 1.27 or later.
 | **Spell** | `elephant.spell` | Spelling and language tooling. Check text and get suggestions, manage custom dictionaries (words and phrases) and pattern-matching rules. | [proto](spell/service.proto) |
 | **Replicant** | `elephant.replicant` | Document replication between repository instances. Configure replication targets that follow a source repository's event log and replicate documents onward. | [proto](replicant/service.proto) |
 | **User** | `elephant.user` | Per-user settings and messaging. Store user settings documents and key-value properties, and push/poll user and inbox messages. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) |
+| **Collab** | `elephant.collab.v1` | Collaborative editing. Materialize live Y.Doc state into repository versions, manage freezes and sketches, inspect and administer sessions, and edit live over the `Collaborate` stream. | [proto](elephant/collab/v1/service.proto) |
 
 The [`newsdoc`](newsdoc/newsdoc.proto) package carries the shared NewsDoc
 document model used across the services. It is generated from the
@@ -27,6 +28,15 @@ document model used across the services. It is generated from the
 
 `elephant.repositorysocket` declares only message types, so it has no clients
 and no `…connect` package.
+
+`elephant.collab.v1` is Connect-only, and the one service that is not on the
+plain protobuf service interface. It declares a bidirectional stream,
+`Collaborate`, which an interface returning a single response has no room for,
+so neither Twirp nor the Connect adapters are generated for it: there is no
+`/twirp/` mount and no `New<Service>ServiceClient`. Its clients and handlers
+are connect-go's own, described under [Connect clients](#connect-clients). It
+is also the first declaration in the versioned layout, `elephant/collab/v1/`,
+which is where new services go.
 
 ## Using the APIs
 
@@ -81,6 +91,13 @@ The same packages also carry connect-go's own generated `New<Service>Client` and
 `New<Service>Handler`, which speak in `*connect.Request[T]` and
 `*connect.Response[T]`. The `Service` infix is what distinguishes the plain
 adapters from them. Use the adapters unless you need per-call access to headers.
+
+`elephant/collab/v1/collabv1connect` carries only those:
+`NewCollaborationServiceClient` and `NewCollaborationServiceHandler` are
+connect-go's, there is no plain interface to adapt to, and a caller reads and
+writes `*connect.Request[T]` and `*connect.Response[T]` directly. The
+`Collaborate` stream is bidirectional, so a client for it needs an HTTP/2
+transport; the unary RPCs on the same service do not.
 
 #### Twirp clients
 
@@ -182,6 +199,17 @@ Per service directory, generation writes `service.pb.go` (messages),
 and `<package>connect/service.connect.go` plus
 `<package>connect/service.elephant.go` (the Connect clients and handlers, and
 the adapters that put them on the plain interface).
+
+What a directory gets is decided by its layout, and there are two.
+`<service>/service.proto` is the flat layout every service here grew up in, and
+it is dual stack: all four files. A declaration whose own directory is a
+version — `elephant/collab/v1/service.proto` — is Connect on connect-go's own
+interface, and generates the messages and `service.connect.go` and nothing
+else, since a streaming method cannot be expressed on the plain interface that
+`protoc-gen-twirp` and `protoc-gen-elephant-rpc` write against. The versioned
+layout is what `mage rpc:stub` scaffolds and what a new service uses; buf's
+directory-match rule is what ties `elephant.collab.v1` to
+`elephant/collab/v1/`.
 
 `protoc-gen-elephant-rpc`, the plugin that writes the `service.elephant.go`
 adapters, lives in `elephantine` and is pinned by `ttab/mage` like the other
