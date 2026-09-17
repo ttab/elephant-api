@@ -4,6 +4,22 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.25.2] - 2026-09-17
+
+**New field (a hit says what it is):** `elephant.index.HitV1` gains
+`document_type`, the type of the document the hit is for. A query that spans
+several document types returns a mixed result set, and until now nothing on
+the hit told them apart — `HitV1` carried the id, the score, the fields, the
+source, the sort values and the document, and none of them name the type. A
+caller that needed it had to infer it from a field it had indexed itself, or
+run one query per type so that the type was known from the query rather than
+the answer. Existing fields are untouched and a caller that ignores the new
+one is unaffected.
+
+Changes:
+
+- `elephant.index.HitV1` gains the `document_type` field (7).
+
 ## [v0.25.1] - 2026-09-17
 
 **New field (multi-type index queries):** `elephant.index.QueryRequestV1` gains

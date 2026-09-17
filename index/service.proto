@@ -362,12 +362,16 @@ message HitsTotalV1 {
 }
 
 message HitV1 {
-  string id    = 1;
-  float score  = 2;
+  string id                         = 1;
+  float score                       = 2;
   map<string, FieldValuesV1> fields = 3;
   map<string, FieldValuesV1> source = 4;
   repeated string sort              = 5;
   newsdoc.Document document         = 6;
+  // DocumentType is the type of the document the hit is for. A response to
+  // a query that spans several document types mixes them, and this is what
+  // tells them apart.
+  string document_type              = 7;
 }
 
 message FieldValuesV1 {

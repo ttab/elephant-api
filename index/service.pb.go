@@ -2623,13 +2623,17 @@ func (x *HitsTotalV1) GetRelation() string {
 }
 
 type HitV1 struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Id            string                    `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Score         float32                   `protobuf:"fixed32,2,opt,name=score,proto3" json:"score,omitempty"`
-	Fields        map[string]*FieldValuesV1 `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Source        map[string]*FieldValuesV1 `protobuf:"bytes,4,rep,name=source,proto3" json:"source,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Sort          []string                  `protobuf:"bytes,5,rep,name=sort,proto3" json:"sort,omitempty"`
-	Document      *newsdoc.Document         `protobuf:"bytes,6,opt,name=document,proto3" json:"document,omitempty"`
+	state    protoimpl.MessageState    `protogen:"open.v1"`
+	Id       string                    `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Score    float32                   `protobuf:"fixed32,2,opt,name=score,proto3" json:"score,omitempty"`
+	Fields   map[string]*FieldValuesV1 `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Source   map[string]*FieldValuesV1 `protobuf:"bytes,4,rep,name=source,proto3" json:"source,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Sort     []string                  `protobuf:"bytes,5,rep,name=sort,proto3" json:"sort,omitempty"`
+	Document *newsdoc.Document         `protobuf:"bytes,6,opt,name=document,proto3" json:"document,omitempty"`
+	// DocumentType is the type of the document the hit is for. A response to
+	// a query that spans several document types mixes them, and this is what
+	// tells them apart.
+	DocumentType  string `protobuf:"bytes,7,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2704,6 +2708,13 @@ func (x *HitV1) GetDocument() *newsdoc.Document {
 		return x.Document
 	}
 	return nil
+}
+
+func (x *HitV1) GetDocumentType() string {
+	if x != nil {
+		return x.DocumentType
+	}
+	return ""
 }
 
 type FieldValuesV1 struct {
@@ -3660,14 +3671,15 @@ const file_index_service_proto_rawDesc = "" +
 	"\x04hits\x18\x03 \x03(\v2\x15.elephant.index.HitV1R\x04hits\"?\n" +
 	"\vHitsTotalV1\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\x03R\x05value\x12\x1a\n" +
-	"\brelation\x18\x02 \x01(\tR\brelation\"\x9a\x03\n" +
+	"\brelation\x18\x02 \x01(\tR\brelation\"\xbf\x03\n" +
 	"\x05HitV1\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05score\x18\x02 \x01(\x02R\x05score\x129\n" +
 	"\x06fields\x18\x03 \x03(\v2!.elephant.index.HitV1.FieldsEntryR\x06fields\x129\n" +
 	"\x06source\x18\x04 \x03(\v2!.elephant.index.HitV1.SourceEntryR\x06source\x12\x12\n" +
 	"\x04sort\x18\x05 \x03(\tR\x04sort\x12-\n" +
-	"\bdocument\x18\x06 \x01(\v2\x11.newsdoc.DocumentR\bdocument\x1aX\n" +
+	"\bdocument\x18\x06 \x01(\v2\x11.newsdoc.DocumentR\bdocument\x12#\n" +
+	"\rdocument_type\x18\a \x01(\tR\fdocumentType\x1aX\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
 	"\x05value\x18\x02 \x01(\v2\x1d.elephant.index.FieldValuesV1R\x05value:\x028\x01\x1aX\n" +
