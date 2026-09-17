@@ -1212,16 +1212,18 @@ func (x *MultiSearchResponse) GetResults() []*QueryResponseV1 {
 }
 
 type QueryRequestV1 struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	DocumentType string                 `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
-	Language     string                 `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
-	Query        *QueryV1               `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
-	Fields       []string               `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
-	Sort         []*SortingV1           `protobuf:"bytes,5,rep,name=sort,proto3" json:"sort,omitempty"`
-	Source       bool                   `protobuf:"varint,6,opt,name=source,proto3" json:"source,omitempty"`
-	From         int64                  `protobuf:"varint,7,opt,name=from,proto3" json:"from,omitempty"`
-	Size         int64                  `protobuf:"varint,8,opt,name=size,proto3" json:"size,omitempty"`
-	SearchAfter  []string               `protobuf:"bytes,9,rep,name=search_after,json=searchAfter,proto3" json:"search_after,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DocumentType limits the query to a single document type. Prefer
+	// document_types; if both are set the effective set is the union of the two.
+	DocumentType string       `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
+	Language     string       `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
+	Query        *QueryV1     `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
+	Fields       []string     `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
+	Sort         []*SortingV1 `protobuf:"bytes,5,rep,name=sort,proto3" json:"sort,omitempty"`
+	Source       bool         `protobuf:"varint,6,opt,name=source,proto3" json:"source,omitempty"`
+	From         int64        `protobuf:"varint,7,opt,name=from,proto3" json:"from,omitempty"`
+	Size         int64        `protobuf:"varint,8,opt,name=size,proto3" json:"size,omitempty"`
+	SearchAfter  []string     `protobuf:"bytes,9,rep,name=search_after,json=searchAfter,proto3" json:"search_after,omitempty"`
 	// LoadDocument will load the current version of the document from the
 	// repository and include it with the search response.
 	LoadDocument bool `protobuf:"varint,10,opt,name=load_document,json=loadDocument,proto3" json:"load_document,omitempty"`
@@ -1229,7 +1231,13 @@ type QueryRequestV1 struct {
 	Subscribe bool `protobuf:"varint,11,opt,name=subscribe,proto3" json:"subscribe,omitempty"`
 	// Shared performs the query without the identity of the user, allows for
 	// better query caching and shared subscriptions.
-	Shared        bool `protobuf:"varint,12,opt,name=shared,proto3" json:"shared,omitempty"`
+	Shared bool `protobuf:"varint,12,opt,name=shared,proto3" json:"shared,omitempty"`
+	// DocumentTypes limits the query to the given document types. An empty list
+	// means all document types. Subscriptions are single-type, so this cannot be
+	// combined with subscribe. Note that document types are indexed separately
+	// and can have conflicting mappings for a field name; querying or sorting on
+	// such a field across types will fail.
+	DocumentTypes []string `protobuf:"bytes,13,rep,name=document_types,json=documentTypes,proto3" json:"document_types,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1346,6 +1354,13 @@ func (x *QueryRequestV1) GetShared() bool {
 		return x.Shared
 	}
 	return false
+}
+
+func (x *QueryRequestV1) GetDocumentTypes() []string {
+	if x != nil {
+		return x.DocumentTypes
+	}
+	return nil
 }
 
 type QueryV1 struct {
@@ -3540,7 +3555,7 @@ const file_index_service_proto_rawDesc = "" +
 	"\x12MultiSearchRequest\x128\n" +
 	"\aqueries\x18\x01 \x03(\v2\x1e.elephant.index.QueryRequestV1R\aqueries\"P\n" +
 	"\x13MultiSearchResponse\x129\n" +
-	"\aresults\x18\x01 \x03(\v2\x1f.elephant.index.QueryResponseV1R\aresults\"\x85\x03\n" +
+	"\aresults\x18\x01 \x03(\v2\x1f.elephant.index.QueryResponseV1R\aresults\"\xac\x03\n" +
 	"\x0eQueryRequestV1\x12#\n" +
 	"\rdocument_type\x18\x01 \x01(\tR\fdocumentType\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12-\n" +
@@ -3554,7 +3569,8 @@ const file_index_service_proto_rawDesc = "" +
 	"\rload_document\x18\n" +
 	" \x01(\bR\floadDocument\x12\x1c\n" +
 	"\tsubscribe\x18\v \x01(\bR\tsubscribe\x12\x16\n" +
-	"\x06shared\x18\f \x01(\bR\x06shared\"\xe6\x04\n" +
+	"\x06shared\x18\f \x01(\bR\x06shared\x12%\n" +
+	"\x0edocument_types\x18\r \x03(\tR\rdocumentTypes\"\xe6\x04\n" +
 	"\aQueryV1\x121\n" +
 	"\x04bool\x18\x01 \x01(\v2\x1b.elephant.index.BoolQueryV1H\x00R\x04bool\x124\n" +
 	"\x05range\x18\x02 \x01(\v2\x1c.elephant.index.RangeQueryV1H\x00R\x05range\x12\x18\n" +

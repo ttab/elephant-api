@@ -4,7 +4,30 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.25.0] - Unreleased
+## [v0.25.1] - 2026-09-17
+
+**New field (multi-type index queries):** `elephant.index.QueryRequestV1` gains
+`document_types`, a repeated string, alongside the singular `document_type`.
+It names the document types a query should span, and an empty list still means
+every type. The two fields are additive rather than exclusive: a request that
+sets both is asking for the union of them, so a caller can add the plural field
+without first removing the singular one. Nothing about `document_type` changed,
+and a request that never sets `document_types` behaves exactly as it did.
+
+Two limits are the index service's, not the declaration's, and are worth
+knowing before reaching for the field. Subscriptions are single-type — a
+subscribing query still names exactly one — and the types are indexed
+separately, so a field name that carries different types in different document
+types cannot be queried or sorted on across them. `GetMappingsRequestV1` is
+still single-type, so reconciling the mappings of several types is the caller's
+job.
+
+Changes:
+
+- `elephant.index.QueryRequestV1` gains the repeated `document_types` field
+  (13), for queries that span several document types.
+
+## [v0.25.0] - 2026-09-08
 
 **Build:** the `go` directive moves from 1.25.7 to 1.27.1, so every module that
 imports this one needs a `go` directive of at least 1.27 and a toolchain that

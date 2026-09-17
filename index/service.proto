@@ -192,23 +192,31 @@ message MultiSearchResponse {
 
 
 message QueryRequestV1 {
-  string document_type         = 1;
-  string language              = 2;
-  QueryV1 query                = 3;
-  repeated string fields       = 4;
-  repeated SortingV1 sort      = 5;
-  bool source                  = 6;
-  int64 from                   = 7;
-  int64 size                   = 8;
-  repeated string search_after = 9;
+  // DocumentType limits the query to a single document type. Prefer
+  // document_types; if both are set the effective set is the union of the two.
+  string document_type           = 1;
+  string language                = 2;
+  QueryV1 query                  = 3;
+  repeated string fields         = 4;
+  repeated SortingV1 sort        = 5;
+  bool source                    = 6;
+  int64 from                     = 7;
+  int64 size                     = 8;
+  repeated string search_after   = 9;
   // LoadDocument will load the current version of the document from the
   // repository and include it with the search response.
-  bool load_document           = 10;
+  bool load_document             = 10;
   // Subscribe starts a subscription for the query.
-  bool subscribe               = 11;
+  bool subscribe                 = 11;
   // Shared performs the query without the identity of the user, allows for
   // better query caching and shared subscriptions.
-  bool shared                  = 12;
+  bool shared                    = 12;
+  // DocumentTypes limits the query to the given document types. An empty list
+  // means all document types. Subscriptions are single-type, so this cannot be
+  // combined with subscribe. Note that document types are indexed separately
+  // and can have conflicting mappings for a field name; querying or sorting on
+  // such a field across types will fail.
+  repeated string document_types = 13;
 }
 
 message QueryV1 {
