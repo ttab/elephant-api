@@ -369,17 +369,26 @@ func (UnimplementedSettingsHandler) PollEventLog(context.Context, *connect.Reque
 type MessagesClient interface {
 	// Pushes a new message to a recipient.
 	PushMessage(context.Context, *connect.Request[user.PushMessageRequest]) (*connect.Response[user.PushMessageResponse], error)
-	// Pushes a new inbox message to a recipient.
+	// Pushes a new inbox message to a recipient: a user, or a unit or org
+	// that the caller is a member of. A repeated push of the same document to
+	// the same recipient stores nothing and answers with the existing message.
 	PushInboxMessage(context.Context, *connect.Request[user.PushInboxMessageRequest]) (*connect.Response[user.PushInboxMessageResponse], error)
 	// Polls for new messages for a recipient.
 	PollMessages(context.Context, *connect.Request[user.PollMessagesRequest]) (*connect.Response[user.PollMessagesResponse], error)
-	// Polls for new inbox messages for a recipient.
+	// Polls for new inbox messages addressed to the caller, the caller's org
+	// or any of the caller's units, in one id order. Messages the caller has
+	// deleted are not returned.
 	PollInboxMessages(context.Context, *connect.Request[user.PollInboxMessagesRequest]) (*connect.Response[user.PollInboxMessagesResponse], error)
-	// Lists all inbox messages for a recipient.
+	// Lists inbox messages addressed to the caller, the caller's org or any of
+	// the caller's units, newest first. Messages the caller has deleted are
+	// not returned.
 	ListInboxMessages(context.Context, *connect.Request[user.ListInboxMessagesRequest]) (*connect.Response[user.ListInboxMessagesResponse], error)
-	// Updates an existing inbox message.
+	// Sets the caller's read state for an inbox message. The message itself
+	// is shared with every other reader it was addressed to and is not
+	// changed.
 	UpdateInboxMessage(context.Context, *connect.Request[user.UpdateInboxMessageRequest]) (*connect.Response[user.UpdateInboxMessageResponse], error)
-	// Deletes an inbox message.
+	// Deletes an inbox message for the caller: it disappears from the
+	// caller's polls and lists and stays visible to every other reader.
 	DeleteInboxMessage(context.Context, *connect.Request[user.DeleteInboxMessageRequest]) (*connect.Response[user.DeleteInboxMessageResponse], error)
 }
 
@@ -489,17 +498,26 @@ func (c *messagesClient) DeleteInboxMessage(ctx context.Context, req *connect.Re
 type MessagesHandler interface {
 	// Pushes a new message to a recipient.
 	PushMessage(context.Context, *connect.Request[user.PushMessageRequest]) (*connect.Response[user.PushMessageResponse], error)
-	// Pushes a new inbox message to a recipient.
+	// Pushes a new inbox message to a recipient: a user, or a unit or org
+	// that the caller is a member of. A repeated push of the same document to
+	// the same recipient stores nothing and answers with the existing message.
 	PushInboxMessage(context.Context, *connect.Request[user.PushInboxMessageRequest]) (*connect.Response[user.PushInboxMessageResponse], error)
 	// Polls for new messages for a recipient.
 	PollMessages(context.Context, *connect.Request[user.PollMessagesRequest]) (*connect.Response[user.PollMessagesResponse], error)
-	// Polls for new inbox messages for a recipient.
+	// Polls for new inbox messages addressed to the caller, the caller's org
+	// or any of the caller's units, in one id order. Messages the caller has
+	// deleted are not returned.
 	PollInboxMessages(context.Context, *connect.Request[user.PollInboxMessagesRequest]) (*connect.Response[user.PollInboxMessagesResponse], error)
-	// Lists all inbox messages for a recipient.
+	// Lists inbox messages addressed to the caller, the caller's org or any of
+	// the caller's units, newest first. Messages the caller has deleted are
+	// not returned.
 	ListInboxMessages(context.Context, *connect.Request[user.ListInboxMessagesRequest]) (*connect.Response[user.ListInboxMessagesResponse], error)
-	// Updates an existing inbox message.
+	// Sets the caller's read state for an inbox message. The message itself
+	// is shared with every other reader it was addressed to and is not
+	// changed.
 	UpdateInboxMessage(context.Context, *connect.Request[user.UpdateInboxMessageRequest]) (*connect.Response[user.UpdateInboxMessageResponse], error)
-	// Deletes an inbox message.
+	// Deletes an inbox message for the caller: it disappears from the
+	// caller's polls and lists and stays visible to every other reader.
 	DeleteInboxMessage(context.Context, *connect.Request[user.DeleteInboxMessageRequest]) (*connect.Response[user.DeleteInboxMessageResponse], error)
 }
 

@@ -4,6 +4,32 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.27.0] - Unreleased
+
+**New fields (inbox broadcast):** `elephant.user` gains three additive fields
+for the inbox redesign in elephant-user, where messages become addressable to
+a unit or an org and one id order spans everything a caller can read.
+`PushInboxMessageResponse` gains `id`, the id of the stored message, or of the
+message previously stored for the same recipient and payload uuid, since a
+repeated push is answered with the existing message rather than a duplicate.
+`PollInboxMessagesRequest` and `PollEventLogRequest` gain `size`, the maximum
+number of items to return, defaulting to 10 and treated as 100 above that; the
+same ceiling now applies to `ListInboxMessagesRequest.size`. No field is
+renamed or renumbered, so a generated client built against v0.26.0 keeps
+working; what changes on the wire is decided by the elephant-user release that
+implements it, not by this declaration.
+
+The comments on the inbox RPCs and messages describe the new semantics: a
+recipient may be a user sub, `core://unit/<id>` or `core://org/<id>`; a poll or
+list spans the caller's sub, org and units; `is_read`, `updated` and delete are
+per caller, and a delete hides the message for the caller only.
+
+Changes:
+
+- `elephant.user.PushInboxMessageResponse` gains `id` (1).
+- `elephant.user.PollInboxMessagesRequest` gains `size` (2).
+- `elephant.user.PollEventLogRequest` gains `size` (2).
+
 ## [v0.26.0] - 2026-09-18
 
 **New service (collaborative editing):** `elephant.collab.v1` is the
