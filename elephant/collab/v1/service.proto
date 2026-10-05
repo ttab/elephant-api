@@ -15,7 +15,11 @@ option go_package = "github.com/ttab/elephant-api/elephant/collab/v1;collabv1";
 // envelope over the WebSocket at GET /collab/socket; agents and
 // other server-side clients use the Collaborate bidi stream below.
 // Both are adapters over one connection implementation, so the two
-// differ in framing only.
+// differ in framing only. The WebSocket framing is defined by
+// github.com/ttab/ecollab/envelope: every field below has a place in
+// it, including the Synced payload's lineage and state vector, the
+// lineage key of the subscribe-options frame, and a client's sync
+// step 2, which the WebSocket accepts exactly as this stream does.
 service CollaborationService {
   // Collaborate is the live editing path: one stream carries any
   // number of document subscriptions, keyed on the doc field of
@@ -1006,7 +1010,9 @@ message CollaborateRequest {
     // is always harmless. Any other diff is treated as an update
     // stamped as a resync (the v1-resync encoding) and goes through
     // the update gates: read-only, frozen, publish soft-stop and
-    // rate limit, with the same refusals as update.
+    // rate limit, with the same refusals as update. The rate limit
+    // counts messages, not bytes, so a Step 2 near its cap costs
+    // the one token an update does.
     //
     // The payload cap differs: a Step 2 may be up to 1 MiB, where an
     // update is capped at 32 KiB. Over the cap is the
@@ -1056,18 +1062,41 @@ message CollaborateResponse {
     Synced synced = 5;
     // One subscription was closed by the server, with a structured
     // reason (read_only, no_active_session, subscribe_failed,
-    // session_terminated, lineage_mismatch, ...). lineage_mismatch
-    // refuses a subscribe whose declared lineage, or whose state
-    // vector, belongs to a different lineage than the session's;
-    // the message is a JSON object, {"lineage": "...", "cause":
-    // "..."}, carrying the session's current lineage (empty when
-    // there was no session) and why the client's lineage ended:
-    // frozen, reset, purged, discarded, promoted, expired,
-    // anchor_moved, or unknown, which is also how a client reads a
-    // cause it does not know. The client keeps its local document
-    // for recovery rather than merging it. Connection-wide refusals are not delivered this
-    // way on this transport: they end the stream with a coded error
-    // instead.
+    // session_terminated, lineage_mismatch, ...). Connection-wide
+    // refusals are not delivered this way on this transport: they end
+    // the stream with a coded error instead.
+    //
+    // lineage_mismatch refuses a subscribe whose declared lineage, or
+    // whose state vector (see Subscribe.state_vector), belongs to a
+    // different lineage than the session's. The client keeps its local
+    // document for recovery rather than merging it. The message is a
+    // JSON object in the shape of session_terminated's:
+    //
+    //   {"lineage": "...", "reason": "...", "version": 12}
+    //
+    // lineage is the session's current lineage, empty when there was
+    // no session. version is the repository version the client's
+    // lineage ended at, the newest one a session of it wrote or
+    // started from: the baseline to compare the local copy against.
+    // It is 0 when the lineage knew no repository version, as a
+    // sketch's does not. reason is why the client's lineage ended:
+    //
+    //   - frozen: the document was frozen, which is what a publish
+    //     does; version is the frozen version.
+    //   - reset: someone reset the document's collaborative state,
+    //     setting the session's content aside on purpose.
+    //   - purged: a session of the lineage was purged, normally on a
+    //     legal request; the copy holds content meant to go.
+    //   - discarded: the sketch was deleted with DiscardSketch, so
+    //     there is no document to return the work to.
+    //   - promoted: the sketch became a repository document; version
+    //     is the one the promotion created.
+    //   - expired: nobody resumed the lineage within 24 hours of the
+    //     eviction; the document itself did not change.
+    //   - anchor_moved: the document was written outside
+    //     collaboration after the eviction, or deleted and recreated.
+    //   - unknown: the server has no record of how the lineage ended,
+    //     which is also how a client reads a reason it does not know.
     Close close = 6;
     // A server-issued event scoped to a doc, such as
     // publish_in_progress.
@@ -1086,6 +1115,19 @@ message CollaborateResponse {
 
 message Subscribe {
   // lib0-encoded Yjs state vector. Empty means a fresh client.
+  //
+  // The lineage guard reads it whether or not lineage is declared: a
+  // non-empty vector with no entry for the session's seed client —
+  // the Yjs client ID the session's seed was written under — is
+  // refused with close lineage_mismatch. Every client synced to the
+  // session holds the seed, so a vector without it belongs to another
+  // history. Nothing else in the vector is compared: entries the
+  // session lacks, such as the client's own offline edits, are
+  // expected and are what its sync_step2 delivers. A client that
+  // wrote into an empty document before its first sync has no seed
+  // entry and is refused the same way; it subscribes with an empty
+  // document instead. The check is skipped on a session with no seed,
+  // a brand-new document with no repository version.
   bytes state_vector = 1;
   // Unset means the doc-kind default: true for editors, false for
   // observers.

@@ -23,11 +23,17 @@ contract, existing clients see two differences without opting in. A subscribe
 whose state vector belongs to a different lineage than the session's, such as
 a reconnect with a local document from a session since evicted and re-seeded,
 is refused with the new `Close` reason `lineage_mismatch` and gets neither
-`sync_step2` nor `synced`, even when it declares no lineage; it used to be
-merged, producing duplicate structure. The `Close` message is a JSON object,
-`{"lineage": "...", "cause": "..."}`: the session's current lineage and why the
-client's lineage ended (`frozen`, `reset`, `purged`, `discarded`, `promoted`,
-`expired`, `anchor_moved` or `unknown`). A client should treat that as the end
+`sync_step2` nor `synced`, even when it declares no lineage. Until now such a
+client's updates referenced items the new seed does not hold, so the server
+parked them as pending and never integrated them; with the client's
+`sync_step2` carrying its whole old history, merging would duplicate the
+document's structure instead, which is what the refusal prevents. The `Close`
+message is a JSON object in the shape of `session_terminated`'s,
+`{"lineage": "...", "reason": "...", "version": 12}`: the session's current
+lineage, why the client's lineage ended (`frozen`, `reset`, `purged`,
+`discarded`, `promoted`, `expired`, `anchor_moved` or `unknown`), and the
+repository version it ended at; `CollaborateResponse.close` describes each
+reason. A client should treat that as the end
 of the subscription and keep its local document rather than resubscribe with
 it. A repeat `subscribe` on an open subscription, which got only `synced`, now
 gets `sync_step1` first; a client with nothing to send may ignore it.
@@ -44,7 +50,8 @@ Changes:
 - `elephant.collab.v1.Subscribe` gains `lineage` (5), and `Synced` gains
   `lineage` (2) and `state_vector` (3).
 - `CollaborateResponse.close` documents the `lineage_mismatch` reason and its
-  JSON message.
+  JSON message, and `Subscribe.state_vector` the rule the lineage guard applies
+  to it.
 - `elephant.collab.v1.CollaborativeSession` gains `lineage` (15), the
   lineage the session was seeded with or, when it resumed the state of an
   evicted session, continued; `GetCollaborativeSession`,
