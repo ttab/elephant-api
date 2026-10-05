@@ -1059,9 +1059,13 @@ message CollaborateResponse {
     // session_terminated, lineage_mismatch, ...). lineage_mismatch
     // refuses a subscribe whose declared lineage, or whose state
     // vector, belongs to a different lineage than the session's;
-    // the message carries the session's current lineage, and the
-    // client keeps its local document for recovery rather than
-    // merging it. Connection-wide refusals are not delivered this
+    // the message is a JSON object, {"lineage": "...", "cause":
+    // "..."}, carrying the session's current lineage (empty when
+    // there was no session) and why the client's lineage ended:
+    // frozen, reset, purged, discarded, promoted, expired,
+    // anchor_moved, or unknown, which is also how a client reads a
+    // cause it does not know. The client keeps its local document
+    // for recovery rather than merging it. Connection-wide refusals are not delivered this
     // way on this transport: they end the stream with a coded error
     // instead.
     Close close = 6;

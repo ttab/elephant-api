@@ -24,7 +24,10 @@ whose state vector belongs to a different lineage than the session's, such as
 a reconnect with a local document from a session since evicted and re-seeded,
 is refused with the new `Close` reason `lineage_mismatch` and gets neither
 `sync_step2` nor `synced`, even when it declares no lineage; it used to be
-merged, producing duplicate structure. A client should treat that as the end
+merged, producing duplicate structure. The `Close` message is a JSON object,
+`{"lineage": "...", "cause": "..."}`: the session's current lineage and why the
+client's lineage ended (`frozen`, `reset`, `purged`, `discarded`, `promoted`,
+`expired`, `anchor_moved` or `unknown`). A client should treat that as the end
 of the subscription and keep its local document rather than resubscribe with
 it. A repeat `subscribe` on an open subscription, which got only `synced`, now
 gets `sync_step1` first; a client with nothing to send may ignore it.
@@ -40,7 +43,8 @@ Changes:
   1 MiB payload cap.
 - `elephant.collab.v1.Subscribe` gains `lineage` (5), and `Synced` gains
   `lineage` (2) and `state_vector` (3).
-- `CollaborateResponse.close` documents the `lineage_mismatch` reason.
+- `CollaborateResponse.close` documents the `lineage_mismatch` reason and its
+  JSON message.
 - `elephant.collab.v1.CollaborativeSession` gains `lineage` (15), the
   lineage the session was seeded with or, when it resumed the state of an
   evicted session, continued; `GetCollaborativeSession`,
