@@ -506,6 +506,13 @@ message CollaborativeSession {
   string purged_at = 12;
   string purged_by = 13;
   string purge_reason = 14;
+
+  // The session's lineage: the ULID of the CRDT history it was
+  // seeded with, or continued. A session that resumed the state of
+  // an evicted one carries that session's lineage; a session seeded
+  // afresh carries a new one. Empty for a session opened before
+  // lineage was recorded, and for purged sessions.
+  string lineage = 15;
 }
 
 message ListCollaborativeSessionsRequest {
@@ -970,7 +977,10 @@ message CollaborateRequest {
     // client's state vector and the subscribe-time options in one
     // message: the WebSocket sends them as two frames and buffers
     // the options until SyncStep1 arrives; here there is nothing to
-    // buffer.
+    // buffer. A repeat subscribe on an open subscription keeps its
+    // state and re-runs the handshake without the server's Step 2
+    // (see CollaborateResponse): that is how a client re-handshakes
+    // to resend its sync_step2.
     Subscribe subscribe = 2;
     // A Yjs update produced by a local transaction.
     Update update = 3;
@@ -984,29 +994,76 @@ message CollaborateRequest {
     // A fresh bearer for the same subject; extends the connection's
     // expiry. Rejected refreshes are counted and ignored.
     AuthRefresh auth_refresh = 7;
+    // The client's answer to the server's sync_step1: the diff from
+    // the server's state vector to the client's local state, which
+    // is what the server lacks — edits made offline, or while the
+    // subscription was down. Sent only in answer to a sync_step1,
+    // which a read-only subscription never receives.
+    //
+    // An empty diff — a Yjs update with no structs and no
+    // deletions, such as the two-byte header a peer with nothing
+    // new sends — is dropped before any gate, so answering with one
+    // is always harmless. Any other diff is treated as an update
+    // stamped as a resync (the v1-resync encoding) and goes through
+    // the update gates: read-only, frozen, publish soft-stop and
+    // rate limit, with the same refusals as update.
+    //
+    // The payload cap differs: a Step 2 may be up to 1 MiB, where an
+    // update is capped at 32 KiB. Over the cap is the
+    // connection-wide payload_too_large refusal, which ends the
+    // stream, and the same diff would be refused again after a
+    // reconnect. A client whose diff is over 1 MiB therefore does
+    // not send it: it keeps its local document and takes the
+    // recovery path, as for lineage_mismatch.
+    //
+    // A client whose Step 2 is refused by the soft-stop keeps its
+    // local state and, after publish_cleared, re-handshakes by
+    // sending subscribe again on the open subscription, which
+    // brings a fresh sync_step1 to answer.
+    SyncStep2 sync_step2 = 8;
   }
 }
 
 // CollaborateResponse is one server-to-client message.
+//
+// A subscribe that opens a subscription is answered with the
+// y-protocols sync handshake, in this order: sync_step2 (when the
+// diff is non-empty), then sync_step1 (when the granted mode is
+// read-write), then synced. A client answers sync_step1 with a
+// CollaborateRequest.sync_step2; a read-only subscription gets no
+// sync_step1 and sends no Step 2. A repeat subscribe on an open
+// subscription gets the same handshake without sync_step2, since
+// the client has been on the live tail and already holds the
+// server's state: sync_step1 (when read-write), then synced. A
+// subscribe refused by the lineage guard is answered with close
+// (lineage_mismatch) and none of the three.
 message CollaborateResponse {
   string doc = 1;
 
   oneof payload {
     // The diff from the client's state vector to the server's
-    // materialised state. Sent once, before synced, on a fresh
-    // subscribe with a non-empty diff.
+    // materialised state. Sent first in the handshake of a subscribe
+    // that opens a subscription, when the diff is non-empty; never
+    // on a repeat subscribe.
     SyncStep2 sync_step2 = 2;
     // A live update from another participant, or the client's own
     // update echoed through the stream.
     Update update = 3;
     Awareness awareness = 4;
-    // Initial state transfer is complete; carries the granted mode.
+    // Initial state transfer is complete; carries the granted mode,
+    // the session's lineage and the server's state vector. Sent
+    // last in the handshake, after sync_step1 when there is one.
     Synced synced = 5;
     // One subscription was closed by the server, with a structured
     // reason (read_only, no_active_session, subscribe_failed,
-    // session_terminated, ...). Connection-wide refusals are not
-    // delivered this way on this transport: they end the stream
-    // with a coded error instead.
+    // session_terminated, lineage_mismatch, ...). lineage_mismatch
+    // refuses a subscribe whose declared lineage, or whose state
+    // vector, belongs to a different lineage than the session's;
+    // the message carries the session's current lineage, and the
+    // client keeps its local document for recovery rather than
+    // merging it. Connection-wide refusals are not delivered this
+    // way on this transport: they end the stream with a coded error
+    // instead.
     Close close = 6;
     // A server-issued event scoped to a doc, such as
     // publish_in_progress.
@@ -1014,6 +1071,12 @@ message CollaborateResponse {
     // The server's time witness; doc is empty. Echo server_time
     // verbatim as SnapshotRequest.client_last_server_ping.
     ServerPing server_ping = 8;
+    // The server's half of the handshake: its state vector, sent
+    // after sync_step2 (if any) and before synced, on a fresh or
+    // repeat subscribe, and only when the granted mode is
+    // read-write. The client answers with a
+    // CollaborateRequest.sync_step2 carrying what the server lacks.
+    SyncStep1 sync_step1 = 9;
   }
 }
 
@@ -1025,6 +1088,14 @@ message Subscribe {
   optional bool advertise_presence = 2;
   bool observer = 3;
   repeated string freeze_on_workflow_states = 4;
+  // The lineage the client's local document belongs to, as the last
+  // Synced reported it. Never the value in the document's lineage
+  // root: that is ordinary content any writer can overwrite, and the
+  // server checks against its own record of the session. Empty for a
+  // fresh client. A non-empty lineage that differs from the session's
+  // is refused with close lineage_mismatch before any diff is
+  // computed against state_vector.
+  string lineage = 5;
 }
 
 message Update {
@@ -1047,6 +1118,16 @@ message AuthRefresh {
   string token = 1;
 }
 
+// SyncStep1 carries a lib0-encoded Yjs state vector, asking the
+// receiver for everything it holds beyond it.
+message SyncStep1 {
+  bytes state_vector = 1;
+}
+
+// SyncStep2 carries a Yjs v1 update: the diff from the peer's state
+// vector to the sender's state. The server sends one in answer to a
+// subscribe; a client sends one in answer to the server's
+// SyncStep1.
 message SyncStep2 {
   bytes diff = 1;
 }
@@ -1059,6 +1140,17 @@ enum SubscriptionMode {
 
 message Synced {
   SubscriptionMode mode = 1;
+  // The session's lineage: the ULID minted when its CRDT history
+  // was seeded, kept across eviction while the session can be
+  // resumed. A client persists it with its local document and
+  // declares it on its next Subscribe.
+  string lineage = 2;
+  // The server's lib0-encoded state vector at the point this
+  // handshake was answered: the vector sync_step1 carried, and the
+  // one any sync_step2 on this subscribe was computed to. Present
+  // whether or not this subscribe sent either, so a read-only
+  // subscription has it too.
+  bytes state_vector = 3;
 }
 
 message Close {

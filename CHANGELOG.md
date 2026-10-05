@@ -4,6 +4,49 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.27.0] - Unreleased
+
+**New messages and fields (sync handshake and lineage on `Collaborate`):**
+the stream now carries both halves of the y-protocols sync handshake, so a
+client can push edits the server lacks, such as ones made offline. A subscribe
+is answered with `sync_step2`, then the new `CollaborateResponse.sync_step1`
+carrying the server's state vector (read-write subscriptions only), then
+`synced`; the client answers `sync_step1` with the new
+`CollaborateRequest.sync_step2`, which may be up to 1 MiB rather than an
+update's 32 KiB. `Subscribe.lineage` declares which CRDT lineage the client's
+local document belongs to, and `Synced` reports the session's `lineage` and
+`state_vector`. The comments on `CollaborateResponse` and
+`CollaborateRequest.sync_step2` carry the full contract.
+
+**Behaviour change (subscribe answers):** once elephant-collab implements this
+contract, existing clients see two differences without opting in. A subscribe
+whose state vector belongs to a different lineage than the session's, such as
+a reconnect with a local document from a session since evicted and re-seeded,
+is refused with the new `Close` reason `lineage_mismatch` and gets neither
+`sync_step2` nor `synced`, even when it declares no lineage; it used to be
+merged, producing duplicate structure. A client should treat that as the end
+of the subscription and keep its local document rather than resubscribe with
+it. A repeat `subscribe` on an open subscription, which got only `synced`, now
+gets `sync_step1` first; a client with nothing to send may ignore it.
+
+Changes:
+
+- `elephant.collab.v1.CollaborateResponse` gains `sync_step1` (9), a new
+  `SyncStep1` message carrying `state_vector`, sent between `sync_step2` and
+  `synced`; the response documents the handshake order, including what a
+  repeat subscribe gets.
+- `elephant.collab.v1.CollaborateRequest` gains `sync_step2` (8), reusing
+  `SyncStep2`, for the client's answer to the server's Step 1, with its own
+  1 MiB payload cap.
+- `elephant.collab.v1.Subscribe` gains `lineage` (5), and `Synced` gains
+  `lineage` (2) and `state_vector` (3).
+- `CollaborateResponse.close` documents the `lineage_mismatch` reason.
+- `elephant.collab.v1.CollaborativeSession` gains `lineage` (15), the
+  lineage the session was seeded with or, when it resumed the state of an
+  evicted session, continued; `GetCollaborativeSession`,
+  `ListCollaborativeSessions` and `ListActiveCollaborativeSessions` all
+  report it.
+
 ## [v0.26.0] - 2026-09-18
 
 **New service (collaborative editing):** `elephant.collab.v1` is the
