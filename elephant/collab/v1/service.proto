@@ -265,6 +265,16 @@ service CollaborationService {
   // Auth: authenticated; results are ACL-filtered server-side.
   rpc ListSketches(ListSketchesRequest) returns (ListSketchesResponse);
 
+  // GetSketch returns a sketch's summary and its last saved content.
+  // The document is the last materialised copy of the collaborative
+  // state: exact for a sketch with no open session, and up to the
+  // auto-snapshot interval behind while one is being edited. It is
+  // not a substitute for subscribing. Reading it opens no session,
+  // takes no lock and leaves updated_at untouched.
+  //
+  // Auth: `r` or `w` on the sketch's ACL, OR collab_admin scope.
+  rpc GetSketch(GetSketchRequest) returns (GetSketchResponse);
+
   // BulkSnapshot mirrors the repository's BulkUpdate: a list of
   // SnapshotRequests forwarded as a single repository.BulkUpdate
   // for atomic multi-document semantics. Mixed bulks (sketches +
@@ -825,6 +835,18 @@ message ListSketchesResponse {
   repeated SketchSummary sketches = 1;
   // Empty when no more pages.
   string next_cursor = 2;
+}
+
+message GetSketchRequest {
+  string doc_id = 1;
+}
+
+message GetSketchResponse {
+  SketchSummary sketch = 1;
+  // The last materialised NewsDoc: what CreateSketch stored, or what
+  // the latest auto-snapshot or eviction of an edited session wrote.
+  // Stale against a live session by up to the auto-snapshot interval.
+  newsdoc.Document document = 2;
 }
 
 message SketchSummary {
