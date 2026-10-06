@@ -4,7 +4,18 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.28.1] - Unreleased
+## [v0.29.0] - Unreleased
+
+**New fields and RPC (tags and metadata on sketches):** a sketch carries
+`tags`, a list of strings that classify it, and `metadata`, a flat string
+map of application facts about it, both stored outside the document.
+`CreateSketchRequest` takes them, `SketchSummary` returns them, and
+`ListSketchesRequest.tags` filters the listing to sketches carrying every
+listed tag. `UpdateSketchMetadata` replaces both in full, the
+`UpdateSketchACL` contract, and requires `w` on the sketch's ACL. Limits:
+tags non-empty and at most 64 bytes, at most 32 per sketch; keys at most
+64 bytes, values at most 1024 bytes, at most 32 entries. The service does
+not interpret tag syntax.
 
 **New RPC (read a sketch without subscribing):**
 `elephant.collab.v1.CollaborationService.GetSketch` returns a sketch's
@@ -21,6 +32,11 @@ Changes:
 - `elephant.collab.v1.CollaborationService` gains `GetSketch`, with the new
   `GetSketchRequest` (`doc_id`) and `GetSketchResponse` (`sketch`,
   `document`) messages.
+- `elephant.collab.v1.CollaborationService` gains `UpdateSketchMetadata`,
+  with the new `UpdateSketchMetadataRequest` (`doc_id`, `tags`, `metadata`)
+  and `UpdateSketchMetadataResponse` messages.
+- `CreateSketchRequest` gains `tags` and `metadata`; `SketchSummary` gains
+  `tags` and `metadata`; `ListSketchesRequest` gains `tags`.
 
 ## [v0.28.0] - 2026-10-06
 
