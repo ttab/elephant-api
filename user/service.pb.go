@@ -1275,7 +1275,10 @@ type PollEventLogRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID of the event after which to start returning events.
 	// Set to -1 for the initial request.
-	AfterId       int64 `protobuf:"varint,1,opt,name=after_id,json=afterId,proto3" json:"after_id,omitempty"`
+	AfterId int64 `protobuf:"varint,1,opt,name=after_id,json=afterId,proto3" json:"after_id,omitempty"`
+	// Maximum number of events to return. Defaults to 10 when unset; a
+	// value over 100 is treated as 100.
+	Size          int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1313,6 +1316,13 @@ func (*PollEventLogRequest) Descriptor() ([]byte, []int) {
 func (x *PollEventLogRequest) GetAfterId() int64 {
 	if x != nil {
 		return x.AfterId
+	}
+	return 0
+}
+
+func (x *PollEventLogRequest) GetSize() int64 {
+	if x != nil {
+		return x.Size
 	}
 	return 0
 }
@@ -1620,9 +1630,16 @@ func (*PushMessageResponse) Descriptor() ([]byte, []int) {
 
 type PushInboxMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Recipient of the message (user sub).
+	// Recipient of the message: a user sub, or a unit (core://unit/<id>) or
+	// an org (core://org/<id>). A user recipient requires the "user" scope; a
+	// unit or org recipient requires the "doc_admin" scope and that the
+	// caller is a member of it.
 	Recipient string `protobuf:"bytes,1,opt,name=recipient,proto3" json:"recipient,omitempty"`
-	// Payload containing a newsdoc document.
+	// Payload containing a newsdoc document of type core/inbox-message. The
+	// document's uuid identifies the message: pushing the same uuid to the
+	// same recipient again stores nothing and answers with the existing
+	// message's id, so a retry after a lost response is safe. The same uuid
+	// with a different payload is refused with already_exists.
 	Payload       *newsdoc.Document `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1673,7 +1690,10 @@ func (x *PushInboxMessageRequest) GetPayload() *newsdoc.Document {
 }
 
 type PushInboxMessageResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ID of the stored message, or of the message previously stored for the
+	// same recipient and payload uuid.
+	Id            int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1706,6 +1726,13 @@ func (x *PushInboxMessageResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PushInboxMessageResponse.ProtoReflect.Descriptor instead.
 func (*PushInboxMessageResponse) Descriptor() ([]byte, []int) {
 	return file_user_service_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *PushInboxMessageResponse) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
 }
 
 type PollMessagesRequest struct {
@@ -1921,8 +1948,12 @@ func (x *Message) GetPayload() map[string]string {
 type PollInboxMessagesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID of the message after which to start returning messages.
-	// Set to -1 for the initial request.
-	AfterId       int64 `protobuf:"varint,1,opt,name=after_id,json=afterId,proto3" json:"after_id,omitempty"`
+	// Set to -1 for the initial request, which starts after the newest
+	// message addressed to any of the caller's recipients.
+	AfterId int64 `protobuf:"varint,1,opt,name=after_id,json=afterId,proto3" json:"after_id,omitempty"`
+	// Maximum number of messages to return. Defaults to 10 when unset; a
+	// value over 100 is treated as 100.
+	Size          int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1960,6 +1991,13 @@ func (*PollInboxMessagesRequest) Descriptor() ([]byte, []int) {
 func (x *PollInboxMessagesRequest) GetAfterId() int64 {
 	if x != nil {
 		return x.AfterId
+	}
+	return 0
+}
+
+func (x *PollInboxMessagesRequest) GetSize() int64 {
+	if x != nil {
+		return x.Size
 	}
 	return 0
 }
@@ -2021,19 +2059,25 @@ func (x *PollInboxMessagesResponse) GetMessages() []*InboxMessage {
 
 type InboxMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Recipient of the message (user sub).
+	// Recipient the message was addressed to: a user sub, a unit
+	// (core://unit/<id>) or an org (core://org/<id>). A message addressed to
+	// a unit or org is one message shared by every member; the read state
+	// below is the caller's own.
 	Recipient string `protobuf:"bytes,1,opt,name=recipient,proto3" json:"recipient,omitempty"`
-	// ID of the message.
+	// ID of the message. IDs are assigned in commit order across all
+	// recipients, so one after_id cursor spans everything the caller can
+	// read.
 	Id int64 `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
 	// Created timestamp is the RFC3339 timestamp
 	// for when the message was created.
 	Created string `protobuf:"bytes,3,opt,name=created,proto3" json:"created,omitempty"`
-	// Creator of the message (application sub).
+	// Creator of the message: the sub of the token that pushed it.
 	CreatedBy string `protobuf:"bytes,4,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	// Updated timestamp is the RFC3339 timestamp
-	// for when the message was last updated.
+	// Updated timestamp is the RFC3339 timestamp for when the message was
+	// last updated. Messages are not changed after creation today, so it
+	// equals created; the caller's read state is not reflected here.
 	Updated string `protobuf:"bytes,5,opt,name=updated,proto3" json:"updated,omitempty"`
-	// Indicates whether the message has been read.
+	// Whether the caller has marked the message as read.
 	IsRead bool `protobuf:"varint,6,opt,name=is_read,json=isRead,proto3" json:"is_read,omitempty"`
 	// Payload containing a newsdoc document.
 	Payload       *newsdoc.Document `protobuf:"bytes,7,opt,name=payload,proto3" json:"payload,omitempty"`
@@ -2122,9 +2166,11 @@ func (x *InboxMessage) GetPayload() *newsdoc.Document {
 
 type ListInboxMessagesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// ID of the message before which to list messages.
+	// ID of the message before which to list messages. Zero lists from the
+	// newest.
 	BeforeId int64 `protobuf:"varint,1,opt,name=before_id,json=beforeId,proto3" json:"before_id,omitempty"`
-	// Number of messages to include in the results (defaults to 10).
+	// Number of messages to include in the results. Defaults to 10 when
+	// unset; a value over 100 is treated as 100.
 	Size          int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2239,9 +2285,10 @@ func (x *ListInboxMessagesResponse) GetMessages() []*InboxMessage {
 
 type UpdateInboxMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// ID of the message.
+	// ID of the message. Answers not_found unless the message is addressed to
+	// the caller, the caller's org or one of the caller's units.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Sets the message's read status.
+	// Sets the caller's read state for the message.
 	IsRead        bool `protobuf:"varint,2,opt,name=is_read,json=isRead,proto3" json:"is_read,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2329,7 +2376,8 @@ func (*UpdateInboxMessageResponse) Descriptor() ([]byte, []int) {
 
 type DeleteInboxMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// ID of the message.
+	// ID of the message. Answers not_found unless the message is addressed to
+	// the caller, the caller's org or one of the caller's units.
 	Id            int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3412,9 +3460,10 @@ const file_user_service_proto_rawDesc = "" +
 	"\n" +
 	"properties\x18\x01 \x03(\v2\x1d.elephant.user.PropertyDeleteR\n" +
 	"properties\"\x1a\n" +
-	"\x18DeletePropertiesResponse\"0\n" +
+	"\x18DeletePropertiesResponse\"D\n" +
 	"\x13PollEventLogRequest\x12\x19\n" +
-	"\bafter_id\x18\x01 \x01(\x03R\aafterId\"g\n" +
+	"\bafter_id\x18\x01 \x01(\x03R\aafterId\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\"g\n" +
 	"\x14PollEventLogResponse\x12\x17\n" +
 	"\alast_id\x18\x01 \x01(\x03R\x06lastId\x126\n" +
 	"\aentries\x18\x02 \x03(\v2\x1c.elephant.user.EventLogEntryR\aentries\"\xc8\x02\n" +
@@ -3443,8 +3492,9 @@ const file_user_service_proto_rawDesc = "" +
 	"\x13PushMessageResponse\"d\n" +
 	"\x17PushInboxMessageRequest\x12\x1c\n" +
 	"\trecipient\x18\x01 \x01(\tR\trecipient\x12+\n" +
-	"\apayload\x18\x02 \x01(\v2\x11.newsdoc.DocumentR\apayload\"\x1a\n" +
-	"\x18PushInboxMessageResponse\"0\n" +
+	"\apayload\x18\x02 \x01(\v2\x11.newsdoc.DocumentR\apayload\"*\n" +
+	"\x18PushInboxMessageResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"0\n" +
 	"\x13PollMessagesRequest\x12\x19\n" +
 	"\bafter_id\x18\x01 \x01(\x03R\aafterId\"c\n" +
 	"\x14PollMessagesResponse\x12\x17\n" +
@@ -3462,9 +3512,10 @@ const file_user_service_proto_rawDesc = "" +
 	"\apayload\x18\b \x03(\v2#.elephant.user.Message.PayloadEntryR\apayload\x1a:\n" +
 	"\fPayloadEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"5\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"I\n" +
 	"\x18PollInboxMessagesRequest\x12\x19\n" +
-	"\bafter_id\x18\x01 \x01(\x03R\aafterId\"m\n" +
+	"\bafter_id\x18\x01 \x01(\x03R\aafterId\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\"m\n" +
 	"\x19PollInboxMessagesResponse\x12\x17\n" +
 	"\alast_id\x18\x01 \x01(\x03R\x06lastId\x127\n" +
 	"\bmessages\x18\x02 \x03(\v2\x1b.elephant.user.InboxMessageR\bmessages\"\xd5\x01\n" +
