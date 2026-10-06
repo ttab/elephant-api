@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.28.0] - Unreleased
+## [v0.28.0] - 2026-10-06
 
 **New fields (inbox broadcast):** `elephant.user` gains three additive fields
 for the inbox redesign in elephant-user, where messages become addressable to
