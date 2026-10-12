@@ -93,6 +93,9 @@ const (
 	// CollaborationServiceListSketchesProcedure is the fully-qualified name of the
 	// CollaborationService's ListSketches RPC.
 	CollaborationServiceListSketchesProcedure = "/elephant.collab.v1.CollaborationService/ListSketches"
+	// CollaborationServiceGetSketchProcedure is the fully-qualified name of the CollaborationService's
+	// GetSketch RPC.
+	CollaborationServiceGetSketchProcedure = "/elephant.collab.v1.CollaborationService/GetSketch"
 	// CollaborationServiceBulkSnapshotProcedure is the fully-qualified name of the
 	// CollaborationService's BulkSnapshot RPC.
 	CollaborationServiceBulkSnapshotProcedure = "/elephant.collab.v1.CollaborationService/BulkSnapshot"
@@ -330,6 +333,15 @@ type CollaborationServiceClient interface {
 	//
 	// Auth: authenticated; results are ACL-filtered server-side.
 	ListSketches(context.Context, *connect.Request[v1.ListSketchesRequest]) (*connect.Response[v1.ListSketchesResponse], error)
+	// GetSketch returns a sketch's summary and its last saved content.
+	// The document is the last materialised copy of the collaborative
+	// state: exact for a sketch with no open session, and up to the
+	// auto-snapshot interval behind while one is being edited. It is
+	// not a substitute for subscribing. Reading it opens no session,
+	// takes no lock and leaves updated_at untouched.
+	//
+	// Auth: `r` or `w` on the sketch's ACL, OR collab_admin scope.
+	GetSketch(context.Context, *connect.Request[v1.GetSketchRequest]) (*connect.Response[v1.GetSketchResponse], error)
 	// BulkSnapshot mirrors the repository's BulkUpdate: a list of
 	// SnapshotRequests forwarded as a single repository.BulkUpdate
 	// for atomic multi-document semantics. Mixed bulks (sketches +
@@ -498,6 +510,12 @@ func NewCollaborationServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(collaborationServiceMethods.ByName("ListSketches")),
 			connect.WithClientOptions(opts...),
 		),
+		getSketch: connect.NewClient[v1.GetSketchRequest, v1.GetSketchResponse](
+			httpClient,
+			baseURL+CollaborationServiceGetSketchProcedure,
+			connect.WithSchema(collaborationServiceMethods.ByName("GetSketch")),
+			connect.WithClientOptions(opts...),
+		),
 		bulkSnapshot: connect.NewClient[v1.BulkSnapshotRequest, v1.BulkSnapshotResponse](
 			httpClient,
 			baseURL+CollaborationServiceBulkSnapshotProcedure,
@@ -541,6 +559,7 @@ type collaborationServiceClient struct {
 	updateSketchACL                 *connect.Client[v1.UpdateSketchACLRequest, v1.UpdateSketchACLResponse]
 	discardSketch                   *connect.Client[v1.DiscardSketchRequest, v1.DiscardSketchResponse]
 	listSketches                    *connect.Client[v1.ListSketchesRequest, v1.ListSketchesResponse]
+	getSketch                       *connect.Client[v1.GetSketchRequest, v1.GetSketchResponse]
 	bulkSnapshot                    *connect.Client[v1.BulkSnapshotRequest, v1.BulkSnapshotResponse]
 	getSessionVersionAnchors        *connect.Client[v1.GetSessionVersionAnchorsRequest, v1.GetSessionVersionAnchorsResponse]
 	getDocumentTimeline             *connect.Client[v1.GetDocumentTimelineRequest, v1.GetDocumentTimelineResponse]
@@ -648,6 +667,11 @@ func (c *collaborationServiceClient) DiscardSketch(ctx context.Context, req *con
 // ListSketches calls elephant.collab.v1.CollaborationService.ListSketches.
 func (c *collaborationServiceClient) ListSketches(ctx context.Context, req *connect.Request[v1.ListSketchesRequest]) (*connect.Response[v1.ListSketchesResponse], error) {
 	return c.listSketches.CallUnary(ctx, req)
+}
+
+// GetSketch calls elephant.collab.v1.CollaborationService.GetSketch.
+func (c *collaborationServiceClient) GetSketch(ctx context.Context, req *connect.Request[v1.GetSketchRequest]) (*connect.Response[v1.GetSketchResponse], error) {
+	return c.getSketch.CallUnary(ctx, req)
 }
 
 // BulkSnapshot calls elephant.collab.v1.CollaborationService.BulkSnapshot.
@@ -892,6 +916,15 @@ type CollaborationServiceHandler interface {
 	//
 	// Auth: authenticated; results are ACL-filtered server-side.
 	ListSketches(context.Context, *connect.Request[v1.ListSketchesRequest]) (*connect.Response[v1.ListSketchesResponse], error)
+	// GetSketch returns a sketch's summary and its last saved content.
+	// The document is the last materialised copy of the collaborative
+	// state: exact for a sketch with no open session, and up to the
+	// auto-snapshot interval behind while one is being edited. It is
+	// not a substitute for subscribing. Reading it opens no session,
+	// takes no lock and leaves updated_at untouched.
+	//
+	// Auth: `r` or `w` on the sketch's ACL, OR collab_admin scope.
+	GetSketch(context.Context, *connect.Request[v1.GetSketchRequest]) (*connect.Response[v1.GetSketchResponse], error)
 	// BulkSnapshot mirrors the repository's BulkUpdate: a list of
 	// SnapshotRequests forwarded as a single repository.BulkUpdate
 	// for atomic multi-document semantics. Mixed bulks (sketches +
@@ -1056,6 +1089,12 @@ func NewCollaborationServiceHandler(svc CollaborationServiceHandler, opts ...con
 		connect.WithSchema(collaborationServiceMethods.ByName("ListSketches")),
 		connect.WithHandlerOptions(opts...),
 	)
+	collaborationServiceGetSketchHandler := connect.NewUnaryHandler(
+		CollaborationServiceGetSketchProcedure,
+		svc.GetSketch,
+		connect.WithSchema(collaborationServiceMethods.ByName("GetSketch")),
+		connect.WithHandlerOptions(opts...),
+	)
 	collaborationServiceBulkSnapshotHandler := connect.NewUnaryHandler(
 		CollaborationServiceBulkSnapshotProcedure,
 		svc.BulkSnapshot,
@@ -1116,6 +1155,8 @@ func NewCollaborationServiceHandler(svc CollaborationServiceHandler, opts ...con
 			collaborationServiceDiscardSketchHandler.ServeHTTP(w, r)
 		case CollaborationServiceListSketchesProcedure:
 			collaborationServiceListSketchesHandler.ServeHTTP(w, r)
+		case CollaborationServiceGetSketchProcedure:
+			collaborationServiceGetSketchHandler.ServeHTTP(w, r)
 		case CollaborationServiceBulkSnapshotProcedure:
 			collaborationServiceBulkSnapshotHandler.ServeHTTP(w, r)
 		case CollaborationServiceGetSessionVersionAnchorsProcedure:
@@ -1209,6 +1250,10 @@ func (UnimplementedCollaborationServiceHandler) DiscardSketch(context.Context, *
 
 func (UnimplementedCollaborationServiceHandler) ListSketches(context.Context, *connect.Request[v1.ListSketchesRequest]) (*connect.Response[v1.ListSketchesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.ListSketches is not implemented"))
+}
+
+func (UnimplementedCollaborationServiceHandler) GetSketch(context.Context, *connect.Request[v1.GetSketchRequest]) (*connect.Response[v1.GetSketchResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.GetSketch is not implemented"))
 }
 
 func (UnimplementedCollaborationServiceHandler) BulkSnapshot(context.Context, *connect.Request[v1.BulkSnapshotRequest]) (*connect.Response[v1.BulkSnapshotResponse], error) {

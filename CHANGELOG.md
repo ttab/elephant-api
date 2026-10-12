@@ -4,6 +4,24 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.28.1] - Unreleased
+
+**New RPC (read a sketch without subscribing):**
+`elephant.collab.v1.CollaborationService.GetSketch` returns a sketch's
+`SketchSummary` and its last saved content as a NewsDoc, the sketch analogue of
+reading a repository document. Until now the only way to read a sketch's
+content was to subscribe to it. The document is the last materialised copy of
+the collaborative state: exact for a sketch with no open session, and up to
+the auto-snapshot interval behind while one is being edited, so it is not a
+substitute for subscribing. It requires `r` or `w` on the sketch's ACL, or the
+`collab_admin` scope.
+
+Changes:
+
+- `elephant.collab.v1.CollaborationService` gains `GetSketch`, with the new
+  `GetSketchRequest` (`doc_id`) and `GetSketchResponse` (`sketch`,
+  `document`) messages.
+
 ## [v0.28.0] - 2026-10-06
 
 **New fields (inbox broadcast):** `elephant.user` gains three additive fields
@@ -29,6 +47,7 @@ Changes:
 - `elephant.user.PushInboxMessageResponse` gains `id` (1).
 - `elephant.user.PollInboxMessagesRequest` gains `size` (2).
 - `elephant.user.PollEventLogRequest` gains `size` (2).
+
 ## [v0.27.0] - 2026-10-05
 
 **New messages and fields (sync handshake and lineage on `Collaborate`):**
