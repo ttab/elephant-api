@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.29.0] - Unreleased
+## [v0.28.1] - 2026-10-12
 
 **New fields and RPC (tags and metadata on sketches):** a sketch carries
 `tags`, a list of strings that classify it, and `metadata`, a flat string
