@@ -250,6 +250,17 @@ service CollaborationService {
   // Auth: `w` on the sketch's current ACL.
   rpc UpdateSketchACL(UpdateSketchACLRequest) returns (UpdateSketchACLResponse);
 
+  // UpdateSketchMetadata replaces the sketch's tags and metadata in
+  // full, the same contract as UpdateSketchACL: a caller that wants
+  // to add one tag sends the whole set, and an empty field clears
+  // it. Neither is document content, so the sketch's NewsDoc and
+  // its updated_at are left alone. The limits are those on
+  // CreateSketchRequest; a request over any of them is rejected with
+  // InvalidArgument.
+  //
+  // Auth: `w` on the sketch's current ACL.
+  rpc UpdateSketchMetadata(UpdateSketchMetadataRequest) returns (UpdateSketchMetadataResponse);
+
   // DiscardSketch abandons a sketch: closes any active session,
   // drops the Redis stream, deletes the sketch row. Idempotent on
   // a missing sketch (returns success).
@@ -796,6 +807,18 @@ message CreateSketchRequest {
   // Subsequent updates replace the ACL in full via
   // UpdateSketchACL.
   repeated ACLEntry acl = 2;
+  // Optional tags classifying the sketch, filterable in
+  // ListSketches. Each tag is a non-empty UTF-8 string of at most
+  // 64 bytes, at most 32 tags per sketch; duplicates are collapsed,
+  // keeping the first occurrence's position. The service does not
+  // interpret their syntax. Replaced in full via
+  // UpdateSketchMetadata.
+  repeated string tags = 3;
+  // Optional flat string map of application facts about the
+  // sketch, stored outside the document. Keys are non-empty and at
+  // most 64 bytes, values at most 1024 bytes, at most 32 entries,
+  // all valid UTF-8. Replaced in full via UpdateSketchMetadata.
+  map<string, string> metadata = 4;
 }
 
 message CreateSketchResponse {
@@ -811,6 +834,20 @@ message UpdateSketchACLRequest {
 }
 
 message UpdateSketchACLResponse {}
+
+message UpdateSketchMetadataRequest {
+  string doc_id = 1;
+  // Replacement tags, under the limits on CreateSketchRequest.tags.
+  // Provide the full intended set — partial patches are not
+  // supported, and an empty list clears the tags.
+  repeated string tags = 2;
+  // Replacement metadata, under the limits on
+  // CreateSketchRequest.metadata. Provide the full intended map —
+  // partial patches are not supported, and an empty map clears it.
+  map<string, string> metadata = 3;
+}
+
+message UpdateSketchMetadataResponse {}
 
 message DiscardSketchRequest {
   string doc_id = 1;
@@ -829,6 +866,12 @@ message ListSketchesRequest {
   int32 limit = 2;
   // Opaque cursor returned by a previous call's next_cursor.
   string cursor = 3;
+  // Optional tag filter: a sketch matches when it carries every
+  // listed tag. Empty means no tag filter. Combines with `shared`,
+  // which keeps its meaning. Each tag is held to the per-tag limits
+  // on CreateSketchRequest.tags. To page through a filtered
+  // listing, pass the same tags with each cursor.
+  repeated string tags = 4;
 }
 
 message ListSketchesResponse {
@@ -859,6 +902,10 @@ message SketchSummary {
   // RFC3339 timestamps.
   string created_at = 5;
   string updated_at = 6;
+  // The sketch's tags, in the order they were set.
+  repeated string tags = 7;
+  // The sketch's metadata map.
+  map<string, string> metadata = 8;
 }
 
 message BulkSnapshotRequest {

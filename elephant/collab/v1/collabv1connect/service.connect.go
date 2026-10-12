@@ -87,6 +87,9 @@ const (
 	// CollaborationServiceUpdateSketchACLProcedure is the fully-qualified name of the
 	// CollaborationService's UpdateSketchACL RPC.
 	CollaborationServiceUpdateSketchACLProcedure = "/elephant.collab.v1.CollaborationService/UpdateSketchACL"
+	// CollaborationServiceUpdateSketchMetadataProcedure is the fully-qualified name of the
+	// CollaborationService's UpdateSketchMetadata RPC.
+	CollaborationServiceUpdateSketchMetadataProcedure = "/elephant.collab.v1.CollaborationService/UpdateSketchMetadata"
 	// CollaborationServiceDiscardSketchProcedure is the fully-qualified name of the
 	// CollaborationService's DiscardSketch RPC.
 	CollaborationServiceDiscardSketchProcedure = "/elephant.collab.v1.CollaborationService/DiscardSketch"
@@ -320,6 +323,16 @@ type CollaborationServiceClient interface {
 	//
 	// Auth: `w` on the sketch's current ACL.
 	UpdateSketchACL(context.Context, *connect.Request[v1.UpdateSketchACLRequest]) (*connect.Response[v1.UpdateSketchACLResponse], error)
+	// UpdateSketchMetadata replaces the sketch's tags and metadata in
+	// full, the same contract as UpdateSketchACL: a caller that wants
+	// to add one tag sends the whole set, and an empty field clears
+	// it. Neither is document content, so the sketch's NewsDoc and
+	// its updated_at are left alone. The limits are those on
+	// CreateSketchRequest; a request over any of them is rejected with
+	// InvalidArgument.
+	//
+	// Auth: `w` on the sketch's current ACL.
+	UpdateSketchMetadata(context.Context, *connect.Request[v1.UpdateSketchMetadataRequest]) (*connect.Response[v1.UpdateSketchMetadataResponse], error)
 	// DiscardSketch abandons a sketch: closes any active session,
 	// drops the Redis stream, deletes the sketch row. Idempotent on
 	// a missing sketch (returns success).
@@ -498,6 +511,12 @@ func NewCollaborationServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(collaborationServiceMethods.ByName("UpdateSketchACL")),
 			connect.WithClientOptions(opts...),
 		),
+		updateSketchMetadata: connect.NewClient[v1.UpdateSketchMetadataRequest, v1.UpdateSketchMetadataResponse](
+			httpClient,
+			baseURL+CollaborationServiceUpdateSketchMetadataProcedure,
+			connect.WithSchema(collaborationServiceMethods.ByName("UpdateSketchMetadata")),
+			connect.WithClientOptions(opts...),
+		),
 		discardSketch: connect.NewClient[v1.DiscardSketchRequest, v1.DiscardSketchResponse](
 			httpClient,
 			baseURL+CollaborationServiceDiscardSketchProcedure,
@@ -557,6 +576,7 @@ type collaborationServiceClient struct {
 	streamSessionUpdates            *connect.Client[v1.StreamSessionUpdatesRequest, v1.StreamSessionUpdatesResponse]
 	createSketch                    *connect.Client[v1.CreateSketchRequest, v1.CreateSketchResponse]
 	updateSketchACL                 *connect.Client[v1.UpdateSketchACLRequest, v1.UpdateSketchACLResponse]
+	updateSketchMetadata            *connect.Client[v1.UpdateSketchMetadataRequest, v1.UpdateSketchMetadataResponse]
 	discardSketch                   *connect.Client[v1.DiscardSketchRequest, v1.DiscardSketchResponse]
 	listSketches                    *connect.Client[v1.ListSketchesRequest, v1.ListSketchesResponse]
 	getSketch                       *connect.Client[v1.GetSketchRequest, v1.GetSketchResponse]
@@ -657,6 +677,11 @@ func (c *collaborationServiceClient) CreateSketch(ctx context.Context, req *conn
 // UpdateSketchACL calls elephant.collab.v1.CollaborationService.UpdateSketchACL.
 func (c *collaborationServiceClient) UpdateSketchACL(ctx context.Context, req *connect.Request[v1.UpdateSketchACLRequest]) (*connect.Response[v1.UpdateSketchACLResponse], error) {
 	return c.updateSketchACL.CallUnary(ctx, req)
+}
+
+// UpdateSketchMetadata calls elephant.collab.v1.CollaborationService.UpdateSketchMetadata.
+func (c *collaborationServiceClient) UpdateSketchMetadata(ctx context.Context, req *connect.Request[v1.UpdateSketchMetadataRequest]) (*connect.Response[v1.UpdateSketchMetadataResponse], error) {
+	return c.updateSketchMetadata.CallUnary(ctx, req)
 }
 
 // DiscardSketch calls elephant.collab.v1.CollaborationService.DiscardSketch.
@@ -903,6 +928,16 @@ type CollaborationServiceHandler interface {
 	//
 	// Auth: `w` on the sketch's current ACL.
 	UpdateSketchACL(context.Context, *connect.Request[v1.UpdateSketchACLRequest]) (*connect.Response[v1.UpdateSketchACLResponse], error)
+	// UpdateSketchMetadata replaces the sketch's tags and metadata in
+	// full, the same contract as UpdateSketchACL: a caller that wants
+	// to add one tag sends the whole set, and an empty field clears
+	// it. Neither is document content, so the sketch's NewsDoc and
+	// its updated_at are left alone. The limits are those on
+	// CreateSketchRequest; a request over any of them is rejected with
+	// InvalidArgument.
+	//
+	// Auth: `w` on the sketch's current ACL.
+	UpdateSketchMetadata(context.Context, *connect.Request[v1.UpdateSketchMetadataRequest]) (*connect.Response[v1.UpdateSketchMetadataResponse], error)
 	// DiscardSketch abandons a sketch: closes any active session,
 	// drops the Redis stream, deletes the sketch row. Idempotent on
 	// a missing sketch (returns success).
@@ -1077,6 +1112,12 @@ func NewCollaborationServiceHandler(svc CollaborationServiceHandler, opts ...con
 		connect.WithSchema(collaborationServiceMethods.ByName("UpdateSketchACL")),
 		connect.WithHandlerOptions(opts...),
 	)
+	collaborationServiceUpdateSketchMetadataHandler := connect.NewUnaryHandler(
+		CollaborationServiceUpdateSketchMetadataProcedure,
+		svc.UpdateSketchMetadata,
+		connect.WithSchema(collaborationServiceMethods.ByName("UpdateSketchMetadata")),
+		connect.WithHandlerOptions(opts...),
+	)
 	collaborationServiceDiscardSketchHandler := connect.NewUnaryHandler(
 		CollaborationServiceDiscardSketchProcedure,
 		svc.DiscardSketch,
@@ -1151,6 +1192,8 @@ func NewCollaborationServiceHandler(svc CollaborationServiceHandler, opts ...con
 			collaborationServiceCreateSketchHandler.ServeHTTP(w, r)
 		case CollaborationServiceUpdateSketchACLProcedure:
 			collaborationServiceUpdateSketchACLHandler.ServeHTTP(w, r)
+		case CollaborationServiceUpdateSketchMetadataProcedure:
+			collaborationServiceUpdateSketchMetadataHandler.ServeHTTP(w, r)
 		case CollaborationServiceDiscardSketchProcedure:
 			collaborationServiceDiscardSketchHandler.ServeHTTP(w, r)
 		case CollaborationServiceListSketchesProcedure:
@@ -1242,6 +1285,10 @@ func (UnimplementedCollaborationServiceHandler) CreateSketch(context.Context, *c
 
 func (UnimplementedCollaborationServiceHandler) UpdateSketchACL(context.Context, *connect.Request[v1.UpdateSketchACLRequest]) (*connect.Response[v1.UpdateSketchACLResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.UpdateSketchACL is not implemented"))
+}
+
+func (UnimplementedCollaborationServiceHandler) UpdateSketchMetadata(context.Context, *connect.Request[v1.UpdateSketchMetadataRequest]) (*connect.Response[v1.UpdateSketchMetadataResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.UpdateSketchMetadata is not implemented"))
 }
 
 func (UnimplementedCollaborationServiceHandler) DiscardSketch(context.Context, *connect.Request[v1.DiscardSketchRequest]) (*connect.Response[v1.DiscardSketchResponse], error) {
