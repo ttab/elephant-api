@@ -108,6 +108,21 @@ const (
 	// CollaborationServiceGetDocumentTimelineProcedure is the fully-qualified name of the
 	// CollaborationService's GetDocumentTimeline RPC.
 	CollaborationServiceGetDocumentTimelineProcedure = "/elephant.collab.v1.CollaborationService/GetDocumentTimeline"
+	// CollaborationServiceRegisterMirrorProcedure is the fully-qualified name of the
+	// CollaborationService's RegisterMirror RPC.
+	CollaborationServiceRegisterMirrorProcedure = "/elephant.collab.v1.CollaborationService/RegisterMirror"
+	// CollaborationServiceGetMirrorProcedure is the fully-qualified name of the CollaborationService's
+	// GetMirror RPC.
+	CollaborationServiceGetMirrorProcedure = "/elephant.collab.v1.CollaborationService/GetMirror"
+	// CollaborationServiceDescribeMirrorProcedure is the fully-qualified name of the
+	// CollaborationService's DescribeMirror RPC.
+	CollaborationServiceDescribeMirrorProcedure = "/elephant.collab.v1.CollaborationService/DescribeMirror"
+	// CollaborationServiceRenderFieldProcedure is the fully-qualified name of the
+	// CollaborationService's RenderField RPC.
+	CollaborationServiceRenderFieldProcedure = "/elephant.collab.v1.CollaborationService/RenderField"
+	// CollaborationServiceStageBlocksProcedure is the fully-qualified name of the
+	// CollaborationService's StageBlocks RPC.
+	CollaborationServiceStageBlocksProcedure = "/elephant.collab.v1.CollaborationService/StageBlocks"
 )
 
 // CollaborationServiceClient is a client for the elephant.collab.v1.CollaborationService service.
@@ -390,6 +405,94 @@ type CollaborationServiceClient interface {
 	// call is forwarded with the caller's bearer for defence-in-depth
 	// — the repository re-checks reachability on its side.
 	GetDocumentTimeline(context.Context, *connect.Request[v1.GetDocumentTimelineRequest]) (*connect.Response[v1.GetDocumentTimelineResponse], error)
+	// RegisterMirror stores a mirror module. The service verifies the
+	// bytes against digest, compiles the module, runs its describe and
+	// registers it under every application id the describe declares,
+	// so the module is the one statement of what it serves.
+	//
+	// Registration never goes backwards: per application id, a
+	// registration whose version is lower than the stored one is not
+	// stored and answers SUPERSEDED, and the same version and digest
+	// answers UNCHANGED, so every replica of a release may register at
+	// startup. A version of equal precedence with a different digest
+	// replaces the stored one and answers REGISTERED: module builds are
+	// not reproducible, so a rebuild of one release yields a new
+	// digest, and the service logs both digests when it replaces one.
+	//
+	// Returns invalid_argument when the digest does not match the
+	// bytes, or when the module fails to compile, traps or times out
+	// in describe, or declares no applications; nothing is stored
+	// then.
+	//
+	// Auth: collab_mirror scope. Not collab_admin: the caller is an
+	// editor's own service account registering at every replica start,
+	// and collab_admin would also let that account inspect and
+	// snapshot any document. collab_mirror grants no document access,
+	// but a registered module writes into every open document of its
+	// applications, so the scope is granted to nothing but the
+	// services that ship editors.
+	RegisterMirror(context.Context, *connect.Request[v1.RegisterMirrorRequest]) (*connect.Response[v1.RegisterMirrorResponse], error)
+	// GetMirror returns the module registered for an application id:
+	// its version, digest and stored describe result, and the module
+	// bytes when include_module is set. NotFound when no module is
+	// registered for the id.
+	//
+	// Auth: collab_mirror scope OR collab_admin scope.
+	GetMirror(context.Context, *connect.Request[v1.GetMirrorRequest]) (*connect.Response[v1.GetMirrorResponse], error)
+	// DescribeMirror returns what the module registered for an
+	// application id declares: every application it serves with the
+	// owners and field maps of each, its seeders, the data keys that
+	// carry html, and the marks its text codec serialises. It answers
+	// from the describe result stored at registration and does not run
+	// the module. A peer that edits staging reads it to learn which
+	// fields an application stages and on which owners, and which
+	// formatting attribute a decoration is written as. NotFound when
+	// no module is registered for the id.
+	//
+	// Auth: doc_read scope OR doc_admin scope.
+	DescribeMirror(context.Context, *connect.Request[v1.DescribeMirrorRequest]) (*connect.Response[v1.DescribeMirrorResponse], error)
+	// RenderField renders one staged field of the live document
+	// through the module registered for app_id: the blocks the field
+	// stands for, as the next reflect would commit them. The field is
+	// rendered on every owner (the document root or a block) whose
+	// _collab map holds app_id's staging with that field, and each
+	// result names its owner, so the caller never addresses one.
+	//
+	// html-carrying data values are returned as trees, or as html in
+	// the platform's subset when as_html is set.
+	//
+	// A document only has live staging while a collaborative session
+	// holds it; with no session the response carries live=false and no
+	// owners rather than an error (read the canonical version from the
+	// repository then). NotFound when no module is registered for
+	// app_id; invalid_argument when app_id's field map has no such
+	// field. An application that stages under another (stages_under in
+	// DescribeMirror) is rendered from that application's staging.
+	// resource_exhausted answers a call made while every module slot on
+	// the replica is busy.
+	//
+	// Auth: repository `r` on doc_id. Rendering is a read of the live
+	// document, the same access an observer subscribe needs.
+	RenderField(context.Context, *connect.Request[v1.RenderFieldRequest]) (*connect.Response[v1.RenderFieldResponse], error)
+	// StageBlocks returns the staging delta for new blocks: what a
+	// peer inserts into app_id's field to add them, built by the
+	// module's own seeding code, so an inserted embed carries the
+	// attributes the module's codec reads back. Every block must carry
+	// an id, and its embed keeps it, since whoever inserts an embed
+	// sets its id. html-carrying data values may be given as trees or
+	// as html in the platform's subset, which the service parses and
+	// refuses with invalid_argument when it is outside the subset.
+	// NotFound when no module is registered for app_id.
+	//
+	// The module runs on the caller's input, so the request is bounded:
+	// too many blocks, nested ones included, or too many bytes is
+	// invalid_argument, and resource_exhausted answers a call made while
+	// every module slot on the replica is busy (RenderField shares the
+	// slots).
+	//
+	// Auth: doc_read scope OR doc_admin scope. It reads and writes no
+	// document.
+	StageBlocks(context.Context, *connect.Request[v1.StageBlocksRequest]) (*connect.Response[v1.StageBlocksResponse], error)
 }
 
 // NewCollaborationServiceClient constructs a client for the elephant.collab.v1.CollaborationService
@@ -553,6 +656,36 @@ func NewCollaborationServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(collaborationServiceMethods.ByName("GetDocumentTimeline")),
 			connect.WithClientOptions(opts...),
 		),
+		registerMirror: connect.NewClient[v1.RegisterMirrorRequest, v1.RegisterMirrorResponse](
+			httpClient,
+			baseURL+CollaborationServiceRegisterMirrorProcedure,
+			connect.WithSchema(collaborationServiceMethods.ByName("RegisterMirror")),
+			connect.WithClientOptions(opts...),
+		),
+		getMirror: connect.NewClient[v1.GetMirrorRequest, v1.GetMirrorResponse](
+			httpClient,
+			baseURL+CollaborationServiceGetMirrorProcedure,
+			connect.WithSchema(collaborationServiceMethods.ByName("GetMirror")),
+			connect.WithClientOptions(opts...),
+		),
+		describeMirror: connect.NewClient[v1.DescribeMirrorRequest, v1.DescribeMirrorResponse](
+			httpClient,
+			baseURL+CollaborationServiceDescribeMirrorProcedure,
+			connect.WithSchema(collaborationServiceMethods.ByName("DescribeMirror")),
+			connect.WithClientOptions(opts...),
+		),
+		renderField: connect.NewClient[v1.RenderFieldRequest, v1.RenderFieldResponse](
+			httpClient,
+			baseURL+CollaborationServiceRenderFieldProcedure,
+			connect.WithSchema(collaborationServiceMethods.ByName("RenderField")),
+			connect.WithClientOptions(opts...),
+		),
+		stageBlocks: connect.NewClient[v1.StageBlocksRequest, v1.StageBlocksResponse](
+			httpClient,
+			baseURL+CollaborationServiceStageBlocksProcedure,
+			connect.WithSchema(collaborationServiceMethods.ByName("StageBlocks")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -583,6 +716,11 @@ type collaborationServiceClient struct {
 	bulkSnapshot                    *connect.Client[v1.BulkSnapshotRequest, v1.BulkSnapshotResponse]
 	getSessionVersionAnchors        *connect.Client[v1.GetSessionVersionAnchorsRequest, v1.GetSessionVersionAnchorsResponse]
 	getDocumentTimeline             *connect.Client[v1.GetDocumentTimelineRequest, v1.GetDocumentTimelineResponse]
+	registerMirror                  *connect.Client[v1.RegisterMirrorRequest, v1.RegisterMirrorResponse]
+	getMirror                       *connect.Client[v1.GetMirrorRequest, v1.GetMirrorResponse]
+	describeMirror                  *connect.Client[v1.DescribeMirrorRequest, v1.DescribeMirrorResponse]
+	renderField                     *connect.Client[v1.RenderFieldRequest, v1.RenderFieldResponse]
+	stageBlocks                     *connect.Client[v1.StageBlocksRequest, v1.StageBlocksResponse]
 }
 
 // Collaborate calls elephant.collab.v1.CollaborationService.Collaborate.
@@ -712,6 +850,31 @@ func (c *collaborationServiceClient) GetSessionVersionAnchors(ctx context.Contex
 // GetDocumentTimeline calls elephant.collab.v1.CollaborationService.GetDocumentTimeline.
 func (c *collaborationServiceClient) GetDocumentTimeline(ctx context.Context, req *connect.Request[v1.GetDocumentTimelineRequest]) (*connect.Response[v1.GetDocumentTimelineResponse], error) {
 	return c.getDocumentTimeline.CallUnary(ctx, req)
+}
+
+// RegisterMirror calls elephant.collab.v1.CollaborationService.RegisterMirror.
+func (c *collaborationServiceClient) RegisterMirror(ctx context.Context, req *connect.Request[v1.RegisterMirrorRequest]) (*connect.Response[v1.RegisterMirrorResponse], error) {
+	return c.registerMirror.CallUnary(ctx, req)
+}
+
+// GetMirror calls elephant.collab.v1.CollaborationService.GetMirror.
+func (c *collaborationServiceClient) GetMirror(ctx context.Context, req *connect.Request[v1.GetMirrorRequest]) (*connect.Response[v1.GetMirrorResponse], error) {
+	return c.getMirror.CallUnary(ctx, req)
+}
+
+// DescribeMirror calls elephant.collab.v1.CollaborationService.DescribeMirror.
+func (c *collaborationServiceClient) DescribeMirror(ctx context.Context, req *connect.Request[v1.DescribeMirrorRequest]) (*connect.Response[v1.DescribeMirrorResponse], error) {
+	return c.describeMirror.CallUnary(ctx, req)
+}
+
+// RenderField calls elephant.collab.v1.CollaborationService.RenderField.
+func (c *collaborationServiceClient) RenderField(ctx context.Context, req *connect.Request[v1.RenderFieldRequest]) (*connect.Response[v1.RenderFieldResponse], error) {
+	return c.renderField.CallUnary(ctx, req)
+}
+
+// StageBlocks calls elephant.collab.v1.CollaborationService.StageBlocks.
+func (c *collaborationServiceClient) StageBlocks(ctx context.Context, req *connect.Request[v1.StageBlocksRequest]) (*connect.Response[v1.StageBlocksResponse], error) {
+	return c.stageBlocks.CallUnary(ctx, req)
 }
 
 // CollaborationServiceHandler is an implementation of the elephant.collab.v1.CollaborationService
@@ -995,6 +1158,94 @@ type CollaborationServiceHandler interface {
 	// call is forwarded with the caller's bearer for defence-in-depth
 	// — the repository re-checks reachability on its side.
 	GetDocumentTimeline(context.Context, *connect.Request[v1.GetDocumentTimelineRequest]) (*connect.Response[v1.GetDocumentTimelineResponse], error)
+	// RegisterMirror stores a mirror module. The service verifies the
+	// bytes against digest, compiles the module, runs its describe and
+	// registers it under every application id the describe declares,
+	// so the module is the one statement of what it serves.
+	//
+	// Registration never goes backwards: per application id, a
+	// registration whose version is lower than the stored one is not
+	// stored and answers SUPERSEDED, and the same version and digest
+	// answers UNCHANGED, so every replica of a release may register at
+	// startup. A version of equal precedence with a different digest
+	// replaces the stored one and answers REGISTERED: module builds are
+	// not reproducible, so a rebuild of one release yields a new
+	// digest, and the service logs both digests when it replaces one.
+	//
+	// Returns invalid_argument when the digest does not match the
+	// bytes, or when the module fails to compile, traps or times out
+	// in describe, or declares no applications; nothing is stored
+	// then.
+	//
+	// Auth: collab_mirror scope. Not collab_admin: the caller is an
+	// editor's own service account registering at every replica start,
+	// and collab_admin would also let that account inspect and
+	// snapshot any document. collab_mirror grants no document access,
+	// but a registered module writes into every open document of its
+	// applications, so the scope is granted to nothing but the
+	// services that ship editors.
+	RegisterMirror(context.Context, *connect.Request[v1.RegisterMirrorRequest]) (*connect.Response[v1.RegisterMirrorResponse], error)
+	// GetMirror returns the module registered for an application id:
+	// its version, digest and stored describe result, and the module
+	// bytes when include_module is set. NotFound when no module is
+	// registered for the id.
+	//
+	// Auth: collab_mirror scope OR collab_admin scope.
+	GetMirror(context.Context, *connect.Request[v1.GetMirrorRequest]) (*connect.Response[v1.GetMirrorResponse], error)
+	// DescribeMirror returns what the module registered for an
+	// application id declares: every application it serves with the
+	// owners and field maps of each, its seeders, the data keys that
+	// carry html, and the marks its text codec serialises. It answers
+	// from the describe result stored at registration and does not run
+	// the module. A peer that edits staging reads it to learn which
+	// fields an application stages and on which owners, and which
+	// formatting attribute a decoration is written as. NotFound when
+	// no module is registered for the id.
+	//
+	// Auth: doc_read scope OR doc_admin scope.
+	DescribeMirror(context.Context, *connect.Request[v1.DescribeMirrorRequest]) (*connect.Response[v1.DescribeMirrorResponse], error)
+	// RenderField renders one staged field of the live document
+	// through the module registered for app_id: the blocks the field
+	// stands for, as the next reflect would commit them. The field is
+	// rendered on every owner (the document root or a block) whose
+	// _collab map holds app_id's staging with that field, and each
+	// result names its owner, so the caller never addresses one.
+	//
+	// html-carrying data values are returned as trees, or as html in
+	// the platform's subset when as_html is set.
+	//
+	// A document only has live staging while a collaborative session
+	// holds it; with no session the response carries live=false and no
+	// owners rather than an error (read the canonical version from the
+	// repository then). NotFound when no module is registered for
+	// app_id; invalid_argument when app_id's field map has no such
+	// field. An application that stages under another (stages_under in
+	// DescribeMirror) is rendered from that application's staging.
+	// resource_exhausted answers a call made while every module slot on
+	// the replica is busy.
+	//
+	// Auth: repository `r` on doc_id. Rendering is a read of the live
+	// document, the same access an observer subscribe needs.
+	RenderField(context.Context, *connect.Request[v1.RenderFieldRequest]) (*connect.Response[v1.RenderFieldResponse], error)
+	// StageBlocks returns the staging delta for new blocks: what a
+	// peer inserts into app_id's field to add them, built by the
+	// module's own seeding code, so an inserted embed carries the
+	// attributes the module's codec reads back. Every block must carry
+	// an id, and its embed keeps it, since whoever inserts an embed
+	// sets its id. html-carrying data values may be given as trees or
+	// as html in the platform's subset, which the service parses and
+	// refuses with invalid_argument when it is outside the subset.
+	// NotFound when no module is registered for app_id.
+	//
+	// The module runs on the caller's input, so the request is bounded:
+	// too many blocks, nested ones included, or too many bytes is
+	// invalid_argument, and resource_exhausted answers a call made while
+	// every module slot on the replica is busy (RenderField shares the
+	// slots).
+	//
+	// Auth: doc_read scope OR doc_admin scope. It reads and writes no
+	// document.
+	StageBlocks(context.Context, *connect.Request[v1.StageBlocksRequest]) (*connect.Response[v1.StageBlocksResponse], error)
 }
 
 // NewCollaborationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1154,6 +1405,36 @@ func NewCollaborationServiceHandler(svc CollaborationServiceHandler, opts ...con
 		connect.WithSchema(collaborationServiceMethods.ByName("GetDocumentTimeline")),
 		connect.WithHandlerOptions(opts...),
 	)
+	collaborationServiceRegisterMirrorHandler := connect.NewUnaryHandler(
+		CollaborationServiceRegisterMirrorProcedure,
+		svc.RegisterMirror,
+		connect.WithSchema(collaborationServiceMethods.ByName("RegisterMirror")),
+		connect.WithHandlerOptions(opts...),
+	)
+	collaborationServiceGetMirrorHandler := connect.NewUnaryHandler(
+		CollaborationServiceGetMirrorProcedure,
+		svc.GetMirror,
+		connect.WithSchema(collaborationServiceMethods.ByName("GetMirror")),
+		connect.WithHandlerOptions(opts...),
+	)
+	collaborationServiceDescribeMirrorHandler := connect.NewUnaryHandler(
+		CollaborationServiceDescribeMirrorProcedure,
+		svc.DescribeMirror,
+		connect.WithSchema(collaborationServiceMethods.ByName("DescribeMirror")),
+		connect.WithHandlerOptions(opts...),
+	)
+	collaborationServiceRenderFieldHandler := connect.NewUnaryHandler(
+		CollaborationServiceRenderFieldProcedure,
+		svc.RenderField,
+		connect.WithSchema(collaborationServiceMethods.ByName("RenderField")),
+		connect.WithHandlerOptions(opts...),
+	)
+	collaborationServiceStageBlocksHandler := connect.NewUnaryHandler(
+		CollaborationServiceStageBlocksProcedure,
+		svc.StageBlocks,
+		connect.WithSchema(collaborationServiceMethods.ByName("StageBlocks")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/elephant.collab.v1.CollaborationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CollaborationServiceCollaborateProcedure:
@@ -1206,6 +1487,16 @@ func NewCollaborationServiceHandler(svc CollaborationServiceHandler, opts ...con
 			collaborationServiceGetSessionVersionAnchorsHandler.ServeHTTP(w, r)
 		case CollaborationServiceGetDocumentTimelineProcedure:
 			collaborationServiceGetDocumentTimelineHandler.ServeHTTP(w, r)
+		case CollaborationServiceRegisterMirrorProcedure:
+			collaborationServiceRegisterMirrorHandler.ServeHTTP(w, r)
+		case CollaborationServiceGetMirrorProcedure:
+			collaborationServiceGetMirrorHandler.ServeHTTP(w, r)
+		case CollaborationServiceDescribeMirrorProcedure:
+			collaborationServiceDescribeMirrorHandler.ServeHTTP(w, r)
+		case CollaborationServiceRenderFieldProcedure:
+			collaborationServiceRenderFieldHandler.ServeHTTP(w, r)
+		case CollaborationServiceStageBlocksProcedure:
+			collaborationServiceStageBlocksHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1313,4 +1604,24 @@ func (UnimplementedCollaborationServiceHandler) GetSessionVersionAnchors(context
 
 func (UnimplementedCollaborationServiceHandler) GetDocumentTimeline(context.Context, *connect.Request[v1.GetDocumentTimelineRequest]) (*connect.Response[v1.GetDocumentTimelineResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.GetDocumentTimeline is not implemented"))
+}
+
+func (UnimplementedCollaborationServiceHandler) RegisterMirror(context.Context, *connect.Request[v1.RegisterMirrorRequest]) (*connect.Response[v1.RegisterMirrorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.RegisterMirror is not implemented"))
+}
+
+func (UnimplementedCollaborationServiceHandler) GetMirror(context.Context, *connect.Request[v1.GetMirrorRequest]) (*connect.Response[v1.GetMirrorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.GetMirror is not implemented"))
+}
+
+func (UnimplementedCollaborationServiceHandler) DescribeMirror(context.Context, *connect.Request[v1.DescribeMirrorRequest]) (*connect.Response[v1.DescribeMirrorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.DescribeMirror is not implemented"))
+}
+
+func (UnimplementedCollaborationServiceHandler) RenderField(context.Context, *connect.Request[v1.RenderFieldRequest]) (*connect.Response[v1.RenderFieldResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.RenderField is not implemented"))
+}
+
+func (UnimplementedCollaborationServiceHandler) StageBlocks(context.Context, *connect.Request[v1.StageBlocksRequest]) (*connect.Response[v1.StageBlocksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.collab.v1.CollaborationService.StageBlocks is not implemented"))
 }

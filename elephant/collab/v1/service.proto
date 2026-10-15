@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package elephant.collab.v1;
 
+import "google/protobuf/struct.proto";
 import "newsdoc/newsdoc.proto";
 
 option go_package = "github.com/ttab/elephant-api/elephant/collab/v1;collabv1";
@@ -323,6 +324,119 @@ service CollaborationService {
   // call is forwarded with the caller's bearer for defence-in-depth
   // — the repository re-checks reachability on its side.
   rpc GetDocumentTimeline(GetDocumentTimelineRequest) returns (GetDocumentTimelineResponse);
+
+  // Mirror modules. A mirror module is an editor application's
+  // reflect compiled to WebAssembly: a WASI preview 1 command that
+  // takes one JSON request on stdin and answers on stdout. The
+  // service runs the module registered for an application id to
+  // copy that application's staging under _collab into the NewsDoc
+  // tree, at materialisation and when a subscriber leaves, and runs
+  // the same module to answer RenderField and StageBlocks for peers
+  // that edit staging without a browser.
+  //
+  // Application ids carry their major version, as
+  // se.ecms.quick-article-editor.v2; an id without a suffix is v1.
+  // Where an owner carries staging under more than one major of one
+  // family, the highest major wins.
+  //
+  // Throughout, an html-carrying data value (a key the module lists
+  // in its describe html, such as text on core/text) crosses the
+  // module boundary as a Tree, never as html. The service converts
+  // with its own codec, which accepts only the platform's
+  // text-encoding subset and refuses anything else.
+
+  // RegisterMirror stores a mirror module. The service verifies the
+  // bytes against digest, compiles the module, runs its describe and
+  // registers it under every application id the describe declares,
+  // so the module is the one statement of what it serves.
+  //
+  // Registration never goes backwards: per application id, a
+  // registration whose version is lower than the stored one is not
+  // stored and answers SUPERSEDED, and the same version and digest
+  // answers UNCHANGED, so every replica of a release may register at
+  // startup. A version of equal precedence with a different digest
+  // replaces the stored one and answers REGISTERED: module builds are
+  // not reproducible, so a rebuild of one release yields a new
+  // digest, and the service logs both digests when it replaces one.
+  //
+  // Returns invalid_argument when the digest does not match the
+  // bytes, or when the module fails to compile, traps or times out
+  // in describe, or declares no applications; nothing is stored
+  // then.
+  //
+  // Auth: collab_mirror scope. Not collab_admin: the caller is an
+  // editor's own service account registering at every replica start,
+  // and collab_admin would also let that account inspect and
+  // snapshot any document. collab_mirror grants no document access,
+  // but a registered module writes into every open document of its
+  // applications, so the scope is granted to nothing but the
+  // services that ship editors.
+  rpc RegisterMirror(RegisterMirrorRequest) returns (RegisterMirrorResponse);
+
+  // GetMirror returns the module registered for an application id:
+  // its version, digest and stored describe result, and the module
+  // bytes when include_module is set. NotFound when no module is
+  // registered for the id.
+  //
+  // Auth: collab_mirror scope OR collab_admin scope.
+  rpc GetMirror(GetMirrorRequest) returns (GetMirrorResponse);
+
+  // DescribeMirror returns what the module registered for an
+  // application id declares: every application it serves with the
+  // owners and field maps of each, its seeders, the data keys that
+  // carry html, and the marks its text codec serialises. It answers
+  // from the describe result stored at registration and does not run
+  // the module. A peer that edits staging reads it to learn which
+  // fields an application stages and on which owners, and which
+  // formatting attribute a decoration is written as. NotFound when
+  // no module is registered for the id.
+  //
+  // Auth: doc_read scope OR doc_admin scope.
+  rpc DescribeMirror(DescribeMirrorRequest) returns (DescribeMirrorResponse);
+
+  // RenderField renders one staged field of the live document
+  // through the module registered for app_id: the blocks the field
+  // stands for, as the next reflect would commit them. The field is
+  // rendered on every owner (the document root or a block) whose
+  // _collab map holds app_id's staging with that field, and each
+  // result names its owner, so the caller never addresses one.
+  //
+  // html-carrying data values are returned as trees, or as html in
+  // the platform's subset when as_html is set.
+  //
+  // A document only has live staging while a collaborative session
+  // holds it; with no session the response carries live=false and no
+  // owners rather than an error (read the canonical version from the
+  // repository then). NotFound when no module is registered for
+  // app_id; invalid_argument when app_id's field map has no such
+  // field. An application that stages under another (stages_under in
+  // DescribeMirror) is rendered from that application's staging.
+  // resource_exhausted answers a call made while every module slot on
+  // the replica is busy.
+  //
+  // Auth: repository `r` on doc_id. Rendering is a read of the live
+  // document, the same access an observer subscribe needs.
+  rpc RenderField(RenderFieldRequest) returns (RenderFieldResponse);
+
+  // StageBlocks returns the staging delta for new blocks: what a
+  // peer inserts into app_id's field to add them, built by the
+  // module's own seeding code, so an inserted embed carries the
+  // attributes the module's codec reads back. Every block must carry
+  // an id, and its embed keeps it, since whoever inserts an embed
+  // sets its id. html-carrying data values may be given as trees or
+  // as html in the platform's subset, which the service parses and
+  // refuses with invalid_argument when it is outside the subset.
+  // NotFound when no module is registered for app_id.
+  //
+  // The module runs on the caller's input, so the request is bounded:
+  // too many blocks, nested ones included, or too many bytes is
+  // invalid_argument, and resource_exhausted answers a call made while
+  // every module slot on the replica is busy (RenderField shares the
+  // slots).
+  //
+  // Auth: doc_read scope OR doc_admin scope. It reads and writes no
+  // document.
+  rpc StageBlocks(StageBlocksRequest) returns (StageBlocksResponse);
 }
 
 message BeginPublishRequest {
@@ -1031,6 +1145,274 @@ message TimelineSession {
   repeated SessionParticipant participant_details = 3;
 }
 
+message RegisterMirrorRequest {
+  // The release the module was built from, a semantic version
+  // compared by semver precedence: chrome's version for chrome's
+  // module.
+  string version = 1;
+  // "sha256:<hex>" of module.
+  string digest = 2;
+  // The wasm bytes.
+  bytes module = 3;
+}
+
+message RegisterMirrorResponse {
+  // What the registration did. When the module declares several
+  // application ids the outcome is REGISTERED if any id was stored,
+  // otherwise SUPERSEDED if any id holds a higher version, otherwise
+  // UNCHANGED.
+  MirrorRegistrationOutcome outcome = 1;
+  // The module registered once this call has run. When the
+  // application ids hold different modules (a SUPERSEDED id beside a
+  // REGISTERED one), the module of the first id in app_ids.
+  MirrorVersion current = 2;
+  // The application ids the module declared, in describe's order.
+  repeated string app_ids = 3;
+}
+
+enum MirrorRegistrationOutcome {
+  MIRROR_REGISTRATION_OUTCOME_UNSPECIFIED = 0;
+  // The module is now registered for at least one application id.
+  MIRROR_REGISTRATION_OUTCOME_REGISTERED = 1;
+  // The same version and digest were already registered.
+  MIRROR_REGISTRATION_OUTCOME_UNCHANGED = 2;
+  // A higher version is registered; nothing was stored.
+  MIRROR_REGISTRATION_OUTCOME_SUPERSEDED = 3;
+}
+
+// MirrorVersion names a module: the release it was built from and
+// the digest of its bytes.
+message MirrorVersion {
+  string version = 1;
+  // "sha256:<hex>".
+  string digest = 2;
+}
+
+message GetMirrorRequest {
+  // Application id, major included.
+  string app_id = 1;
+  // Return the module bytes as well. They run to a few MB.
+  bool include_module = 2;
+}
+
+message GetMirrorResponse {
+  MirrorVersion current = 1;
+  // RFC3339 time the current module was registered for app_id.
+  string registered_at = 2;
+  // The module's describe response as it returned it, the content
+  // DescribeMirror answers with in typed form.
+  google.protobuf.Struct describe = 3;
+  // The wasm bytes, set only when include_module was.
+  bytes module = 4;
+}
+
+message DescribeMirrorRequest {
+  // Application id, major included.
+  string app_id = 1;
+}
+
+message DescribeMirrorResponse {
+  // The module registered for app_id.
+  MirrorVersion current = 1;
+  // Every application the module serves, app_id among them.
+  repeated MirrorApp apps = 2;
+  // The module's seeders.
+  repeated MirrorSeeder seeders = 3;
+  // The data keys whose values are html, which cross the module
+  // boundary as trees.
+  repeated MirrorHtmlKey html = 4;
+  // The marks the module's text codec serialises, keyed by the mark
+  // key a formatting attribute carries in staging, as core/bold.
+  map<string, MirrorMark> marks = 5;
+}
+
+// MirrorApp is one application a module serves.
+message MirrorApp {
+  // Application id, major included.
+  string app_id = 1;
+  // The owners whose _collab maps the application stages on.
+  repeated MirrorOwnerSpec owners = 2;
+  // The field map: field key to the module's field spec, as the
+  // module declares it. The spec's shape belongs to the module.
+  google.protobuf.Struct fields = 3;
+  // The application whose _collab key this one's fields are staged
+  // under, when they are another editor's; empty when the
+  // application stages under its own id. A peer stages such an
+  // application's fields under stages_under, and the service
+  // reflects them from there, never from a map under app_id.
+  string stages_under = 4;
+}
+
+// MirrorOwnerSpec names a kind of owner an application stages on.
+message MirrorOwnerSpec {
+  // "root" for the document root, "block" for blocks of block_type.
+  string at = 1;
+  // The block type, when at is "block".
+  string block_type = 2;
+}
+
+// MirrorSeeder is a seeder the module registers: the service runs it
+// when it seeds a session for a document of doc_type, to create the
+// _collab structures the document's editors stage on.
+message MirrorSeeder {
+  string doc_type = 1;
+  // The seeder runs only when the document carries a top-level
+  // block of one of these types in content, meta or links
+  // respectively. With all three empty it always runs.
+  repeated string content_types = 2;
+  repeated string meta_types = 3;
+  repeated string links_types = 4;
+}
+
+// MirrorHtmlKey names a data key that carries html.
+message MirrorHtmlKey {
+  string block_type = 1;
+  string data_key = 2;
+}
+
+// MirrorMark is how a mark is written as an element in html.
+message MirrorMark {
+  // The element name, as strong or comment.
+  string element = 1;
+  // Attributes the element always carries with fixed values, as
+  // class=underline for core/underline.
+  map<string, string> fixed_attributes = 2;
+  // Keys of the mark's value that become attributes of the element,
+  // as id and kind for core/comment. Empty for a mark whose value is
+  // true.
+  repeated string attributes = 3;
+}
+
+message RenderFieldRequest {
+  // UUID of the document.
+  string doc_id = 1;
+  // Application id, major included.
+  string app_id = 2;
+  // The field key in the application's field map, as body.
+  string field = 3;
+  // Return html-carrying data values as html in the platform's
+  // subset instead of as trees.
+  bool as_html = 4;
+}
+
+message RenderFieldResponse {
+  // True when a collaborative session holds the document and the
+  // render is of its live state.
+  bool live = 1;
+  // The module that rendered.
+  MirrorVersion mirror = 2;
+  // One entry per owner that stages the field, the root first and
+  // then blocks in document order.
+  repeated RenderedOwner owners = 3;
+}
+
+// RenderedOwner is the rendering of a field on one owner.
+message RenderedOwner {
+  MirrorOwner owner = 1;
+  // The field's hydration mark as staging holds it ("typed",
+  // "seeded:<fingerprint>"), empty when it has none.
+  string hydration = 2;
+  // The blocks the field stands for, in staging order.
+  repeated MirrorBlock blocks = 3;
+}
+
+// MirrorOwner is one owner of a _collab map in a document.
+message MirrorOwner {
+  // "root" for the document root, "block" for a block.
+  string at = 1;
+  // The block's id, when at is "block".
+  string id = 2;
+  // The block's type, when at is "block".
+  string type = 3;
+}
+
+// MirrorBlock is a NewsDoc block whose html-carrying data values may
+// be trees. Every field but data has the meaning it has on
+// newsdoc.Block.
+message MirrorBlock {
+  string id = 1;
+  string uuid = 2;
+  string uri = 3;
+  string url = 4;
+  string type = 5;
+  string title = 6;
+  map<string, MirrorDataValue> data = 7;
+  string rel = 8;
+  string role = 9;
+  string name = 10;
+  string value = 11;
+  string contenttype = 12;
+  repeated MirrorBlock links = 13;
+  repeated MirrorBlock content = 14;
+  repeated MirrorBlock meta = 15;
+  string sensitivity = 16;
+}
+
+// MirrorDataValue is one data value: a plain string, or a tree for a
+// key that carries html.
+message MirrorDataValue {
+  oneof value {
+    // A plain value, or html in the platform's subset for an
+    // html-carrying key.
+    string text = 1;
+    // An html-carrying value as a tree.
+    Tree tree = 2;
+  }
+}
+
+// Tree is html as a list of nodes, with the escaping taken out.
+message Tree {
+  repeated TreeNode nodes = 1;
+}
+
+// TreeNode is a text node when element is empty, and an element
+// otherwise. A text node carries only text; an element carries no
+// text of its own.
+message TreeNode {
+  string text = 1;
+  // The element name, as strong, em, span, a or comment.
+  string element = 2;
+  map<string, string> attributes = 3;
+  repeated TreeNode children = 4;
+}
+
+message StageBlocksRequest {
+  // Application id, major included.
+  string app_id = 1;
+  // The field key in the application's field map, as body.
+  string field = 2;
+  // The blocks to stage, each with an id.
+  repeated MirrorBlock blocks = 3;
+}
+
+message StageBlocksResponse {
+  // The module that staged.
+  MirrorVersion mirror = 1;
+  // The ops to insert into the field's Y.XmlText, one embed per
+  // block, in order.
+  repeated DeltaOp delta = 2;
+}
+
+// DeltaOp is one op of a Y.XmlText delta, as yjs's toDelta() yields
+// it: an inserted string with its formatting attributes, or an
+// embedded Y.XmlText.
+message DeltaOp {
+  oneof insert {
+    string text = 1;
+    XmlTextView embed = 2;
+  }
+  // Formatting attributes on a text insert: mark key to mark value,
+  // true or an object, as core/comment {id, kind}.
+  google.protobuf.Struct attributes = 3;
+}
+
+// XmlTextView is an embedded Y.XmlText: its attributes and its delta.
+message XmlTextView {
+  // The embed's attributes, as id, type, class and properties.
+  google.protobuf.Struct attrs = 1;
+  repeated DeltaOp delta = 2;
+}
+
 // The live editing messages follow: the Collaborate stream's own
 // message model. They are not framing — the WebSocket's Hocuspocus
 // envelope is converted into these same messages before the shared
@@ -1211,6 +1593,12 @@ message Subscribe {
   // is refused with close lineage_mismatch before any diff is
   // computed against state_vector.
   string lineage = 5;
+  // The application ids the client stages under in the document's
+  // _collab maps, major included, as se.ecms.article-editor.v2. A
+  // client on a major the mirror registry has superseded types into
+  // staging nothing reflects any more; the service logs such a
+  // subscribe today, and may refuse it later so the client reloads.
+  repeated string app_ids = 6;
 }
 
 message Update {

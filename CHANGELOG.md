@@ -4,6 +4,39 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.28.2] - Unreleased
+
+**New RPCs (mirror modules):** an editor application's reflect, compiled to a
+WebAssembly module, is registered with the collab service under the
+application ids it declares, and the service runs it to copy staging under
+`_collab` into the NewsDoc tree. `RegisterMirror` stores a module from its
+bytes, version and digest and never goes backwards per application id (a
+rebuild of the same version under a new digest replaces it);
+it requires the new `collab_mirror` scope rather than `collab_admin`, which
+would also grant document access. `GetMirror` returns the registered module
+(`collab_mirror` or `collab_admin`), and `DescribeMirror` what it declares —
+applications with their owners, field maps and the application each stages
+under, seeders, html-carrying data keys and marks (`doc_read` or
+`doc_admin`). For peers that edit staging without a browser,
+`RenderField` renders a staged field of the live document per owner
+(repository `r` on the document), and `StageBlocks` returns the staging delta
+for new blocks (`doc_read` or `doc_admin`). html-carrying data values travel as trees of
+`TreeNode`s, or as html in the platform's subset where a request asks for it.
+
+Changes:
+
+- `elephant.collab.v1.CollaborationService` gains `RegisterMirror`,
+  `GetMirror`, `DescribeMirror`, `RenderField` and `StageBlocks`, with their
+  request and response messages.
+- New messages `MirrorVersion`, `MirrorApp`, `MirrorOwnerSpec`,
+  `MirrorSeeder`, `MirrorHtmlKey`, `MirrorMark`, `RenderedOwner`,
+  `MirrorOwner`, `MirrorBlock`, `MirrorDataValue`, `Tree`, `TreeNode`,
+  `DeltaOp` and `XmlTextView`, and the enum `MirrorRegistrationOutcome`.
+- `elephant/collab/v1/service.proto` imports
+  `google/protobuf/struct.proto`.
+- `Subscribe` gains `app_ids`, the application ids the client stages
+  under, so the service can tell a client on a superseded major.
+
 ## [v0.28.1] - 2026-10-12
 
 **New fields and RPC (tags and metadata on sketches):** a sketch carries
