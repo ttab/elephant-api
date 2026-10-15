@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.28.2] - Unreleased
+## [v0.28.2] - 2026-10-15
 
 **New RPCs (mirror modules):** an editor application's reflect, compiled to a
 WebAssembly module, is registered with the collab service under the
