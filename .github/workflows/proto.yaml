@@ -16,7 +16,7 @@ jobs:
           # rpc:breaking compares against the tip of main, and the default
           # shallow checkout has no ref to compare with.
           fetch-depth: 0
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
