@@ -441,13 +441,13 @@ type CollaborationServiceClient interface {
 	GetMirror(context.Context, *connect.Request[v1.GetMirrorRequest]) (*connect.Response[v1.GetMirrorResponse], error)
 	// DescribeMirror returns what the module registered for an
 	// application id declares: every application it serves with the
-	// owners and field maps of each, its seeders, the data keys that
-	// carry html, and the marks its text codec serialises. It answers
-	// from the describe result stored at registration and does not run
-	// the module. A peer that edits staging reads it to learn which
-	// fields an application stages and on which owners, and which
-	// formatting attribute a decoration is written as. NotFound when
-	// no module is registered for the id.
+	// document types, owners and field map of each, its seeders, the
+	// data keys that carry html, and the marks its text codec
+	// serialises. It answers from the describe result stored at
+	// registration and does not run the module. A peer that edits
+	// staging reads it to learn which fields an application stages and
+	// on which owners, and which formatting attribute a decoration is
+	// written as. NotFound when no module is registered for the id.
 	//
 	// Auth: doc_read scope OR doc_admin scope.
 	DescribeMirror(context.Context, *connect.Request[v1.DescribeMirrorRequest]) (*connect.Response[v1.DescribeMirrorResponse], error)
@@ -1194,13 +1194,13 @@ type CollaborationServiceHandler interface {
 	GetMirror(context.Context, *connect.Request[v1.GetMirrorRequest]) (*connect.Response[v1.GetMirrorResponse], error)
 	// DescribeMirror returns what the module registered for an
 	// application id declares: every application it serves with the
-	// owners and field maps of each, its seeders, the data keys that
-	// carry html, and the marks its text codec serialises. It answers
-	// from the describe result stored at registration and does not run
-	// the module. A peer that edits staging reads it to learn which
-	// fields an application stages and on which owners, and which
-	// formatting attribute a decoration is written as. NotFound when
-	// no module is registered for the id.
+	// document types, owners and field map of each, its seeders, the
+	// data keys that carry html, and the marks its text codec
+	// serialises. It answers from the describe result stored at
+	// registration and does not run the module. A peer that edits
+	// staging reads it to learn which fields an application stages and
+	// on which owners, and which formatting attribute a decoration is
+	// written as. NotFound when no module is registered for the id.
 	//
 	// Auth: doc_read scope OR doc_admin scope.
 	DescribeMirror(context.Context, *connect.Request[v1.DescribeMirrorRequest]) (*connect.Response[v1.DescribeMirrorResponse], error)

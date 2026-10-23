@@ -383,13 +383,13 @@ service CollaborationService {
 
   // DescribeMirror returns what the module registered for an
   // application id declares: every application it serves with the
-  // owners and field maps of each, its seeders, the data keys that
-  // carry html, and the marks its text codec serialises. It answers
-  // from the describe result stored at registration and does not run
-  // the module. A peer that edits staging reads it to learn which
-  // fields an application stages and on which owners, and which
-  // formatting attribute a decoration is written as. NotFound when
-  // no module is registered for the id.
+  // document types, owners and field map of each, its seeders, the
+  // data keys that carry html, and the marks its text codec
+  // serialises. It answers from the describe result stored at
+  // registration and does not run the module. A peer that edits
+  // staging reads it to learn which fields an application stages and
+  // on which owners, and which formatting attribute a decoration is
+  // written as. NotFound when no module is registered for the id.
   //
   // Auth: doc_read scope OR doc_admin scope.
   rpc DescribeMirror(DescribeMirrorRequest) returns (DescribeMirrorResponse);
@@ -1230,7 +1230,8 @@ message DescribeMirrorResponse {
 message MirrorApp {
   // Application id, major included.
   string app_id = 1;
-  // The owners whose _collab maps the application stages on.
+  // The owners whose _collab maps the application stages on. They are
+  // a pre-filter: the module decides ownership of each owner itself.
   repeated MirrorOwnerSpec owners = 2;
   // The field map: field key to the module's field spec, as the
   // module declares it. The spec's shape belongs to the module.
@@ -1241,14 +1242,27 @@ message MirrorApp {
   // application's fields under stages_under, and the service
   // reflects them from there, never from a map under app_id.
   string stages_under = 4;
+  // The document types the application edits. Its staging on a
+  // document of any other type is never its own.
+  repeated string doc_types = 5;
 }
 
-// MirrorOwnerSpec names a kind of owner an application stages on.
+// MirrorOwnerSpec names an owner an application stages on: the
+// document root, or the blocks a chain of the application's list
+// fields reaches. A block's type never decides, since a type is reused
+// across the platform; only the chain that reaches it does.
 message MirrorOwnerSpec {
-  // "root" for the document root, "block" for blocks of block_type.
+  reserved 2;
+  reserved "block_type";
+
+  // "root" for the document root, "block" for the blocks field_chain
+  // reaches.
   string at = 1;
-  // The block type, when at is "block".
-  string block_type = 2;
+  // The list fields of the application's field map, from the root
+  // down, whose items are the owners, as ["assignments"]: one list
+  // per step, each one inside the previous list's each. Set only when
+  // at is "block".
+  repeated string field_chain = 3;
 }
 
 // MirrorSeeder is a seeder the module registers: the service runs it
@@ -1324,6 +1338,22 @@ message MirrorOwner {
   string id = 2;
   // The block's type, when at is "block".
   string type = 3;
+  // How the block is reached from the document root, one step per
+  // block from the top-level block down to this one, when at is
+  // "block". It is the path the module decided ownership on, and
+  // what a peer follows to find the block in its copy of the
+  // document.
+  repeated MirrorPathStep path = 4;
+}
+
+// MirrorPathStep is one step from a parent down to a block: the array
+// the block sits in and its block attributes, never its data or its
+// children.
+message MirrorPathStep {
+  // The array the block sits in: "content", "meta" or "links".
+  string kind = 1;
+  // The block's non-empty attributes, as id, type, rel and role.
+  map<string, string> attributes = 2;
 }
 
 // MirrorBlock is a NewsDoc block whose html-carrying data values may

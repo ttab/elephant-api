@@ -4,6 +4,29 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.28.3] - 2026-10-23
+
+**Changed messages (mirror module owners):** a mirror module now declares an
+application's block owners as a chain of the application's list fields, as
+`["assignments"]`, rather than by block type, since a block type is reused
+across the platform and only the path to a block decides whether it is an
+application's owner. `DescribeMirror` reports each application's owners in
+that shape and the document types it edits, and `RenderField` reports the
+path from the document root to each block owner it renders, which is what
+addresses the block in the document.
+
+Changes:
+
+- `MirrorOwnerSpec` loses `block_type` (field 2, now reserved) and gains
+  `field_chain`, the list fields from the root down whose items are the
+  owners. This removes a field from a released message, which nothing
+  in production reads: Go code reading `BlockType` no longer compiles.
+- `MirrorApp` gains `doc_types`.
+- `MirrorOwner` gains `path`, one `MirrorPathStep` per block from the
+  top-level block down.
+- New message `MirrorPathStep`: the array a block sits in (`kind`) and its
+  non-empty block attributes.
+
 ## [v0.28.2] - 2026-10-15
 
 **New RPCs (mirror modules):** an editor application's reflect, compiled to a
