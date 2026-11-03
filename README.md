@@ -19,7 +19,7 @@ Consuming the Go code needs Go 1.27 or later.
 | **Index** | `elephant.index` | Search and index management. Query and multi-search indexed documents, inspect mappings, manage subscriptions, and administer search clusters and index sets (reindexing, status). | [proto](index/service.proto) |
 | **Spell** | `elephant.spell` | Spelling and language tooling. Check text and get suggestions, manage custom dictionaries (words and phrases) and pattern-matching rules. | [proto](spell/service.proto) |
 | **Replicant** | `elephant.replicant` | Document replication between repository instances. Configure replication targets that follow a source repository's event log and replicate documents onward. | [proto](replicant/service.proto) |
-| **User** | `elephant.user` | Per-user settings and messaging. Store user settings documents and key-value properties, and push/poll user and inbox messages. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) |
+| **User** | `elephant.user` | Per-user settings, messaging and document comments. Store user settings documents and key-value properties, push/poll user and inbox messages, and keep comment threads on repository documents. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) |
 | **Collab** | `elephant.collab.v1` | Collaborative editing. Materialize live Y.Doc state into repository versions, manage freezes and sketches, inspect and administer sessions, and edit live over the `Collaborate` stream. | [proto](elephant/collab/v1/service.proto) |
 
 The [`newsdoc`](newsdoc/newsdoc.proto) package carries the shared NewsDoc
@@ -80,7 +80,7 @@ path. The constructors, one pair per service:
 | `repository/repositoryconnect` | `Documents`, `Schemas`, `Workflows`, `Metrics` |
 | `index/indexconnect` | `Management`, `SearchV1` |
 | `spell/spellconnect` | `Check`, `Dictionaries`, `Rules` |
-| `user/userconnect` | `Settings`, `Messages`, `Configuration` |
+| `user/userconnect` | `Settings`, `Messages`, `Configuration`, `Comments` |
 | `replicant/replicantconnect` | `Replication` |
 
 `New<Service>ServiceHandler(svc, opts...)` is the server side. It takes an

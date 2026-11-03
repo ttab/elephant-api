@@ -122,7 +122,8 @@ func (ResourceKind) EnumDescriptor() ([]byte, []int) {
 
 // SchemaUsage declares what a schema is used for. The values mirror the
 // ecosystem-wide schema usage categorisation; the user service only
-// accepts SCHEMA_USAGE_SETTINGS and SCHEMA_USAGE_MESSAGES.
+// accepts SCHEMA_USAGE_SETTINGS, SCHEMA_USAGE_MESSAGES and
+// SCHEMA_USAGE_COMMENTS.
 type SchemaUsage int32
 
 const (
@@ -131,6 +132,7 @@ const (
 	SchemaUsage_SCHEMA_USAGE_DISTRIBUTION SchemaUsage = 2
 	SchemaUsage_SCHEMA_USAGE_SETTINGS     SchemaUsage = 3
 	SchemaUsage_SCHEMA_USAGE_MESSAGES     SchemaUsage = 4
+	SchemaUsage_SCHEMA_USAGE_COMMENTS     SchemaUsage = 5
 )
 
 // Enum value maps for SchemaUsage.
@@ -141,6 +143,7 @@ var (
 		2: "SCHEMA_USAGE_DISTRIBUTION",
 		3: "SCHEMA_USAGE_SETTINGS",
 		4: "SCHEMA_USAGE_MESSAGES",
+		5: "SCHEMA_USAGE_COMMENTS",
 	}
 	SchemaUsage_value = map[string]int32{
 		"SCHEMA_USAGE_UNSPECIFIED":  0,
@@ -148,6 +151,7 @@ var (
 		"SCHEMA_USAGE_DISTRIBUTION": 2,
 		"SCHEMA_USAGE_SETTINGS":     3,
 		"SCHEMA_USAGE_MESSAGES":     4,
+		"SCHEMA_USAGE_COMMENTS":     5,
 	}
 )
 
@@ -3383,6 +3387,1278 @@ func (*UpdateDeprecationResponse) Descriptor() ([]byte, []int) {
 	return file_user_service_proto_rawDescGZIP(), []int{53}
 }
 
+// CommentThread is a thread of comments on a document.
+type CommentThread struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the thread, chosen by the client that created it. An anchored
+	// thread is referenced from the document text by this uuid.
+	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	// UUID of the repository document the thread is on.
+	DocumentUuid string `protobuf:"bytes,2,opt,name=document_uuid,json=documentUuid,proto3" json:"document_uuid,omitempty"`
+	// Kind of the thread, such as "factcheck". An open string set when the
+	// thread is created; may be empty.
+	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	// Created timestamp is the RFC3339 timestamp for when the thread was
+	// created with its first comment.
+	Created string `protobuf:"bytes,4,opt,name=created,proto3" json:"created,omitempty"`
+	// Subject URI of the first commenter, as the token yields it:
+	// core://user/<sub> for a user, core://application/<client_id> for an
+	// application.
+	CreatedBy string `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	// Updated timestamp is the RFC3339 timestamp of the last comment write,
+	// resolve or reopen in the thread.
+	Updated string `protobuf:"bytes,6,opt,name=updated,proto3" json:"updated,omitempty"`
+	// Resolved timestamp is the RFC3339 timestamp for when the thread was
+	// resolved. Empty while the thread is open.
+	Resolved string `protobuf:"bytes,7,opt,name=resolved,proto3" json:"resolved,omitempty"`
+	// Subject URI of the party that resolved the thread, as the token
+	// yields it: core://user/<sub> for a user,
+	// core://application/<client_id> for an application. Empty while the
+	// thread is open.
+	ResolvedBy string `protobuf:"bytes,8,opt,name=resolved_by,json=resolvedBy,proto3" json:"resolved_by,omitempty"`
+	// Number of comments in the thread that are not deleted. Zero means
+	// every comment is deleted and the anchor can be removed from the
+	// document.
+	LiveComments int64 `protobuf:"varint,9,opt,name=live_comments,json=liveComments,proto3" json:"live_comments,omitempty"`
+	// Comments in the thread, oldest first. Populated by GetThread and
+	// ListThreads, empty elsewhere.
+	Comments      []*Comment `protobuf:"bytes,10,rep,name=comments,proto3" json:"comments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommentThread) Reset() {
+	*x = CommentThread{}
+	mi := &file_user_service_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommentThread) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommentThread) ProtoMessage() {}
+
+func (x *CommentThread) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommentThread.ProtoReflect.Descriptor instead.
+func (*CommentThread) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *CommentThread) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *CommentThread) GetDocumentUuid() string {
+	if x != nil {
+		return x.DocumentUuid
+	}
+	return ""
+}
+
+func (x *CommentThread) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *CommentThread) GetCreated() string {
+	if x != nil {
+		return x.Created
+	}
+	return ""
+}
+
+func (x *CommentThread) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CommentThread) GetUpdated() string {
+	if x != nil {
+		return x.Updated
+	}
+	return ""
+}
+
+func (x *CommentThread) GetResolved() string {
+	if x != nil {
+		return x.Resolved
+	}
+	return ""
+}
+
+func (x *CommentThread) GetResolvedBy() string {
+	if x != nil {
+		return x.ResolvedBy
+	}
+	return ""
+}
+
+func (x *CommentThread) GetLiveComments() int64 {
+	if x != nil {
+		return x.LiveComments
+	}
+	return 0
+}
+
+func (x *CommentThread) GetComments() []*Comment {
+	if x != nil {
+		return x.Comments
+	}
+	return nil
+}
+
+// Comment is one comment in a thread.
+type Comment struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the comment, chosen by the client that created it.
+	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	// UUID of the thread the comment belongs to.
+	ThreadUuid string `protobuf:"bytes,2,opt,name=thread_uuid,json=threadUuid,proto3" json:"thread_uuid,omitempty"`
+	// Subject URI of the author, as the token yields it: core://user/<sub>
+	// for a user, core://application/<client_id> for an application.
+	Author string `protobuf:"bytes,3,opt,name=author,proto3" json:"author,omitempty"`
+	// Name of the author from the token's `sub_name` claim at the time of
+	// writing. May be empty. It is not the title of the author document.
+	AuthorName string `protobuf:"bytes,4,opt,name=author_name,json=authorName,proto3" json:"author_name,omitempty"`
+	// Created timestamp is the RFC3339 timestamp for when the comment was
+	// created.
+	Created string `protobuf:"bytes,5,opt,name=created,proto3" json:"created,omitempty"`
+	// Updated timestamp is the RFC3339 timestamp for when the comment was
+	// last written. Later than created once the comment has been edited.
+	Updated string `protobuf:"bytes,6,opt,name=updated,proto3" json:"updated,omitempty"`
+	// Deleted timestamp is the RFC3339 timestamp for when the comment was
+	// deleted. Empty while the comment is live.
+	Deleted string `protobuf:"bytes,7,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	// Subject URI of the party that deleted the comment, as the token
+	// yields it: core://user/<sub> for a user,
+	// core://application/<client_id> for an application. Empty while the
+	// comment is live.
+	DeletedBy string `protobuf:"bytes,8,opt,name=deleted_by,json=deletedBy,proto3" json:"deleted_by,omitempty"`
+	// Subject URIs mentioned in the comment. Derived by the service from the
+	// payload's links with `rel: mention`, never taken from the request.
+	Mentioned []string `protobuf:"bytes,9,rep,name=mentioned,proto3" json:"mentioned,omitempty"`
+	// Payload is the body of the comment, a newsdoc document of type
+	// core/comment validated by the service. Empty once the comment is
+	// deleted.
+	Payload       *newsdoc.Document `protobuf:"bytes,10,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Comment) Reset() {
+	*x = Comment{}
+	mi := &file_user_service_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Comment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Comment) ProtoMessage() {}
+
+func (x *Comment) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Comment.ProtoReflect.Descriptor instead.
+func (*Comment) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *Comment) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *Comment) GetThreadUuid() string {
+	if x != nil {
+		return x.ThreadUuid
+	}
+	return ""
+}
+
+func (x *Comment) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *Comment) GetAuthorName() string {
+	if x != nil {
+		return x.AuthorName
+	}
+	return ""
+}
+
+func (x *Comment) GetCreated() string {
+	if x != nil {
+		return x.Created
+	}
+	return ""
+}
+
+func (x *Comment) GetUpdated() string {
+	if x != nil {
+		return x.Updated
+	}
+	return ""
+}
+
+func (x *Comment) GetDeleted() string {
+	if x != nil {
+		return x.Deleted
+	}
+	return ""
+}
+
+func (x *Comment) GetDeletedBy() string {
+	if x != nil {
+		return x.DeletedBy
+	}
+	return ""
+}
+
+func (x *Comment) GetMentioned() []string {
+	if x != nil {
+		return x.Mentioned
+	}
+	return nil
+}
+
+func (x *Comment) GetPayload() *newsdoc.Document {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+type CreateCommentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the comment, chosen by the caller. Required.
+	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	// UUID of the thread, chosen by the caller when the thread is new.
+	// Required. A uuid that does not exist yet creates the thread.
+	ThreadUuid string `protobuf:"bytes,2,opt,name=thread_uuid,json=threadUuid,proto3" json:"thread_uuid,omitempty"`
+	// UUID of the repository document the thread is on. Required when the
+	// thread is new, ignored otherwise.
+	DocumentUuid string `protobuf:"bytes,3,opt,name=document_uuid,json=documentUuid,proto3" json:"document_uuid,omitempty"`
+	// Kind of the thread, such as "factcheck". An open string, may be empty.
+	// Used when the thread is new, ignored otherwise.
+	Kind string `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
+	// Payload is the body of the comment, a newsdoc document of type
+	// core/comment. The service validates it and derives the mentioned
+	// subjects from its links with `rel: mention`.
+	Payload       *newsdoc.Document `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCommentRequest) Reset() {
+	*x = CreateCommentRequest{}
+	mi := &file_user_service_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCommentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCommentRequest) ProtoMessage() {}
+
+func (x *CreateCommentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCommentRequest.ProtoReflect.Descriptor instead.
+func (*CreateCommentRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *CreateCommentRequest) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *CreateCommentRequest) GetThreadUuid() string {
+	if x != nil {
+		return x.ThreadUuid
+	}
+	return ""
+}
+
+func (x *CreateCommentRequest) GetDocumentUuid() string {
+	if x != nil {
+		return x.DocumentUuid
+	}
+	return ""
+}
+
+func (x *CreateCommentRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *CreateCommentRequest) GetPayload() *newsdoc.Document {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+type CreateCommentResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Comment is the created comment, or the existing one for a repeated
+	// request.
+	Comment *Comment `protobuf:"bytes,1,opt,name=comment,proto3" json:"comment,omitempty"`
+	// Thread is the thread the comment belongs to, without its comments.
+	Thread        *CommentThread `protobuf:"bytes,2,opt,name=thread,proto3" json:"thread,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCommentResponse) Reset() {
+	*x = CreateCommentResponse{}
+	mi := &file_user_service_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCommentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCommentResponse) ProtoMessage() {}
+
+func (x *CreateCommentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCommentResponse.ProtoReflect.Descriptor instead.
+func (*CreateCommentResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *CreateCommentResponse) GetComment() *Comment {
+	if x != nil {
+		return x.Comment
+	}
+	return nil
+}
+
+func (x *CreateCommentResponse) GetThread() *CommentThread {
+	if x != nil {
+		return x.Thread
+	}
+	return nil
+}
+
+type UpdateCommentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the comment to update.
+	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	// Payload replaces the body of the comment, a newsdoc document of type
+	// core/comment. The service validates it and derives the mentioned
+	// subjects from its links with `rel: mention` again.
+	Payload       *newsdoc.Document `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCommentRequest) Reset() {
+	*x = UpdateCommentRequest{}
+	mi := &file_user_service_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCommentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCommentRequest) ProtoMessage() {}
+
+func (x *UpdateCommentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCommentRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCommentRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *UpdateCommentRequest) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *UpdateCommentRequest) GetPayload() *newsdoc.Document {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+type UpdateCommentResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Comment is the updated comment.
+	Comment       *Comment `protobuf:"bytes,1,opt,name=comment,proto3" json:"comment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCommentResponse) Reset() {
+	*x = UpdateCommentResponse{}
+	mi := &file_user_service_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCommentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCommentResponse) ProtoMessage() {}
+
+func (x *UpdateCommentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCommentResponse.ProtoReflect.Descriptor instead.
+func (*UpdateCommentResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *UpdateCommentResponse) GetComment() *Comment {
+	if x != nil {
+		return x.Comment
+	}
+	return nil
+}
+
+type DeleteCommentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the comment to delete.
+	Uuid          string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCommentRequest) Reset() {
+	*x = DeleteCommentRequest{}
+	mi := &file_user_service_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCommentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCommentRequest) ProtoMessage() {}
+
+func (x *DeleteCommentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCommentRequest.ProtoReflect.Descriptor instead.
+func (*DeleteCommentRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *DeleteCommentRequest) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+type DeleteCommentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCommentResponse) Reset() {
+	*x = DeleteCommentResponse{}
+	mi := &file_user_service_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCommentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCommentResponse) ProtoMessage() {}
+
+func (x *DeleteCommentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCommentResponse.ProtoReflect.Descriptor instead.
+func (*DeleteCommentResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{61}
+}
+
+type GetThreadRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the thread.
+	Uuid          string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetThreadRequest) Reset() {
+	*x = GetThreadRequest{}
+	mi := &file_user_service_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetThreadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetThreadRequest) ProtoMessage() {}
+
+func (x *GetThreadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetThreadRequest.ProtoReflect.Descriptor instead.
+func (*GetThreadRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *GetThreadRequest) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+type GetThreadResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Thread with its comments, oldest first.
+	Thread        *CommentThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetThreadResponse) Reset() {
+	*x = GetThreadResponse{}
+	mi := &file_user_service_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetThreadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetThreadResponse) ProtoMessage() {}
+
+func (x *GetThreadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetThreadResponse.ProtoReflect.Descriptor instead.
+func (*GetThreadResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *GetThreadResponse) GetThread() *CommentThread {
+	if x != nil {
+		return x.Thread
+	}
+	return nil
+}
+
+type ListThreadsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the repository document to list threads for.
+	DocumentUuid string `protobuf:"bytes,1,opt,name=document_uuid,json=documentUuid,proto3" json:"document_uuid,omitempty"`
+	// If true, include resolved threads. If false (default), only open
+	// threads are returned.
+	IncludeResolved bool `protobuf:"varint,2,opt,name=include_resolved,json=includeResolved,proto3" json:"include_resolved,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListThreadsRequest) Reset() {
+	*x = ListThreadsRequest{}
+	mi := &file_user_service_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListThreadsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListThreadsRequest) ProtoMessage() {}
+
+func (x *ListThreadsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListThreadsRequest.ProtoReflect.Descriptor instead.
+func (*ListThreadsRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *ListThreadsRequest) GetDocumentUuid() string {
+	if x != nil {
+		return x.DocumentUuid
+	}
+	return ""
+}
+
+func (x *ListThreadsRequest) GetIncludeResolved() bool {
+	if x != nil {
+		return x.IncludeResolved
+	}
+	return false
+}
+
+type ListThreadsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Threads sorted by their updated timestamp, most recent first, each
+	// with its comments oldest first.
+	Threads       []*CommentThread `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListThreadsResponse) Reset() {
+	*x = ListThreadsResponse{}
+	mi := &file_user_service_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListThreadsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListThreadsResponse) ProtoMessage() {}
+
+func (x *ListThreadsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListThreadsResponse.ProtoReflect.Descriptor instead.
+func (*ListThreadsResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ListThreadsResponse) GetThreads() []*CommentThread {
+	if x != nil {
+		return x.Threads
+	}
+	return nil
+}
+
+type ResolveThreadRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the thread to resolve.
+	Uuid          string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveThreadRequest) Reset() {
+	*x = ResolveThreadRequest{}
+	mi := &file_user_service_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveThreadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveThreadRequest) ProtoMessage() {}
+
+func (x *ResolveThreadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveThreadRequest.ProtoReflect.Descriptor instead.
+func (*ResolveThreadRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ResolveThreadRequest) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+type ResolveThreadResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Thread is the resolved thread, without its comments.
+	Thread        *CommentThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveThreadResponse) Reset() {
+	*x = ResolveThreadResponse{}
+	mi := &file_user_service_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveThreadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveThreadResponse) ProtoMessage() {}
+
+func (x *ResolveThreadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveThreadResponse.ProtoReflect.Descriptor instead.
+func (*ResolveThreadResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ResolveThreadResponse) GetThread() *CommentThread {
+	if x != nil {
+		return x.Thread
+	}
+	return nil
+}
+
+type ReopenThreadRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the thread to reopen.
+	Uuid          string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReopenThreadRequest) Reset() {
+	*x = ReopenThreadRequest{}
+	mi := &file_user_service_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReopenThreadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReopenThreadRequest) ProtoMessage() {}
+
+func (x *ReopenThreadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReopenThreadRequest.ProtoReflect.Descriptor instead.
+func (*ReopenThreadRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ReopenThreadRequest) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+type ReopenThreadResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Thread is the reopened thread, without its comments.
+	Thread        *CommentThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReopenThreadResponse) Reset() {
+	*x = ReopenThreadResponse{}
+	mi := &file_user_service_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReopenThreadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReopenThreadResponse) ProtoMessage() {}
+
+func (x *ReopenThreadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReopenThreadResponse.ProtoReflect.Descriptor instead.
+func (*ReopenThreadResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ReopenThreadResponse) GetThread() *CommentThread {
+	if x != nil {
+		return x.Thread
+	}
+	return nil
+}
+
+// Mention is a reference to a comment that mentions the caller. It carries
+// no payload; use GetThread to read the comment.
+type Mention struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the comment.
+	CommentUuid string `protobuf:"bytes,1,opt,name=comment_uuid,json=commentUuid,proto3" json:"comment_uuid,omitempty"`
+	// UUID of the thread the comment belongs to.
+	ThreadUuid string `protobuf:"bytes,2,opt,name=thread_uuid,json=threadUuid,proto3" json:"thread_uuid,omitempty"`
+	// UUID of the repository document the thread is on.
+	DocumentUuid string `protobuf:"bytes,3,opt,name=document_uuid,json=documentUuid,proto3" json:"document_uuid,omitempty"`
+	// Subject URI of the comment's author, as the token yields it:
+	// core://user/<sub> for a user, core://application/<client_id> for an
+	// application.
+	Author string `protobuf:"bytes,4,opt,name=author,proto3" json:"author,omitempty"`
+	// Name of the author from the token's `sub_name` claim at the time of
+	// writing. May be empty. It is not the title of the author document.
+	AuthorName string `protobuf:"bytes,5,opt,name=author_name,json=authorName,proto3" json:"author_name,omitempty"`
+	// Created timestamp is the RFC3339 timestamp for when the comment was
+	// created.
+	Created       string `protobuf:"bytes,6,opt,name=created,proto3" json:"created,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Mention) Reset() {
+	*x = Mention{}
+	mi := &file_user_service_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Mention) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Mention) ProtoMessage() {}
+
+func (x *Mention) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Mention.ProtoReflect.Descriptor instead.
+func (*Mention) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *Mention) GetCommentUuid() string {
+	if x != nil {
+		return x.CommentUuid
+	}
+	return ""
+}
+
+func (x *Mention) GetThreadUuid() string {
+	if x != nil {
+		return x.ThreadUuid
+	}
+	return ""
+}
+
+func (x *Mention) GetDocumentUuid() string {
+	if x != nil {
+		return x.DocumentUuid
+	}
+	return ""
+}
+
+func (x *Mention) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *Mention) GetAuthorName() string {
+	if x != nil {
+		return x.AuthorName
+	}
+	return ""
+}
+
+func (x *Mention) GetCreated() string {
+	if x != nil {
+		return x.Created
+	}
+	return ""
+}
+
+type ListMentionsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// RFC3339 timestamp; lists mentions in comments created before this
+	// time. Empty lists from the newest. Use the created timestamp of the
+	// last returned mention to paginate further into the past.
+	Before string `protobuf:"bytes,1,opt,name=before,proto3" json:"before,omitempty"`
+	// Number of mentions to return. Defaults to 10 when unset; a value over
+	// 100 is treated as 100.
+	Size          int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMentionsRequest) Reset() {
+	*x = ListMentionsRequest{}
+	mi := &file_user_service_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMentionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMentionsRequest) ProtoMessage() {}
+
+func (x *ListMentionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMentionsRequest.ProtoReflect.Descriptor instead.
+func (*ListMentionsRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *ListMentionsRequest) GetBefore() string {
+	if x != nil {
+		return x.Before
+	}
+	return ""
+}
+
+func (x *ListMentionsRequest) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+type ListMentionsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Mentions sorted by their created timestamp, newest first.
+	Mentions      []*Mention `protobuf:"bytes,1,rep,name=mentions,proto3" json:"mentions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMentionsResponse) Reset() {
+	*x = ListMentionsResponse{}
+	mi := &file_user_service_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMentionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMentionsResponse) ProtoMessage() {}
+
+func (x *ListMentionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMentionsResponse.ProtoReflect.Descriptor instead.
+func (*ListMentionsResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *ListMentionsResponse) GetMentions() []*Mention {
+	if x != nil {
+		return x.Mentions
+	}
+	return nil
+}
+
+type WaitForCommentsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUIDs of the repository documents to wait for. At most 100; more is
+	// refused with invalid_argument.
+	DocumentUuids []string `protobuf:"bytes,1,rep,name=document_uuids,json=documentUuids,proto3" json:"document_uuids,omitempty"`
+	// Maximum number of seconds to wait. Defaults to 10 when unset; a value
+	// over 30 is treated as 30.
+	MaxWaitSec    int64 `protobuf:"varint,2,opt,name=max_wait_sec,json=maxWaitSec,proto3" json:"max_wait_sec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WaitForCommentsRequest) Reset() {
+	*x = WaitForCommentsRequest{}
+	mi := &file_user_service_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WaitForCommentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WaitForCommentsRequest) ProtoMessage() {}
+
+func (x *WaitForCommentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WaitForCommentsRequest.ProtoReflect.Descriptor instead.
+func (*WaitForCommentsRequest) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *WaitForCommentsRequest) GetDocumentUuids() []string {
+	if x != nil {
+		return x.DocumentUuids
+	}
+	return nil
+}
+
+func (x *WaitForCommentsRequest) GetMaxWaitSec() int64 {
+	if x != nil {
+		return x.MaxWaitSec
+	}
+	return 0
+}
+
+type WaitForCommentsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUIDs of the requested documents that had a comment change during the
+	// wait. Empty when the wait timed out.
+	DocumentUuids []string `protobuf:"bytes,1,rep,name=document_uuids,json=documentUuids,proto3" json:"document_uuids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WaitForCommentsResponse) Reset() {
+	*x = WaitForCommentsResponse{}
+	mi := &file_user_service_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WaitForCommentsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WaitForCommentsResponse) ProtoMessage() {}
+
+func (x *WaitForCommentsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_service_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WaitForCommentsResponse.ProtoReflect.Descriptor instead.
+func (*WaitForCommentsResponse) Descriptor() ([]byte, []int) {
+	return file_user_service_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *WaitForCommentsResponse) GetDocumentUuids() []string {
+	if x != nil {
+		return x.DocumentUuids
+	}
+	return nil
+}
+
 var File_user_service_proto protoreflect.FileDescriptor
 
 const file_user_service_proto_rawDesc = "" +
@@ -3598,7 +4874,91 @@ const file_user_service_proto_rawDesc = "" +
 	"\fdeprecations\x18\x01 \x03(\v2\x1a.elephant.user.DeprecationR\fdeprecations\"X\n" +
 	"\x18UpdateDeprecationRequest\x12<\n" +
 	"\vdeprecation\x18\x01 \x01(\v2\x1a.elephant.user.DeprecationR\vdeprecation\"\x1b\n" +
-	"\x19UpdateDeprecationResponse*l\n" +
+	"\x19UpdateDeprecationResponse\"\xc5\x02\n" +
+	"\rCommentThread\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12#\n" +
+	"\rdocument_uuid\x18\x02 \x01(\tR\fdocumentUuid\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x18\n" +
+	"\acreated\x18\x04 \x01(\tR\acreated\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\tR\tcreatedBy\x12\x18\n" +
+	"\aupdated\x18\x06 \x01(\tR\aupdated\x12\x1a\n" +
+	"\bresolved\x18\a \x01(\tR\bresolved\x12\x1f\n" +
+	"\vresolved_by\x18\b \x01(\tR\n" +
+	"resolvedBy\x12#\n" +
+	"\rlive_comments\x18\t \x01(\x03R\fliveComments\x122\n" +
+	"\bcomments\x18\n" +
+	" \x03(\v2\x16.elephant.user.CommentR\bcomments\"\xaf\x02\n" +
+	"\aComment\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1f\n" +
+	"\vthread_uuid\x18\x02 \x01(\tR\n" +
+	"threadUuid\x12\x16\n" +
+	"\x06author\x18\x03 \x01(\tR\x06author\x12\x1f\n" +
+	"\vauthor_name\x18\x04 \x01(\tR\n" +
+	"authorName\x12\x18\n" +
+	"\acreated\x18\x05 \x01(\tR\acreated\x12\x18\n" +
+	"\aupdated\x18\x06 \x01(\tR\aupdated\x12\x18\n" +
+	"\adeleted\x18\a \x01(\tR\adeleted\x12\x1d\n" +
+	"\n" +
+	"deleted_by\x18\b \x01(\tR\tdeletedBy\x12\x1c\n" +
+	"\tmentioned\x18\t \x03(\tR\tmentioned\x12+\n" +
+	"\apayload\x18\n" +
+	" \x01(\v2\x11.newsdoc.DocumentR\apayload\"\xb1\x01\n" +
+	"\x14CreateCommentRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1f\n" +
+	"\vthread_uuid\x18\x02 \x01(\tR\n" +
+	"threadUuid\x12#\n" +
+	"\rdocument_uuid\x18\x03 \x01(\tR\fdocumentUuid\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\x12+\n" +
+	"\apayload\x18\x05 \x01(\v2\x11.newsdoc.DocumentR\apayload\"\x7f\n" +
+	"\x15CreateCommentResponse\x120\n" +
+	"\acomment\x18\x01 \x01(\v2\x16.elephant.user.CommentR\acomment\x124\n" +
+	"\x06thread\x18\x02 \x01(\v2\x1c.elephant.user.CommentThreadR\x06thread\"W\n" +
+	"\x14UpdateCommentRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12+\n" +
+	"\apayload\x18\x02 \x01(\v2\x11.newsdoc.DocumentR\apayload\"I\n" +
+	"\x15UpdateCommentResponse\x120\n" +
+	"\acomment\x18\x01 \x01(\v2\x16.elephant.user.CommentR\acomment\"*\n" +
+	"\x14DeleteCommentRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"\x17\n" +
+	"\x15DeleteCommentResponse\"&\n" +
+	"\x10GetThreadRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"I\n" +
+	"\x11GetThreadResponse\x124\n" +
+	"\x06thread\x18\x01 \x01(\v2\x1c.elephant.user.CommentThreadR\x06thread\"d\n" +
+	"\x12ListThreadsRequest\x12#\n" +
+	"\rdocument_uuid\x18\x01 \x01(\tR\fdocumentUuid\x12)\n" +
+	"\x10include_resolved\x18\x02 \x01(\bR\x0fincludeResolved\"M\n" +
+	"\x13ListThreadsResponse\x126\n" +
+	"\athreads\x18\x01 \x03(\v2\x1c.elephant.user.CommentThreadR\athreads\"*\n" +
+	"\x14ResolveThreadRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"M\n" +
+	"\x15ResolveThreadResponse\x124\n" +
+	"\x06thread\x18\x01 \x01(\v2\x1c.elephant.user.CommentThreadR\x06thread\")\n" +
+	"\x13ReopenThreadRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"L\n" +
+	"\x14ReopenThreadResponse\x124\n" +
+	"\x06thread\x18\x01 \x01(\v2\x1c.elephant.user.CommentThreadR\x06thread\"\xc5\x01\n" +
+	"\aMention\x12!\n" +
+	"\fcomment_uuid\x18\x01 \x01(\tR\vcommentUuid\x12\x1f\n" +
+	"\vthread_uuid\x18\x02 \x01(\tR\n" +
+	"threadUuid\x12#\n" +
+	"\rdocument_uuid\x18\x03 \x01(\tR\fdocumentUuid\x12\x16\n" +
+	"\x06author\x18\x04 \x01(\tR\x06author\x12\x1f\n" +
+	"\vauthor_name\x18\x05 \x01(\tR\n" +
+	"authorName\x12\x18\n" +
+	"\acreated\x18\x06 \x01(\tR\acreated\"A\n" +
+	"\x13ListMentionsRequest\x12\x16\n" +
+	"\x06before\x18\x01 \x01(\tR\x06before\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\"J\n" +
+	"\x14ListMentionsResponse\x122\n" +
+	"\bmentions\x18\x01 \x03(\v2\x16.elephant.user.MentionR\bmentions\"a\n" +
+	"\x16WaitForCommentsRequest\x12%\n" +
+	"\x0edocument_uuids\x18\x01 \x03(\tR\rdocumentUuids\x12 \n" +
+	"\fmax_wait_sec\x18\x02 \x01(\x03R\n" +
+	"maxWaitSec\"@\n" +
+	"\x17WaitForCommentsResponse\x12%\n" +
+	"\x0edocument_uuids\x18\x01 \x03(\tR\rdocumentUuids*l\n" +
 	"\x11EventLogEntryType\x12\x1f\n" +
 	"\x1bEVENT_LOG_ENTRY_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16EVENT_LOG_ENTRY_UPDATE\x10\x01\x12\x1a\n" +
@@ -3606,13 +4966,14 @@ const file_user_service_proto_rawDesc = "" +
 	"\fResourceKind\x12\x1d\n" +
 	"\x19RESOURCE_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16RESOURCE_KIND_DOCUMENT\x10\x01\x12\x1a\n" +
-	"\x16RESOURCE_KIND_PROPERTY\x10\x02*\x9c\x01\n" +
+	"\x16RESOURCE_KIND_PROPERTY\x10\x02*\xb7\x01\n" +
 	"\vSchemaUsage\x12\x1c\n" +
 	"\x18SCHEMA_USAGE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SCHEMA_USAGE_EDITORIAL\x10\x01\x12\x1d\n" +
 	"\x19SCHEMA_USAGE_DISTRIBUTION\x10\x02\x12\x19\n" +
 	"\x15SCHEMA_USAGE_SETTINGS\x10\x03\x12\x19\n" +
-	"\x15SCHEMA_USAGE_MESSAGES\x10\x042\xf0\x05\n" +
+	"\x15SCHEMA_USAGE_MESSAGES\x10\x04\x12\x19\n" +
+	"\x15SCHEMA_USAGE_COMMENTS\x10\x052\xf0\x05\n" +
 	"\bSettings\x12T\n" +
 	"\vGetDocument\x12!.elephant.user.GetDocumentRequest\x1a\".elephant.user.GetDocumentResponse\x12Z\n" +
 	"\rListDocuments\x12#.elephant.user.ListDocumentsRequest\x1a$.elephant.user.ListDocumentsResponse\x12]\n" +
@@ -3637,7 +4998,17 @@ const file_user_service_proto_rawDesc = "" +
 	"\x15ListConfigGenerations\x12+.elephant.user.ListConfigGenerationsRequest\x1a,.elephant.user.ListConfigGenerationsResponse\x12N\n" +
 	"\tGetSchema\x12\x1f.elephant.user.GetSchemaRequest\x1a .elephant.user.GetSchemaResponse\x12`\n" +
 	"\x0fGetDeprecations\x12%.elephant.user.GetDeprecationsRequest\x1a&.elephant.user.GetDeprecationsResponse\x12f\n" +
-	"\x11UpdateDeprecation\x12'.elephant.user.UpdateDeprecationRequest\x1a(.elephant.user.UpdateDeprecationResponseB#Z!github.com/ttab/elephant-api/userb\x06proto3"
+	"\x11UpdateDeprecation\x12'.elephant.user.UpdateDeprecationRequest\x1a(.elephant.user.UpdateDeprecationResponse2\xb4\x06\n" +
+	"\bComments\x12Z\n" +
+	"\rCreateComment\x12#.elephant.user.CreateCommentRequest\x1a$.elephant.user.CreateCommentResponse\x12Z\n" +
+	"\rUpdateComment\x12#.elephant.user.UpdateCommentRequest\x1a$.elephant.user.UpdateCommentResponse\x12Z\n" +
+	"\rDeleteComment\x12#.elephant.user.DeleteCommentRequest\x1a$.elephant.user.DeleteCommentResponse\x12N\n" +
+	"\tGetThread\x12\x1f.elephant.user.GetThreadRequest\x1a .elephant.user.GetThreadResponse\x12T\n" +
+	"\vListThreads\x12!.elephant.user.ListThreadsRequest\x1a\".elephant.user.ListThreadsResponse\x12Z\n" +
+	"\rResolveThread\x12#.elephant.user.ResolveThreadRequest\x1a$.elephant.user.ResolveThreadResponse\x12W\n" +
+	"\fReopenThread\x12\".elephant.user.ReopenThreadRequest\x1a#.elephant.user.ReopenThreadResponse\x12W\n" +
+	"\fListMentions\x12\".elephant.user.ListMentionsRequest\x1a#.elephant.user.ListMentionsResponse\x12`\n" +
+	"\x0fWaitForComments\x12%.elephant.user.WaitForCommentsRequest\x1a&.elephant.user.WaitForCommentsResponseB#Z!github.com/ttab/elephant-api/userb\x06proto3"
 
 var (
 	file_user_service_proto_rawDescOnce sync.Once
@@ -3652,7 +5023,7 @@ func file_user_service_proto_rawDescGZIP() []byte {
 }
 
 var file_user_service_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 56)
+var file_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 77)
 var file_user_service_proto_goTypes = []any{
 	(EventLogEntryType)(0),                    // 0: elephant.user.EventLogEntryType
 	(ResourceKind)(0),                         // 1: elephant.user.ResourceKind
@@ -3711,27 +5082,48 @@ var file_user_service_proto_goTypes = []any{
 	(*GetDeprecationsResponse)(nil),           // 54: elephant.user.GetDeprecationsResponse
 	(*UpdateDeprecationRequest)(nil),          // 55: elephant.user.UpdateDeprecationRequest
 	(*UpdateDeprecationResponse)(nil),         // 56: elephant.user.UpdateDeprecationResponse
-	nil,                                       // 57: elephant.user.PushMessageRequest.PayloadEntry
-	nil,                                       // 58: elephant.user.Message.PayloadEntry
-	(*newsdoc.Document)(nil),                  // 59: newsdoc.Document
+	(*CommentThread)(nil),                     // 57: elephant.user.CommentThread
+	(*Comment)(nil),                           // 58: elephant.user.Comment
+	(*CreateCommentRequest)(nil),              // 59: elephant.user.CreateCommentRequest
+	(*CreateCommentResponse)(nil),             // 60: elephant.user.CreateCommentResponse
+	(*UpdateCommentRequest)(nil),              // 61: elephant.user.UpdateCommentRequest
+	(*UpdateCommentResponse)(nil),             // 62: elephant.user.UpdateCommentResponse
+	(*DeleteCommentRequest)(nil),              // 63: elephant.user.DeleteCommentRequest
+	(*DeleteCommentResponse)(nil),             // 64: elephant.user.DeleteCommentResponse
+	(*GetThreadRequest)(nil),                  // 65: elephant.user.GetThreadRequest
+	(*GetThreadResponse)(nil),                 // 66: elephant.user.GetThreadResponse
+	(*ListThreadsRequest)(nil),                // 67: elephant.user.ListThreadsRequest
+	(*ListThreadsResponse)(nil),               // 68: elephant.user.ListThreadsResponse
+	(*ResolveThreadRequest)(nil),              // 69: elephant.user.ResolveThreadRequest
+	(*ResolveThreadResponse)(nil),             // 70: elephant.user.ResolveThreadResponse
+	(*ReopenThreadRequest)(nil),               // 71: elephant.user.ReopenThreadRequest
+	(*ReopenThreadResponse)(nil),              // 72: elephant.user.ReopenThreadResponse
+	(*Mention)(nil),                           // 73: elephant.user.Mention
+	(*ListMentionsRequest)(nil),               // 74: elephant.user.ListMentionsRequest
+	(*ListMentionsResponse)(nil),              // 75: elephant.user.ListMentionsResponse
+	(*WaitForCommentsRequest)(nil),            // 76: elephant.user.WaitForCommentsRequest
+	(*WaitForCommentsResponse)(nil),           // 77: elephant.user.WaitForCommentsResponse
+	nil,                                       // 78: elephant.user.PushMessageRequest.PayloadEntry
+	nil,                                       // 79: elephant.user.Message.PayloadEntry
+	(*newsdoc.Document)(nil),                  // 80: newsdoc.Document
 }
 var file_user_service_proto_depIdxs = []int32{
 	5,  // 0: elephant.user.GetDocumentResponse.document:type_name -> elephant.user.Document
-	59, // 1: elephant.user.Document.payload:type_name -> newsdoc.Document
+	80, // 1: elephant.user.Document.payload:type_name -> newsdoc.Document
 	5,  // 2: elephant.user.ListDocumentsResponse.documents:type_name -> elephant.user.Document
-	59, // 3: elephant.user.UpdateDocumentRequest.payload:type_name -> newsdoc.Document
+	80, // 3: elephant.user.UpdateDocumentRequest.payload:type_name -> newsdoc.Document
 	12, // 4: elephant.user.GetPropertiesResponse.properties:type_name -> elephant.user.Property
 	15, // 5: elephant.user.SetPropertiesRequest.properties:type_name -> elephant.user.PropertyUpdate
 	18, // 6: elephant.user.DeletePropertiesRequest.properties:type_name -> elephant.user.PropertyDelete
 	23, // 7: elephant.user.PollEventLogResponse.entries:type_name -> elephant.user.EventLogEntry
 	0,  // 8: elephant.user.EventLogEntry.type:type_name -> elephant.user.EventLogEntryType
 	1,  // 9: elephant.user.EventLogEntry.kind:type_name -> elephant.user.ResourceKind
-	57, // 10: elephant.user.PushMessageRequest.payload:type_name -> elephant.user.PushMessageRequest.PayloadEntry
-	59, // 11: elephant.user.PushInboxMessageRequest.payload:type_name -> newsdoc.Document
+	78, // 10: elephant.user.PushMessageRequest.payload:type_name -> elephant.user.PushMessageRequest.PayloadEntry
+	80, // 11: elephant.user.PushInboxMessageRequest.payload:type_name -> newsdoc.Document
 	30, // 12: elephant.user.PollMessagesResponse.messages:type_name -> elephant.user.Message
-	58, // 13: elephant.user.Message.payload:type_name -> elephant.user.Message.PayloadEntry
+	79, // 13: elephant.user.Message.payload:type_name -> elephant.user.Message.PayloadEntry
 	33, // 14: elephant.user.PollInboxMessagesResponse.messages:type_name -> elephant.user.InboxMessage
-	59, // 15: elephant.user.InboxMessage.payload:type_name -> newsdoc.Document
+	80, // 15: elephant.user.InboxMessage.payload:type_name -> newsdoc.Document
 	33, // 16: elephant.user.ListInboxMessagesResponse.messages:type_name -> elephant.user.InboxMessage
 	2,  // 17: elephant.user.ConfigGenerationSchema.usage:type_name -> elephant.user.SchemaUsage
 	40, // 18: elephant.user.ConfigGeneration.schemas:type_name -> elephant.user.ConfigGenerationSchema
@@ -3743,55 +5135,85 @@ var file_user_service_proto_depIdxs = []int32{
 	2,  // 24: elephant.user.GetSchemaResponse.usage:type_name -> elephant.user.SchemaUsage
 	52, // 25: elephant.user.GetDeprecationsResponse.deprecations:type_name -> elephant.user.Deprecation
 	52, // 26: elephant.user.UpdateDeprecationRequest.deprecation:type_name -> elephant.user.Deprecation
-	3,  // 27: elephant.user.Settings.GetDocument:input_type -> elephant.user.GetDocumentRequest
-	6,  // 28: elephant.user.Settings.ListDocuments:input_type -> elephant.user.ListDocumentsRequest
-	8,  // 29: elephant.user.Settings.UpdateDocument:input_type -> elephant.user.UpdateDocumentRequest
-	10, // 30: elephant.user.Settings.DeleteDocument:input_type -> elephant.user.DeleteDocumentRequest
-	13, // 31: elephant.user.Settings.GetProperties:input_type -> elephant.user.GetPropertiesRequest
-	16, // 32: elephant.user.Settings.SetProperties:input_type -> elephant.user.SetPropertiesRequest
-	19, // 33: elephant.user.Settings.DeleteProperties:input_type -> elephant.user.DeletePropertiesRequest
-	21, // 34: elephant.user.Settings.PollEventLog:input_type -> elephant.user.PollEventLogRequest
-	24, // 35: elephant.user.Messages.PushMessage:input_type -> elephant.user.PushMessageRequest
-	26, // 36: elephant.user.Messages.PushInboxMessage:input_type -> elephant.user.PushInboxMessageRequest
-	28, // 37: elephant.user.Messages.PollMessages:input_type -> elephant.user.PollMessagesRequest
-	31, // 38: elephant.user.Messages.PollInboxMessages:input_type -> elephant.user.PollInboxMessagesRequest
-	34, // 39: elephant.user.Messages.ListInboxMessages:input_type -> elephant.user.ListInboxMessagesRequest
-	36, // 40: elephant.user.Messages.UpdateInboxMessage:input_type -> elephant.user.UpdateInboxMessageRequest
-	38, // 41: elephant.user.Messages.DeleteInboxMessage:input_type -> elephant.user.DeleteInboxMessageRequest
-	42, // 42: elephant.user.Configuration.RegisterConfigGeneration:input_type -> elephant.user.RegisterConfigGenerationRequest
-	44, // 43: elephant.user.Configuration.ActivateConfigGeneration:input_type -> elephant.user.ActivateConfigGenerationRequest
-	46, // 44: elephant.user.Configuration.GetActiveConfigGeneration:input_type -> elephant.user.GetActiveConfigGenerationRequest
-	48, // 45: elephant.user.Configuration.ListConfigGenerations:input_type -> elephant.user.ListConfigGenerationsRequest
-	50, // 46: elephant.user.Configuration.GetSchema:input_type -> elephant.user.GetSchemaRequest
-	53, // 47: elephant.user.Configuration.GetDeprecations:input_type -> elephant.user.GetDeprecationsRequest
-	55, // 48: elephant.user.Configuration.UpdateDeprecation:input_type -> elephant.user.UpdateDeprecationRequest
-	4,  // 49: elephant.user.Settings.GetDocument:output_type -> elephant.user.GetDocumentResponse
-	7,  // 50: elephant.user.Settings.ListDocuments:output_type -> elephant.user.ListDocumentsResponse
-	9,  // 51: elephant.user.Settings.UpdateDocument:output_type -> elephant.user.UpdateDocumentResponse
-	11, // 52: elephant.user.Settings.DeleteDocument:output_type -> elephant.user.DeleteDocumentResponse
-	14, // 53: elephant.user.Settings.GetProperties:output_type -> elephant.user.GetPropertiesResponse
-	17, // 54: elephant.user.Settings.SetProperties:output_type -> elephant.user.SetPropertiesResponse
-	20, // 55: elephant.user.Settings.DeleteProperties:output_type -> elephant.user.DeletePropertiesResponse
-	22, // 56: elephant.user.Settings.PollEventLog:output_type -> elephant.user.PollEventLogResponse
-	25, // 57: elephant.user.Messages.PushMessage:output_type -> elephant.user.PushMessageResponse
-	27, // 58: elephant.user.Messages.PushInboxMessage:output_type -> elephant.user.PushInboxMessageResponse
-	29, // 59: elephant.user.Messages.PollMessages:output_type -> elephant.user.PollMessagesResponse
-	32, // 60: elephant.user.Messages.PollInboxMessages:output_type -> elephant.user.PollInboxMessagesResponse
-	35, // 61: elephant.user.Messages.ListInboxMessages:output_type -> elephant.user.ListInboxMessagesResponse
-	37, // 62: elephant.user.Messages.UpdateInboxMessage:output_type -> elephant.user.UpdateInboxMessageResponse
-	39, // 63: elephant.user.Messages.DeleteInboxMessage:output_type -> elephant.user.DeleteInboxMessageResponse
-	43, // 64: elephant.user.Configuration.RegisterConfigGeneration:output_type -> elephant.user.RegisterConfigGenerationResponse
-	45, // 65: elephant.user.Configuration.ActivateConfigGeneration:output_type -> elephant.user.ActivateConfigGenerationResponse
-	47, // 66: elephant.user.Configuration.GetActiveConfigGeneration:output_type -> elephant.user.GetActiveConfigGenerationResponse
-	49, // 67: elephant.user.Configuration.ListConfigGenerations:output_type -> elephant.user.ListConfigGenerationsResponse
-	51, // 68: elephant.user.Configuration.GetSchema:output_type -> elephant.user.GetSchemaResponse
-	54, // 69: elephant.user.Configuration.GetDeprecations:output_type -> elephant.user.GetDeprecationsResponse
-	56, // 70: elephant.user.Configuration.UpdateDeprecation:output_type -> elephant.user.UpdateDeprecationResponse
-	49, // [49:71] is the sub-list for method output_type
-	27, // [27:49] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	58, // 27: elephant.user.CommentThread.comments:type_name -> elephant.user.Comment
+	80, // 28: elephant.user.Comment.payload:type_name -> newsdoc.Document
+	80, // 29: elephant.user.CreateCommentRequest.payload:type_name -> newsdoc.Document
+	58, // 30: elephant.user.CreateCommentResponse.comment:type_name -> elephant.user.Comment
+	57, // 31: elephant.user.CreateCommentResponse.thread:type_name -> elephant.user.CommentThread
+	80, // 32: elephant.user.UpdateCommentRequest.payload:type_name -> newsdoc.Document
+	58, // 33: elephant.user.UpdateCommentResponse.comment:type_name -> elephant.user.Comment
+	57, // 34: elephant.user.GetThreadResponse.thread:type_name -> elephant.user.CommentThread
+	57, // 35: elephant.user.ListThreadsResponse.threads:type_name -> elephant.user.CommentThread
+	57, // 36: elephant.user.ResolveThreadResponse.thread:type_name -> elephant.user.CommentThread
+	57, // 37: elephant.user.ReopenThreadResponse.thread:type_name -> elephant.user.CommentThread
+	73, // 38: elephant.user.ListMentionsResponse.mentions:type_name -> elephant.user.Mention
+	3,  // 39: elephant.user.Settings.GetDocument:input_type -> elephant.user.GetDocumentRequest
+	6,  // 40: elephant.user.Settings.ListDocuments:input_type -> elephant.user.ListDocumentsRequest
+	8,  // 41: elephant.user.Settings.UpdateDocument:input_type -> elephant.user.UpdateDocumentRequest
+	10, // 42: elephant.user.Settings.DeleteDocument:input_type -> elephant.user.DeleteDocumentRequest
+	13, // 43: elephant.user.Settings.GetProperties:input_type -> elephant.user.GetPropertiesRequest
+	16, // 44: elephant.user.Settings.SetProperties:input_type -> elephant.user.SetPropertiesRequest
+	19, // 45: elephant.user.Settings.DeleteProperties:input_type -> elephant.user.DeletePropertiesRequest
+	21, // 46: elephant.user.Settings.PollEventLog:input_type -> elephant.user.PollEventLogRequest
+	24, // 47: elephant.user.Messages.PushMessage:input_type -> elephant.user.PushMessageRequest
+	26, // 48: elephant.user.Messages.PushInboxMessage:input_type -> elephant.user.PushInboxMessageRequest
+	28, // 49: elephant.user.Messages.PollMessages:input_type -> elephant.user.PollMessagesRequest
+	31, // 50: elephant.user.Messages.PollInboxMessages:input_type -> elephant.user.PollInboxMessagesRequest
+	34, // 51: elephant.user.Messages.ListInboxMessages:input_type -> elephant.user.ListInboxMessagesRequest
+	36, // 52: elephant.user.Messages.UpdateInboxMessage:input_type -> elephant.user.UpdateInboxMessageRequest
+	38, // 53: elephant.user.Messages.DeleteInboxMessage:input_type -> elephant.user.DeleteInboxMessageRequest
+	42, // 54: elephant.user.Configuration.RegisterConfigGeneration:input_type -> elephant.user.RegisterConfigGenerationRequest
+	44, // 55: elephant.user.Configuration.ActivateConfigGeneration:input_type -> elephant.user.ActivateConfigGenerationRequest
+	46, // 56: elephant.user.Configuration.GetActiveConfigGeneration:input_type -> elephant.user.GetActiveConfigGenerationRequest
+	48, // 57: elephant.user.Configuration.ListConfigGenerations:input_type -> elephant.user.ListConfigGenerationsRequest
+	50, // 58: elephant.user.Configuration.GetSchema:input_type -> elephant.user.GetSchemaRequest
+	53, // 59: elephant.user.Configuration.GetDeprecations:input_type -> elephant.user.GetDeprecationsRequest
+	55, // 60: elephant.user.Configuration.UpdateDeprecation:input_type -> elephant.user.UpdateDeprecationRequest
+	59, // 61: elephant.user.Comments.CreateComment:input_type -> elephant.user.CreateCommentRequest
+	61, // 62: elephant.user.Comments.UpdateComment:input_type -> elephant.user.UpdateCommentRequest
+	63, // 63: elephant.user.Comments.DeleteComment:input_type -> elephant.user.DeleteCommentRequest
+	65, // 64: elephant.user.Comments.GetThread:input_type -> elephant.user.GetThreadRequest
+	67, // 65: elephant.user.Comments.ListThreads:input_type -> elephant.user.ListThreadsRequest
+	69, // 66: elephant.user.Comments.ResolveThread:input_type -> elephant.user.ResolveThreadRequest
+	71, // 67: elephant.user.Comments.ReopenThread:input_type -> elephant.user.ReopenThreadRequest
+	74, // 68: elephant.user.Comments.ListMentions:input_type -> elephant.user.ListMentionsRequest
+	76, // 69: elephant.user.Comments.WaitForComments:input_type -> elephant.user.WaitForCommentsRequest
+	4,  // 70: elephant.user.Settings.GetDocument:output_type -> elephant.user.GetDocumentResponse
+	7,  // 71: elephant.user.Settings.ListDocuments:output_type -> elephant.user.ListDocumentsResponse
+	9,  // 72: elephant.user.Settings.UpdateDocument:output_type -> elephant.user.UpdateDocumentResponse
+	11, // 73: elephant.user.Settings.DeleteDocument:output_type -> elephant.user.DeleteDocumentResponse
+	14, // 74: elephant.user.Settings.GetProperties:output_type -> elephant.user.GetPropertiesResponse
+	17, // 75: elephant.user.Settings.SetProperties:output_type -> elephant.user.SetPropertiesResponse
+	20, // 76: elephant.user.Settings.DeleteProperties:output_type -> elephant.user.DeletePropertiesResponse
+	22, // 77: elephant.user.Settings.PollEventLog:output_type -> elephant.user.PollEventLogResponse
+	25, // 78: elephant.user.Messages.PushMessage:output_type -> elephant.user.PushMessageResponse
+	27, // 79: elephant.user.Messages.PushInboxMessage:output_type -> elephant.user.PushInboxMessageResponse
+	29, // 80: elephant.user.Messages.PollMessages:output_type -> elephant.user.PollMessagesResponse
+	32, // 81: elephant.user.Messages.PollInboxMessages:output_type -> elephant.user.PollInboxMessagesResponse
+	35, // 82: elephant.user.Messages.ListInboxMessages:output_type -> elephant.user.ListInboxMessagesResponse
+	37, // 83: elephant.user.Messages.UpdateInboxMessage:output_type -> elephant.user.UpdateInboxMessageResponse
+	39, // 84: elephant.user.Messages.DeleteInboxMessage:output_type -> elephant.user.DeleteInboxMessageResponse
+	43, // 85: elephant.user.Configuration.RegisterConfigGeneration:output_type -> elephant.user.RegisterConfigGenerationResponse
+	45, // 86: elephant.user.Configuration.ActivateConfigGeneration:output_type -> elephant.user.ActivateConfigGenerationResponse
+	47, // 87: elephant.user.Configuration.GetActiveConfigGeneration:output_type -> elephant.user.GetActiveConfigGenerationResponse
+	49, // 88: elephant.user.Configuration.ListConfigGenerations:output_type -> elephant.user.ListConfigGenerationsResponse
+	51, // 89: elephant.user.Configuration.GetSchema:output_type -> elephant.user.GetSchemaResponse
+	54, // 90: elephant.user.Configuration.GetDeprecations:output_type -> elephant.user.GetDeprecationsResponse
+	56, // 91: elephant.user.Configuration.UpdateDeprecation:output_type -> elephant.user.UpdateDeprecationResponse
+	60, // 92: elephant.user.Comments.CreateComment:output_type -> elephant.user.CreateCommentResponse
+	62, // 93: elephant.user.Comments.UpdateComment:output_type -> elephant.user.UpdateCommentResponse
+	64, // 94: elephant.user.Comments.DeleteComment:output_type -> elephant.user.DeleteCommentResponse
+	66, // 95: elephant.user.Comments.GetThread:output_type -> elephant.user.GetThreadResponse
+	68, // 96: elephant.user.Comments.ListThreads:output_type -> elephant.user.ListThreadsResponse
+	70, // 97: elephant.user.Comments.ResolveThread:output_type -> elephant.user.ResolveThreadResponse
+	72, // 98: elephant.user.Comments.ReopenThread:output_type -> elephant.user.ReopenThreadResponse
+	75, // 99: elephant.user.Comments.ListMentions:output_type -> elephant.user.ListMentionsResponse
+	77, // 100: elephant.user.Comments.WaitForComments:output_type -> elephant.user.WaitForCommentsResponse
+	70, // [70:101] is the sub-list for method output_type
+	39, // [39:70] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_user_service_proto_init() }
@@ -3805,9 +5227,9 @@ func file_user_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_service_proto_rawDesc), len(file_user_service_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   56,
+			NumMessages:   77,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_user_service_proto_goTypes,
 		DependencyIndexes: file_user_service_proto_depIdxs,

@@ -27,6 +27,8 @@ const (
 	MessagesName = "elephant.user.Messages"
 	// ConfigurationName is the fully-qualified name of the Configuration service.
 	ConfigurationName = "elephant.user.Configuration"
+	// CommentsName is the fully-qualified name of the Comments service.
+	CommentsName = "elephant.user.Comments"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -93,6 +95,25 @@ const (
 	// ConfigurationUpdateDeprecationProcedure is the fully-qualified name of the Configuration's
 	// UpdateDeprecation RPC.
 	ConfigurationUpdateDeprecationProcedure = "/elephant.user.Configuration/UpdateDeprecation"
+	// CommentsCreateCommentProcedure is the fully-qualified name of the Comments's CreateComment RPC.
+	CommentsCreateCommentProcedure = "/elephant.user.Comments/CreateComment"
+	// CommentsUpdateCommentProcedure is the fully-qualified name of the Comments's UpdateComment RPC.
+	CommentsUpdateCommentProcedure = "/elephant.user.Comments/UpdateComment"
+	// CommentsDeleteCommentProcedure is the fully-qualified name of the Comments's DeleteComment RPC.
+	CommentsDeleteCommentProcedure = "/elephant.user.Comments/DeleteComment"
+	// CommentsGetThreadProcedure is the fully-qualified name of the Comments's GetThread RPC.
+	CommentsGetThreadProcedure = "/elephant.user.Comments/GetThread"
+	// CommentsListThreadsProcedure is the fully-qualified name of the Comments's ListThreads RPC.
+	CommentsListThreadsProcedure = "/elephant.user.Comments/ListThreads"
+	// CommentsResolveThreadProcedure is the fully-qualified name of the Comments's ResolveThread RPC.
+	CommentsResolveThreadProcedure = "/elephant.user.Comments/ResolveThread"
+	// CommentsReopenThreadProcedure is the fully-qualified name of the Comments's ReopenThread RPC.
+	CommentsReopenThreadProcedure = "/elephant.user.Comments/ReopenThread"
+	// CommentsListMentionsProcedure is the fully-qualified name of the Comments's ListMentions RPC.
+	CommentsListMentionsProcedure = "/elephant.user.Comments/ListMentions"
+	// CommentsWaitForCommentsProcedure is the fully-qualified name of the Comments's WaitForComments
+	// RPC.
+	CommentsWaitForCommentsProcedure = "/elephant.user.Comments/WaitForComments"
 )
 
 // SettingsClient is a client for the elephant.user.Settings service.
@@ -873,4 +894,334 @@ func (UnimplementedConfigurationHandler) GetDeprecations(context.Context, *conne
 
 func (UnimplementedConfigurationHandler) UpdateDeprecation(context.Context, *connect.Request[user.UpdateDeprecationRequest]) (*connect.Response[user.UpdateDeprecationResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Configuration.UpdateDeprecation is not implemented"))
+}
+
+// CommentsClient is a client for the elephant.user.Comments service.
+type CommentsClient interface {
+	// Creates a comment. A thread_uuid that does not exist yet creates the
+	// thread, which then requires document_uuid and may carry a kind. Comment
+	// and thread uuids are chosen by the caller: repeating a request with the
+	// same uuid and payload answers with the existing comment, and the same
+	// uuid with a different thread or payload is refused with already_exists.
+	// A comment posted to a resolved thread reopens it.
+	CreateComment(context.Context, *connect.Request[user.CreateCommentRequest]) (*connect.Response[user.CreateCommentResponse], error)
+	// Replaces the payload of the caller's own comment. Editing another
+	// author's comment is refused with permission_denied, and editing a
+	// deleted comment with failed_precondition.
+	UpdateComment(context.Context, *connect.Request[user.UpdateCommentRequest]) (*connect.Response[user.UpdateCommentResponse], error)
+	// Deletes a comment: the caller's own, or any comment with the
+	// `doc_admin` scope. The comment stays in its thread without its payload.
+	DeleteComment(context.Context, *connect.Request[user.DeleteCommentRequest]) (*connect.Response[user.DeleteCommentResponse], error)
+	// Gets a thread with its comments, oldest first.
+	GetThread(context.Context, *connect.Request[user.GetThreadRequest]) (*connect.Response[user.GetThreadResponse], error)
+	// Lists the threads on a document, most recently updated first, each
+	// with its comments.
+	ListThreads(context.Context, *connect.Request[user.ListThreadsRequest]) (*connect.Response[user.ListThreadsResponse], error)
+	// Marks a thread as resolved. A comment posted to a resolved thread
+	// reopens it.
+	ResolveThread(context.Context, *connect.Request[user.ResolveThreadRequest]) (*connect.Response[user.ResolveThreadResponse], error)
+	// Reopens a resolved thread.
+	ReopenThread(context.Context, *connect.Request[user.ReopenThreadRequest]) (*connect.Response[user.ReopenThreadResponse], error)
+	// Lists the comments that mention the caller, newest first, as
+	// references without payloads. Use GetThread to read them, which checks
+	// that the caller may read the document.
+	ListMentions(context.Context, *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error)
+	// Waits until any of the given documents has a comment change, or until
+	// max_wait_sec passes, and answers with the documents that changed. The
+	// caller re-lists their threads afterwards. This is an interim,
+	// cursor-less wakeup poll: a change between two calls is not reported,
+	// so list the threads before the first wait. It will be replaced by a
+	// comment stream.
+	WaitForComments(context.Context, *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error)
+}
+
+// NewCommentsClient constructs a client for the elephant.user.Comments service. By default, it uses
+// the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and sends
+// uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or
+// connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewCommentsClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CommentsClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	commentsMethods := user.File_user_service_proto.Services().ByName("Comments").Methods()
+	return &commentsClient{
+		createComment: connect.NewClient[user.CreateCommentRequest, user.CreateCommentResponse](
+			httpClient,
+			baseURL+CommentsCreateCommentProcedure,
+			connect.WithSchema(commentsMethods.ByName("CreateComment")),
+			connect.WithClientOptions(opts...),
+		),
+		updateComment: connect.NewClient[user.UpdateCommentRequest, user.UpdateCommentResponse](
+			httpClient,
+			baseURL+CommentsUpdateCommentProcedure,
+			connect.WithSchema(commentsMethods.ByName("UpdateComment")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteComment: connect.NewClient[user.DeleteCommentRequest, user.DeleteCommentResponse](
+			httpClient,
+			baseURL+CommentsDeleteCommentProcedure,
+			connect.WithSchema(commentsMethods.ByName("DeleteComment")),
+			connect.WithClientOptions(opts...),
+		),
+		getThread: connect.NewClient[user.GetThreadRequest, user.GetThreadResponse](
+			httpClient,
+			baseURL+CommentsGetThreadProcedure,
+			connect.WithSchema(commentsMethods.ByName("GetThread")),
+			connect.WithClientOptions(opts...),
+		),
+		listThreads: connect.NewClient[user.ListThreadsRequest, user.ListThreadsResponse](
+			httpClient,
+			baseURL+CommentsListThreadsProcedure,
+			connect.WithSchema(commentsMethods.ByName("ListThreads")),
+			connect.WithClientOptions(opts...),
+		),
+		resolveThread: connect.NewClient[user.ResolveThreadRequest, user.ResolveThreadResponse](
+			httpClient,
+			baseURL+CommentsResolveThreadProcedure,
+			connect.WithSchema(commentsMethods.ByName("ResolveThread")),
+			connect.WithClientOptions(opts...),
+		),
+		reopenThread: connect.NewClient[user.ReopenThreadRequest, user.ReopenThreadResponse](
+			httpClient,
+			baseURL+CommentsReopenThreadProcedure,
+			connect.WithSchema(commentsMethods.ByName("ReopenThread")),
+			connect.WithClientOptions(opts...),
+		),
+		listMentions: connect.NewClient[user.ListMentionsRequest, user.ListMentionsResponse](
+			httpClient,
+			baseURL+CommentsListMentionsProcedure,
+			connect.WithSchema(commentsMethods.ByName("ListMentions")),
+			connect.WithClientOptions(opts...),
+		),
+		waitForComments: connect.NewClient[user.WaitForCommentsRequest, user.WaitForCommentsResponse](
+			httpClient,
+			baseURL+CommentsWaitForCommentsProcedure,
+			connect.WithSchema(commentsMethods.ByName("WaitForComments")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// commentsClient implements CommentsClient.
+type commentsClient struct {
+	createComment   *connect.Client[user.CreateCommentRequest, user.CreateCommentResponse]
+	updateComment   *connect.Client[user.UpdateCommentRequest, user.UpdateCommentResponse]
+	deleteComment   *connect.Client[user.DeleteCommentRequest, user.DeleteCommentResponse]
+	getThread       *connect.Client[user.GetThreadRequest, user.GetThreadResponse]
+	listThreads     *connect.Client[user.ListThreadsRequest, user.ListThreadsResponse]
+	resolveThread   *connect.Client[user.ResolveThreadRequest, user.ResolveThreadResponse]
+	reopenThread    *connect.Client[user.ReopenThreadRequest, user.ReopenThreadResponse]
+	listMentions    *connect.Client[user.ListMentionsRequest, user.ListMentionsResponse]
+	waitForComments *connect.Client[user.WaitForCommentsRequest, user.WaitForCommentsResponse]
+}
+
+// CreateComment calls elephant.user.Comments.CreateComment.
+func (c *commentsClient) CreateComment(ctx context.Context, req *connect.Request[user.CreateCommentRequest]) (*connect.Response[user.CreateCommentResponse], error) {
+	return c.createComment.CallUnary(ctx, req)
+}
+
+// UpdateComment calls elephant.user.Comments.UpdateComment.
+func (c *commentsClient) UpdateComment(ctx context.Context, req *connect.Request[user.UpdateCommentRequest]) (*connect.Response[user.UpdateCommentResponse], error) {
+	return c.updateComment.CallUnary(ctx, req)
+}
+
+// DeleteComment calls elephant.user.Comments.DeleteComment.
+func (c *commentsClient) DeleteComment(ctx context.Context, req *connect.Request[user.DeleteCommentRequest]) (*connect.Response[user.DeleteCommentResponse], error) {
+	return c.deleteComment.CallUnary(ctx, req)
+}
+
+// GetThread calls elephant.user.Comments.GetThread.
+func (c *commentsClient) GetThread(ctx context.Context, req *connect.Request[user.GetThreadRequest]) (*connect.Response[user.GetThreadResponse], error) {
+	return c.getThread.CallUnary(ctx, req)
+}
+
+// ListThreads calls elephant.user.Comments.ListThreads.
+func (c *commentsClient) ListThreads(ctx context.Context, req *connect.Request[user.ListThreadsRequest]) (*connect.Response[user.ListThreadsResponse], error) {
+	return c.listThreads.CallUnary(ctx, req)
+}
+
+// ResolveThread calls elephant.user.Comments.ResolveThread.
+func (c *commentsClient) ResolveThread(ctx context.Context, req *connect.Request[user.ResolveThreadRequest]) (*connect.Response[user.ResolveThreadResponse], error) {
+	return c.resolveThread.CallUnary(ctx, req)
+}
+
+// ReopenThread calls elephant.user.Comments.ReopenThread.
+func (c *commentsClient) ReopenThread(ctx context.Context, req *connect.Request[user.ReopenThreadRequest]) (*connect.Response[user.ReopenThreadResponse], error) {
+	return c.reopenThread.CallUnary(ctx, req)
+}
+
+// ListMentions calls elephant.user.Comments.ListMentions.
+func (c *commentsClient) ListMentions(ctx context.Context, req *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error) {
+	return c.listMentions.CallUnary(ctx, req)
+}
+
+// WaitForComments calls elephant.user.Comments.WaitForComments.
+func (c *commentsClient) WaitForComments(ctx context.Context, req *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error) {
+	return c.waitForComments.CallUnary(ctx, req)
+}
+
+// CommentsHandler is an implementation of the elephant.user.Comments service.
+type CommentsHandler interface {
+	// Creates a comment. A thread_uuid that does not exist yet creates the
+	// thread, which then requires document_uuid and may carry a kind. Comment
+	// and thread uuids are chosen by the caller: repeating a request with the
+	// same uuid and payload answers with the existing comment, and the same
+	// uuid with a different thread or payload is refused with already_exists.
+	// A comment posted to a resolved thread reopens it.
+	CreateComment(context.Context, *connect.Request[user.CreateCommentRequest]) (*connect.Response[user.CreateCommentResponse], error)
+	// Replaces the payload of the caller's own comment. Editing another
+	// author's comment is refused with permission_denied, and editing a
+	// deleted comment with failed_precondition.
+	UpdateComment(context.Context, *connect.Request[user.UpdateCommentRequest]) (*connect.Response[user.UpdateCommentResponse], error)
+	// Deletes a comment: the caller's own, or any comment with the
+	// `doc_admin` scope. The comment stays in its thread without its payload.
+	DeleteComment(context.Context, *connect.Request[user.DeleteCommentRequest]) (*connect.Response[user.DeleteCommentResponse], error)
+	// Gets a thread with its comments, oldest first.
+	GetThread(context.Context, *connect.Request[user.GetThreadRequest]) (*connect.Response[user.GetThreadResponse], error)
+	// Lists the threads on a document, most recently updated first, each
+	// with its comments.
+	ListThreads(context.Context, *connect.Request[user.ListThreadsRequest]) (*connect.Response[user.ListThreadsResponse], error)
+	// Marks a thread as resolved. A comment posted to a resolved thread
+	// reopens it.
+	ResolveThread(context.Context, *connect.Request[user.ResolveThreadRequest]) (*connect.Response[user.ResolveThreadResponse], error)
+	// Reopens a resolved thread.
+	ReopenThread(context.Context, *connect.Request[user.ReopenThreadRequest]) (*connect.Response[user.ReopenThreadResponse], error)
+	// Lists the comments that mention the caller, newest first, as
+	// references without payloads. Use GetThread to read them, which checks
+	// that the caller may read the document.
+	ListMentions(context.Context, *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error)
+	// Waits until any of the given documents has a comment change, or until
+	// max_wait_sec passes, and answers with the documents that changed. The
+	// caller re-lists their threads afterwards. This is an interim,
+	// cursor-less wakeup poll: a change between two calls is not reported,
+	// so list the threads before the first wait. It will be replaced by a
+	// comment stream.
+	WaitForComments(context.Context, *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error)
+}
+
+// NewCommentsHandler builds an HTTP handler from the service implementation. It returns the path on
+// which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewCommentsHandler(svc CommentsHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	commentsMethods := user.File_user_service_proto.Services().ByName("Comments").Methods()
+	commentsCreateCommentHandler := connect.NewUnaryHandler(
+		CommentsCreateCommentProcedure,
+		svc.CreateComment,
+		connect.WithSchema(commentsMethods.ByName("CreateComment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsUpdateCommentHandler := connect.NewUnaryHandler(
+		CommentsUpdateCommentProcedure,
+		svc.UpdateComment,
+		connect.WithSchema(commentsMethods.ByName("UpdateComment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsDeleteCommentHandler := connect.NewUnaryHandler(
+		CommentsDeleteCommentProcedure,
+		svc.DeleteComment,
+		connect.WithSchema(commentsMethods.ByName("DeleteComment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsGetThreadHandler := connect.NewUnaryHandler(
+		CommentsGetThreadProcedure,
+		svc.GetThread,
+		connect.WithSchema(commentsMethods.ByName("GetThread")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsListThreadsHandler := connect.NewUnaryHandler(
+		CommentsListThreadsProcedure,
+		svc.ListThreads,
+		connect.WithSchema(commentsMethods.ByName("ListThreads")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsResolveThreadHandler := connect.NewUnaryHandler(
+		CommentsResolveThreadProcedure,
+		svc.ResolveThread,
+		connect.WithSchema(commentsMethods.ByName("ResolveThread")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsReopenThreadHandler := connect.NewUnaryHandler(
+		CommentsReopenThreadProcedure,
+		svc.ReopenThread,
+		connect.WithSchema(commentsMethods.ByName("ReopenThread")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsListMentionsHandler := connect.NewUnaryHandler(
+		CommentsListMentionsProcedure,
+		svc.ListMentions,
+		connect.WithSchema(commentsMethods.ByName("ListMentions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	commentsWaitForCommentsHandler := connect.NewUnaryHandler(
+		CommentsWaitForCommentsProcedure,
+		svc.WaitForComments,
+		connect.WithSchema(commentsMethods.ByName("WaitForComments")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/elephant.user.Comments/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case CommentsCreateCommentProcedure:
+			commentsCreateCommentHandler.ServeHTTP(w, r)
+		case CommentsUpdateCommentProcedure:
+			commentsUpdateCommentHandler.ServeHTTP(w, r)
+		case CommentsDeleteCommentProcedure:
+			commentsDeleteCommentHandler.ServeHTTP(w, r)
+		case CommentsGetThreadProcedure:
+			commentsGetThreadHandler.ServeHTTP(w, r)
+		case CommentsListThreadsProcedure:
+			commentsListThreadsHandler.ServeHTTP(w, r)
+		case CommentsResolveThreadProcedure:
+			commentsResolveThreadHandler.ServeHTTP(w, r)
+		case CommentsReopenThreadProcedure:
+			commentsReopenThreadHandler.ServeHTTP(w, r)
+		case CommentsListMentionsProcedure:
+			commentsListMentionsHandler.ServeHTTP(w, r)
+		case CommentsWaitForCommentsProcedure:
+			commentsWaitForCommentsHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedCommentsHandler returns CodeUnimplemented from all methods.
+type UnimplementedCommentsHandler struct{}
+
+func (UnimplementedCommentsHandler) CreateComment(context.Context, *connect.Request[user.CreateCommentRequest]) (*connect.Response[user.CreateCommentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.CreateComment is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) UpdateComment(context.Context, *connect.Request[user.UpdateCommentRequest]) (*connect.Response[user.UpdateCommentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.UpdateComment is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) DeleteComment(context.Context, *connect.Request[user.DeleteCommentRequest]) (*connect.Response[user.DeleteCommentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.DeleteComment is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) GetThread(context.Context, *connect.Request[user.GetThreadRequest]) (*connect.Response[user.GetThreadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.GetThread is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) ListThreads(context.Context, *connect.Request[user.ListThreadsRequest]) (*connect.Response[user.ListThreadsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.ListThreads is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) ResolveThread(context.Context, *connect.Request[user.ResolveThreadRequest]) (*connect.Response[user.ResolveThreadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.ResolveThread is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) ReopenThread(context.Context, *connect.Request[user.ReopenThreadRequest]) (*connect.Response[user.ReopenThreadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.ReopenThread is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) ListMentions(context.Context, *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.ListMentions is not implemented"))
+}
+
+func (UnimplementedCommentsHandler) WaitForComments(context.Context, *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.WaitForComments is not implemented"))
 }

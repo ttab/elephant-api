@@ -505,3 +505,198 @@ func (c *configurationServiceClient) UpdateDeprecation(ctx context.Context, req 
 
 	return res.Msg, nil
 }
+
+// NewCommentsServiceHandler builds an HTTP handler for the elephant.user.Comments service from an
+// implementation of the plain user.Comments interface, and returns the path to mount it on together
+// with the handler, just like NewCommentsHandler does.
+//
+// Errors from the implementation are passed through untouched, so an implementation that wants to
+// control the response code returns a *connect.Error.
+func NewCommentsServiceHandler(svc user.Comments, opts ...connect.HandlerOption) (string, http.Handler) {
+	return NewCommentsHandler(&commentsServiceHandler{svc: svc}, opts...)
+}
+
+// commentsServiceHandler implements CommentsHandler on top of a user.Comments.
+type commentsServiceHandler struct {
+	svc user.Comments
+}
+
+func (h *commentsServiceHandler) CreateComment(ctx context.Context, req *connect.Request[user.CreateCommentRequest]) (*connect.Response[user.CreateCommentResponse], error) {
+	res, err := h.svc.CreateComment(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) UpdateComment(ctx context.Context, req *connect.Request[user.UpdateCommentRequest]) (*connect.Response[user.UpdateCommentResponse], error) {
+	res, err := h.svc.UpdateComment(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) DeleteComment(ctx context.Context, req *connect.Request[user.DeleteCommentRequest]) (*connect.Response[user.DeleteCommentResponse], error) {
+	res, err := h.svc.DeleteComment(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) GetThread(ctx context.Context, req *connect.Request[user.GetThreadRequest]) (*connect.Response[user.GetThreadResponse], error) {
+	res, err := h.svc.GetThread(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) ListThreads(ctx context.Context, req *connect.Request[user.ListThreadsRequest]) (*connect.Response[user.ListThreadsResponse], error) {
+	res, err := h.svc.ListThreads(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) ResolveThread(ctx context.Context, req *connect.Request[user.ResolveThreadRequest]) (*connect.Response[user.ResolveThreadResponse], error) {
+	res, err := h.svc.ResolveThread(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) ReopenThread(ctx context.Context, req *connect.Request[user.ReopenThreadRequest]) (*connect.Response[user.ReopenThreadResponse], error) {
+	res, err := h.svc.ReopenThread(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) ListMentions(ctx context.Context, req *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error) {
+	res, err := h.svc.ListMentions(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+func (h *commentsServiceHandler) WaitForComments(ctx context.Context, req *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error) {
+	res, err := h.svc.WaitForComments(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
+// NewCommentsServiceClient constructs a client for the elephant.user.Comments service that
+// implements the plain user.Comments interface, so that it is a drop-in for the Twirp clients. The
+// options are the ones NewCommentsClient takes.
+//
+// The base URL is the base URL of the Connect or gRPC server, for example
+// https://repository.api.tt.se. Errors are returned as the *connect.Error values the Connect client
+// produces.
+func NewCommentsServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) user.Comments {
+	return &commentsServiceClient{
+		client: NewCommentsClient(httpClient, baseURL, opts...),
+	}
+}
+
+// commentsServiceClient implements user.Comments on top of a CommentsClient.
+type commentsServiceClient struct {
+	client CommentsClient
+}
+
+func (c *commentsServiceClient) CreateComment(ctx context.Context, req *user.CreateCommentRequest) (*user.CreateCommentResponse, error) {
+	res, err := c.client.CreateComment(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) UpdateComment(ctx context.Context, req *user.UpdateCommentRequest) (*user.UpdateCommentResponse, error) {
+	res, err := c.client.UpdateComment(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) DeleteComment(ctx context.Context, req *user.DeleteCommentRequest) (*user.DeleteCommentResponse, error) {
+	res, err := c.client.DeleteComment(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) GetThread(ctx context.Context, req *user.GetThreadRequest) (*user.GetThreadResponse, error) {
+	res, err := c.client.GetThread(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) ListThreads(ctx context.Context, req *user.ListThreadsRequest) (*user.ListThreadsResponse, error) {
+	res, err := c.client.ListThreads(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) ResolveThread(ctx context.Context, req *user.ResolveThreadRequest) (*user.ResolveThreadResponse, error) {
+	res, err := c.client.ResolveThread(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) ReopenThread(ctx context.Context, req *user.ReopenThreadRequest) (*user.ReopenThreadResponse, error) {
+	res, err := c.client.ReopenThread(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) ListMentions(ctx context.Context, req *user.ListMentionsRequest) (*user.ListMentionsResponse, error) {
+	res, err := c.client.ListMentions(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *commentsServiceClient) WaitForComments(ctx context.Context, req *user.WaitForCommentsRequest) (*user.WaitForCommentsResponse, error) {
+	res, err := c.client.WaitForComments(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
