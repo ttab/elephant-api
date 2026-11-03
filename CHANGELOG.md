@@ -4,6 +4,24 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.29.0] - Unreleased
+
+Changes:
+
+- New service `elephant.user.Comments`, for threads of comments on repository
+  documents: `CreateComment`, `UpdateComment` and `DeleteComment` write
+  comments, `GetThread` and `ListThreads` read threads with their comments,
+  `ResolveThread` and `ReopenThread` change a thread's state, `ListMentions`
+  lists the comments that mention the caller, and `WaitForComments` is an
+  interim wakeup poll for comment changes on a set of documents, to be
+  replaced by a comment stream. Every RPC needs the `user` scope; the rest of
+  access follows the caller's read or write permission on the document.
+- Go consumers get `user.Comments` and, in `user/userconnect`,
+  `NewCommentsServiceClient` and `NewCommentsServiceHandler`, alongside the
+  Twirp `NewCommentsProtobufClient` and `NewCommentsJSONClient`.
+- `SchemaUsage` gains `SCHEMA_USAGE_COMMENTS`, the usage the comment body
+  schema is registered under through the `Configuration` service.
+
 ## [v0.28.3] - 2026-10-23
 
 **Changed messages (mirror module owners):** a mirror module now declares an

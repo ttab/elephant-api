@@ -456,13 +456,15 @@ service Configuration {
 
 // SchemaUsage declares what a schema is used for. The values mirror the
 // ecosystem-wide schema usage categorisation; the user service only
-// accepts SCHEMA_USAGE_SETTINGS and SCHEMA_USAGE_MESSAGES.
+// accepts SCHEMA_USAGE_SETTINGS, SCHEMA_USAGE_MESSAGES and
+// SCHEMA_USAGE_COMMENTS.
 enum SchemaUsage {
   SCHEMA_USAGE_UNSPECIFIED  = 0;
   SCHEMA_USAGE_EDITORIAL    = 1;
   SCHEMA_USAGE_DISTRIBUTION = 2;
   SCHEMA_USAGE_SETTINGS     = 3;
   SCHEMA_USAGE_MESSAGES     = 4;
+  SCHEMA_USAGE_COMMENTS     = 5;
 }
 
 // ConfigGenerationSchema references a schema included in a generation.
@@ -597,3 +599,272 @@ message UpdateDeprecationRequest {
 }
 
 message UpdateDeprecationResponse {}
+
+// Comments manages threads of comments on repository documents. A thread is
+// anchored in the document text by an element whose id is the thread uuid,
+// or is unanchored and about the document as a whole.
+//
+// Every method requires the `user` scope. Access otherwise follows the
+// document the thread is on, as the repository answers for the caller's
+// token: GetThread, ListThreads and WaitForComments require read permission
+// on the document; CreateComment, UpdateComment, DeleteComment,
+// ResolveThread and ReopenThread require write permission on it. Deleting
+// another author's comment also requires the `doc_admin` scope.
+// ListMentions checks no document, since it returns references without
+// payloads.
+//
+// Timestamps in this service are RFC3339 with fractional seconds, so that
+// an edit within the second of the write still reads as later than the
+// creation and ListMentions can page on created without skipping.
+service Comments {
+  // Creates a comment. A thread_uuid that does not exist yet creates the
+  // thread, which then requires document_uuid and may carry a kind. Comment
+  // and thread uuids are chosen by the caller: repeating a request with the
+  // same uuid and payload answers with the existing comment, and the same
+  // uuid with a different thread or payload is refused with already_exists.
+  // A comment posted to a resolved thread reopens it.
+  rpc CreateComment(CreateCommentRequest) returns (CreateCommentResponse);
+  // Replaces the payload of the caller's own comment. Editing another
+  // author's comment is refused with permission_denied, and editing a
+  // deleted comment with failed_precondition.
+  rpc UpdateComment(UpdateCommentRequest) returns (UpdateCommentResponse);
+  // Deletes a comment: the caller's own, or any comment with the
+  // `doc_admin` scope. The comment stays in its thread without its payload.
+  rpc DeleteComment(DeleteCommentRequest) returns (DeleteCommentResponse);
+  // Gets a thread with its comments, oldest first.
+  rpc GetThread(GetThreadRequest) returns (GetThreadResponse);
+  // Lists the threads on a document, most recently updated first, each
+  // with its comments.
+  rpc ListThreads(ListThreadsRequest) returns (ListThreadsResponse);
+  // Marks a thread as resolved. A comment posted to a resolved thread
+  // reopens it.
+  rpc ResolveThread(ResolveThreadRequest) returns (ResolveThreadResponse);
+  // Reopens a resolved thread.
+  rpc ReopenThread(ReopenThreadRequest) returns (ReopenThreadResponse);
+  // Lists the comments that mention the caller, newest first, as
+  // references without payloads. Use GetThread to read them, which checks
+  // that the caller may read the document.
+  rpc ListMentions(ListMentionsRequest) returns (ListMentionsResponse);
+  // Waits until any of the given documents has a comment change, or until
+  // max_wait_sec passes, and answers with the documents that changed. The
+  // caller re-lists their threads afterwards. This is an interim,
+  // cursor-less wakeup poll: a change between two calls is not reported,
+  // so list the threads before the first wait. It will be replaced by a
+  // comment stream.
+  rpc WaitForComments(WaitForCommentsRequest) returns (WaitForCommentsResponse);
+}
+
+// CommentThread is a thread of comments on a document.
+message CommentThread {
+  // UUID of the thread, chosen by the client that created it. An anchored
+  // thread is referenced from the document text by this uuid.
+  string uuid = 1;
+  // UUID of the repository document the thread is on.
+  string document_uuid = 2;
+  // Kind of the thread, such as "factcheck". An open string set when the
+  // thread is created; may be empty.
+  string kind = 3;
+  // Created timestamp is the RFC3339 timestamp for when the thread was
+  // created with its first comment.
+  string created = 4;
+  // Subject URI of the first commenter, as the token yields it:
+  // core://user/<sub> for a user, core://application/<client_id> for an
+  // application.
+  string created_by = 5;
+  // Updated timestamp is the RFC3339 timestamp of the last comment write,
+  // resolve or reopen in the thread.
+  string updated = 6;
+  // Resolved timestamp is the RFC3339 timestamp for when the thread was
+  // resolved. Empty while the thread is open.
+  string resolved = 7;
+  // Subject URI of the party that resolved the thread, as the token
+  // yields it: core://user/<sub> for a user,
+  // core://application/<client_id> for an application. Empty while the
+  // thread is open.
+  string resolved_by = 8;
+  // Number of comments in the thread that are not deleted. Zero means
+  // every comment is deleted and the anchor can be removed from the
+  // document.
+  int64 live_comments = 9;
+  // Comments in the thread, oldest first. Populated by GetThread and
+  // ListThreads, empty elsewhere.
+  repeated Comment comments = 10;
+}
+
+// Comment is one comment in a thread.
+message Comment {
+  // UUID of the comment, chosen by the client that created it.
+  string uuid = 1;
+  // UUID of the thread the comment belongs to.
+  string thread_uuid = 2;
+  // Subject URI of the author, as the token yields it: core://user/<sub>
+  // for a user, core://application/<client_id> for an application.
+  string author = 3;
+  // Name of the author from the token's `sub_name` claim at the time of
+  // writing. May be empty. It is not the title of the author document.
+  string author_name = 4;
+  // Created timestamp is the RFC3339 timestamp for when the comment was
+  // created.
+  string created = 5;
+  // Updated timestamp is the RFC3339 timestamp for when the comment was
+  // last written. Later than created once the comment has been edited.
+  string updated = 6;
+  // Deleted timestamp is the RFC3339 timestamp for when the comment was
+  // deleted. Empty while the comment is live.
+  string deleted = 7;
+  // Subject URI of the party that deleted the comment, as the token
+  // yields it: core://user/<sub> for a user,
+  // core://application/<client_id> for an application. Empty while the
+  // comment is live.
+  string deleted_by = 8;
+  // Subject URIs mentioned in the comment. Derived by the service from the
+  // payload's links with `rel: mention`, never taken from the request.
+  repeated string mentioned = 9;
+  // Payload is the body of the comment, a newsdoc document of type
+  // core/comment validated by the service. Empty once the comment is
+  // deleted.
+  newsdoc.Document payload = 10;
+}
+
+message CreateCommentRequest {
+  // UUID of the comment, chosen by the caller. Required.
+  string uuid = 1;
+  // UUID of the thread, chosen by the caller when the thread is new.
+  // Required. A uuid that does not exist yet creates the thread.
+  string thread_uuid = 2;
+  // UUID of the repository document the thread is on. Required when the
+  // thread is new. For an existing thread it may be left empty; a value
+  // that is not the thread's document is refused with invalid_argument.
+  string document_uuid = 3;
+  // Kind of the thread, such as "factcheck". An open string, may be empty.
+  // Used when the thread is new, ignored otherwise.
+  string kind = 4;
+  // Payload is the body of the comment, a newsdoc document of type
+  // core/comment. The service validates it and derives the mentioned
+  // subjects from its links with `rel: mention`.
+  newsdoc.Document payload = 5;
+}
+
+message CreateCommentResponse {
+  // Comment is the created comment, or the existing one for a repeated
+  // request.
+  Comment comment = 1;
+  // Thread is the thread the comment belongs to, without its comments.
+  CommentThread thread = 2;
+}
+
+message UpdateCommentRequest {
+  // UUID of the comment to update.
+  string uuid = 1;
+  // Payload replaces the body of the comment, a newsdoc document of type
+  // core/comment. The service validates it and derives the mentioned
+  // subjects from its links with `rel: mention` again.
+  newsdoc.Document payload = 2;
+}
+
+message UpdateCommentResponse {
+  // Comment is the updated comment.
+  Comment comment = 1;
+}
+
+message DeleteCommentRequest {
+  // UUID of the comment to delete.
+  string uuid = 1;
+}
+
+message DeleteCommentResponse {}
+
+message GetThreadRequest {
+  // UUID of the thread.
+  string uuid = 1;
+}
+
+message GetThreadResponse {
+  // Thread with its comments, oldest first.
+  CommentThread thread = 1;
+}
+
+message ListThreadsRequest {
+  // UUID of the repository document to list threads for.
+  string document_uuid = 1;
+  // If true, include resolved threads. If false (default), only open
+  // threads are returned.
+  bool include_resolved = 2;
+}
+
+message ListThreadsResponse {
+  // Threads sorted by their updated timestamp, most recent first, each
+  // with its comments oldest first.
+  repeated CommentThread threads = 1;
+}
+
+message ResolveThreadRequest {
+  // UUID of the thread to resolve.
+  string uuid = 1;
+}
+
+message ResolveThreadResponse {
+  // Thread is the resolved thread, without its comments.
+  CommentThread thread = 1;
+}
+
+message ReopenThreadRequest {
+  // UUID of the thread to reopen.
+  string uuid = 1;
+}
+
+message ReopenThreadResponse {
+  // Thread is the reopened thread, without its comments.
+  CommentThread thread = 1;
+}
+
+// Mention is a reference to a comment that mentions the caller. It carries
+// no payload; use GetThread to read the comment.
+message Mention {
+  // UUID of the comment.
+  string comment_uuid = 1;
+  // UUID of the thread the comment belongs to.
+  string thread_uuid = 2;
+  // UUID of the repository document the thread is on.
+  string document_uuid = 3;
+  // Subject URI of the comment's author, as the token yields it:
+  // core://user/<sub> for a user, core://application/<client_id> for an
+  // application.
+  string author = 4;
+  // Name of the author from the token's `sub_name` claim at the time of
+  // writing. May be empty. It is not the title of the author document.
+  string author_name = 5;
+  // Created timestamp is the RFC3339 timestamp for when the comment was
+  // created.
+  string created = 6;
+}
+
+message ListMentionsRequest {
+  // RFC3339 timestamp; lists mentions in comments created before this
+  // time. Empty lists from the newest. Use the created timestamp of the
+  // last returned mention to paginate further into the past.
+  string before = 1;
+  // Number of mentions to return. Defaults to 10 when unset; a value over
+  // 100 is treated as 100.
+  int64 size = 2;
+}
+
+message ListMentionsResponse {
+  // Mentions sorted by their created timestamp, newest first.
+  repeated Mention mentions = 1;
+}
+
+message WaitForCommentsRequest {
+  // UUIDs of the repository documents to wait for. At most 100; more is
+  // refused with invalid_argument.
+  repeated string document_uuids = 1;
+  // Maximum number of seconds to wait. Defaults to 10 when unset; a value
+  // over 30 is treated as 30.
+  int64 max_wait_sec = 2;
+}
+
+message WaitForCommentsResponse {
+  // UUIDs of the requested documents that had a comment change during the
+  // wait. Empty when the wait timed out.
+  repeated string document_uuids = 1;
+}
