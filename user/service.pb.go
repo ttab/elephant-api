@@ -3673,7 +3673,8 @@ type CreateCommentRequest struct {
 	// Required. A uuid that does not exist yet creates the thread.
 	ThreadUuid string `protobuf:"bytes,2,opt,name=thread_uuid,json=threadUuid,proto3" json:"thread_uuid,omitempty"`
 	// UUID of the repository document the thread is on. Required when the
-	// thread is new, ignored otherwise.
+	// thread is new. For an existing thread it may be left empty; a value
+	// that is not the thread's document is refused with invalid_argument.
 	DocumentUuid string `protobuf:"bytes,3,opt,name=document_uuid,json=documentUuid,proto3" json:"document_uuid,omitempty"`
 	// Kind of the thread, such as "factcheck". An open string, may be empty.
 	// Used when the thread is new, ignored otherwise.

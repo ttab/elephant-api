@@ -6872,6 +6872,10 @@ func (s *configurationServer) PathPrefix() string {
 // another author's comment also requires the `doc_admin` scope.
 // ListMentions checks no document, since it returns references without
 // payloads.
+//
+// Timestamps in this service are RFC3339 with fractional seconds, so that
+// an edit within the second of the write still reads as later than the
+// creation and ListMentions can page on created without skipping.
 type Comments interface {
 	// Creates a comment. A thread_uuid that does not exist yet creates the
 	// thread, which then requires document_uuid and may carry a kind. Comment

@@ -612,6 +612,10 @@ message UpdateDeprecationResponse {}
 // another author's comment also requires the `doc_admin` scope.
 // ListMentions checks no document, since it returns references without
 // payloads.
+//
+// Timestamps in this service are RFC3339 with fractional seconds, so that
+// an edit within the second of the write still reads as later than the
+// creation and ListMentions can page on created without skipping.
 service Comments {
   // Creates a comment. A thread_uuid that does not exist yet creates the
   // thread, which then requires document_uuid and may carry a kind. Comment
@@ -729,7 +733,8 @@ message CreateCommentRequest {
   // Required. A uuid that does not exist yet creates the thread.
   string thread_uuid = 2;
   // UUID of the repository document the thread is on. Required when the
-  // thread is new, ignored otherwise.
+  // thread is new. For an existing thread it may be left empty; a value
+  // that is not the thread's document is refused with invalid_argument.
   string document_uuid = 3;
   // Kind of the thread, such as "factcheck". An open string, may be empty.
   // Used when the thread is new, ignored otherwise.
