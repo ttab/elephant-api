@@ -4,6 +4,20 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.29.1] - Unreleased
+
+Changes:
+
+- New RPC `Documents.ListDocuments`, a keyset-paginated listing of the
+  documents of a type, optionally narrowed to the documents whose head for a
+  status points at a version, or to those at a workflow checkpoint. It
+  returns the selected or the current version of each document, as the whole
+  document or a subset, optionally with its meta, and is meant for building
+  derived state from a whole set of documents before tailing the eventlog.
+  New messages `ListDocumentsRequest`, `ListDocumentsSelector`,
+  `ListDocumentsResponse` and `ListDocumentsItem`, and the enum
+  `ListVersion`.
+
 ## [v0.29.0] - 2026-11-12
 
 Changes:

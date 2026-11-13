@@ -296,6 +296,15 @@ func (h *documentsServiceHandler) GetSocketToken(ctx context.Context, req *conne
 	return connect.NewResponse(res), nil
 }
 
+func (h *documentsServiceHandler) ListDocuments(ctx context.Context, req *connect.Request[repository.ListDocumentsRequest]) (*connect.Response[repository.ListDocumentsResponse], error) {
+	res, err := h.svc.ListDocuments(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
 // NewDocumentsServiceClient constructs a client for the elephant.repository.Documents service that
 // implements the plain repository.Documents interface, so that it is a drop-in for the Twirp
 // clients. The options are the ones NewDocumentsClient takes.
@@ -577,6 +586,15 @@ func (c *documentsServiceClient) GetMatching(ctx context.Context, req *repositor
 
 func (c *documentsServiceClient) GetSocketToken(ctx context.Context, req *repository.GetSocketTokenRequest) (*repository.GetSocketTokenResponse, error) {
 	res, err := c.client.GetSocketToken(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *documentsServiceClient) ListDocuments(ctx context.Context, req *repository.ListDocumentsRequest) (*repository.ListDocumentsResponse, error) {
+	res, err := c.client.ListDocuments(ctx, connect.NewRequest(req))
 	if err != nil {
 		return nil, err
 	}

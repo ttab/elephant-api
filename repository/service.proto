@@ -85,6 +85,12 @@ service Documents {
   rpc GetMatching(GetMatchingRequest) returns (GetMatchingResponse);
   // GetSocketToken returns a token that can be used to open socket connections.
   rpc GetSocketToken(GetSocketTokenRequest) returns (GetSocketTokenResponse);
+  // ListDocuments pages through the documents of a type, optionally narrowed
+  // to the documents with a published status head or at a workflow
+  // checkpoint. It is meant for building derived state from a whole set of
+  // documents: read the eventlog head, page through the listing until the
+  // cursor is exhausted, then tail the eventlog from that head.
+  rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse);
 }
 
 service Schemas {
@@ -1485,4 +1491,86 @@ message GetSocketTokenResponse {
   string token   = 1;
   // Expires is the expiry time of the token as a RFC3339 timestamp.
   string expires = 2;
+}
+
+message ListDocumentsRequest {
+  // Selectors to list documents for, at least one. Selectors are worked
+  // through in request order, and a page is filled across selector
+  // boundaries. A document that matches more than one selector is returned
+  // once for each of them.
+  repeated ListDocumentsSelector selectors = 1;
+  // Version controls which version of each document is returned.
+  ListVersion version                      = 2;
+  // Subset returns a subset of the documents as specified by a list of newsdoc
+  // value extractors. When given, items carry the extracted values instead of
+  // the document.
+  repeated string subset                   = 3;
+  // IncludeMeta should be set to true to include document meta.
+  bool include_meta                        = 4;
+  // After is the cursor returned as `next` by the previous page. Omit it to
+  // start from the beginning. A cursor is only valid for the request it came
+  // from.
+  string after                             = 5;
+  // Limit is the maximum number of documents to return, capped by the
+  // server. Optional, the server default is used when omitted. A page can
+  // also be cut short by the server's cap on the size of the returned
+  // documents, so a short page does not mean the listing is complete: only
+  // an empty `next` does.
+  int64 limit                              = 6;
+}
+
+message ListDocumentsSelector {
+  // Type of the documents to list. Required.
+  string type                = 1;
+  // Status narrows the selection to the documents whose head for the status
+  // points at a version. A document whose head for the status is an
+  // unpublish (version -1) is not listed. Can not be combined with
+  // workflow_checkpoint.
+  string status              = 2;
+  // WorkflowCheckpoint narrows the selection to the documents whose most
+  // recently reached workflow checkpoint is the given one. Selecting the
+  // type's negative checkpoint, such as "unpublished", requires
+  // LIST_VERSION_CURRENT. Can not be combined with status.
+  string workflow_checkpoint = 3;
+}
+
+enum ListVersion {
+  // Return the version that the selected status head points at. For a
+  // workflow checkpoint selector that is the version the status head named
+  // by the checkpoint points at, and for a selector with only a type it is
+  // the current version. This is the default.
+  LIST_VERSION_SELECTED = 0;
+  // Always return the current version of the document. This changes which
+  // version is returned, never which documents are listed.
+  LIST_VERSION_CURRENT  = 1;
+}
+
+message ListDocumentsResponse {
+  // Items are the listed documents.
+  repeated ListDocumentsItem items = 1;
+  // Next is the cursor to pass as `after` to get the next page. Empty when
+  // the listing is complete.
+  string next                      = 2;
+}
+
+message ListDocumentsItem {
+  // UUID of the document.
+  string uuid                     = 1;
+  // Type of the document.
+  string type                     = 2;
+  // Version is the version of the returned document.
+  int64 version                   = 3;
+  // Selector is the index of the request selector that matched the document.
+  int64 selector                  = 4;
+  // Document is the returned document version. Omitted when a subset was
+  // requested.
+  newsdoc.Document document       = 5;
+  // Subset is the extracted subset of the document.
+  repeated ExtractedValues subset = 6;
+  // Meta is the document meta, when requested. The meta describes the
+  // document as it is now: current version, every status head, ACL, lock,
+  // workflow state and attachments. It is not tied to the returned version,
+  // so an item for the version a status head points at carries the current
+  // version and heads alongside it.
+  DocumentMeta meta               = 7;
 }
