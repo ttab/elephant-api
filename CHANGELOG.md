@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.29.1] - Unreleased
+## [v0.29.1] - 2026-11-13
 
 Changes:
 
