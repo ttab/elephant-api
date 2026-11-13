@@ -108,6 +108,8 @@ const (
 	// DocumentsGetSocketTokenProcedure is the fully-qualified name of the Documents's GetSocketToken
 	// RPC.
 	DocumentsGetSocketTokenProcedure = "/elephant.repository.Documents/GetSocketToken"
+	// DocumentsListDocumentsProcedure is the fully-qualified name of the Documents's ListDocuments RPC.
+	DocumentsListDocumentsProcedure = "/elephant.repository.Documents/ListDocuments"
 	// SchemasRegisterGenerationProcedure is the fully-qualified name of the Schemas's
 	// RegisterGeneration RPC.
 	SchemasRegisterGenerationProcedure = "/elephant.repository.Schemas/RegisterGeneration"
@@ -256,6 +258,12 @@ type DocumentsClient interface {
 	GetMatching(context.Context, *connect.Request[repository.GetMatchingRequest]) (*connect.Response[repository.GetMatchingResponse], error)
 	// GetSocketToken returns a token that can be used to open socket connections.
 	GetSocketToken(context.Context, *connect.Request[repository.GetSocketTokenRequest]) (*connect.Response[repository.GetSocketTokenResponse], error)
+	// ListDocuments pages through the documents of a type, optionally narrowed
+	// to the documents with a published status head or at a workflow
+	// checkpoint. It is meant for building derived state from a whole set of
+	// documents: read the eventlog head, page through the listing until the
+	// cursor is exhausted, then tail the eventlog from that head.
+	ListDocuments(context.Context, *connect.Request[repository.ListDocumentsRequest]) (*connect.Response[repository.ListDocumentsResponse], error)
 }
 
 // NewDocumentsClient constructs a client for the elephant.repository.Documents service. By default,
@@ -449,6 +457,12 @@ func NewDocumentsClient(httpClient connect.HTTPClient, baseURL string, opts ...c
 			connect.WithSchema(documentsMethods.ByName("GetSocketToken")),
 			connect.WithClientOptions(opts...),
 		),
+		listDocuments: connect.NewClient[repository.ListDocumentsRequest, repository.ListDocumentsResponse](
+			httpClient,
+			baseURL+DocumentsListDocumentsProcedure,
+			connect.WithSchema(documentsMethods.ByName("ListDocuments")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -484,6 +498,7 @@ type documentsClient struct {
 	getAttachments         *connect.Client[repository.GetAttachmentsRequest, repository.GetAttachmentsResponse]
 	getMatching            *connect.Client[repository.GetMatchingRequest, repository.GetMatchingResponse]
 	getSocketToken         *connect.Client[repository.GetSocketTokenRequest, repository.GetSocketTokenResponse]
+	listDocuments          *connect.Client[repository.ListDocumentsRequest, repository.ListDocumentsResponse]
 }
 
 // Get calls elephant.repository.Documents.Get.
@@ -636,6 +651,11 @@ func (c *documentsClient) GetSocketToken(ctx context.Context, req *connect.Reque
 	return c.getSocketToken.CallUnary(ctx, req)
 }
 
+// ListDocuments calls elephant.repository.Documents.ListDocuments.
+func (c *documentsClient) ListDocuments(ctx context.Context, req *connect.Request[repository.ListDocumentsRequest]) (*connect.Response[repository.ListDocumentsResponse], error) {
+	return c.listDocuments.CallUnary(ctx, req)
+}
+
 // DocumentsHandler is an implementation of the elephant.repository.Documents service.
 type DocumentsHandler interface {
 	// Get retrieves a document version.
@@ -716,6 +736,12 @@ type DocumentsHandler interface {
 	GetMatching(context.Context, *connect.Request[repository.GetMatchingRequest]) (*connect.Response[repository.GetMatchingResponse], error)
 	// GetSocketToken returns a token that can be used to open socket connections.
 	GetSocketToken(context.Context, *connect.Request[repository.GetSocketTokenRequest]) (*connect.Response[repository.GetSocketTokenResponse], error)
+	// ListDocuments pages through the documents of a type, optionally narrowed
+	// to the documents with a published status head or at a workflow
+	// checkpoint. It is meant for building derived state from a whole set of
+	// documents: read the eventlog head, page through the listing until the
+	// cursor is exhausted, then tail the eventlog from that head.
+	ListDocuments(context.Context, *connect.Request[repository.ListDocumentsRequest]) (*connect.Response[repository.ListDocumentsResponse], error)
 }
 
 // NewDocumentsHandler builds an HTTP handler from the service implementation. It returns the path
@@ -905,6 +931,12 @@ func NewDocumentsHandler(svc DocumentsHandler, opts ...connect.HandlerOption) (s
 		connect.WithSchema(documentsMethods.ByName("GetSocketToken")),
 		connect.WithHandlerOptions(opts...),
 	)
+	documentsListDocumentsHandler := connect.NewUnaryHandler(
+		DocumentsListDocumentsProcedure,
+		svc.ListDocuments,
+		connect.WithSchema(documentsMethods.ByName("ListDocuments")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/elephant.repository.Documents/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DocumentsGetProcedure:
@@ -967,6 +999,8 @@ func NewDocumentsHandler(svc DocumentsHandler, opts ...connect.HandlerOption) (s
 			documentsGetMatchingHandler.ServeHTTP(w, r)
 		case DocumentsGetSocketTokenProcedure:
 			documentsGetSocketTokenHandler.ServeHTTP(w, r)
+		case DocumentsListDocumentsProcedure:
+			documentsListDocumentsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1094,6 +1128,10 @@ func (UnimplementedDocumentsHandler) GetMatching(context.Context, *connect.Reque
 
 func (UnimplementedDocumentsHandler) GetSocketToken(context.Context, *connect.Request[repository.GetSocketTokenRequest]) (*connect.Response[repository.GetSocketTokenResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.repository.Documents.GetSocketToken is not implemented"))
+}
+
+func (UnimplementedDocumentsHandler) ListDocuments(context.Context, *connect.Request[repository.ListDocumentsRequest]) (*connect.Response[repository.ListDocumentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.repository.Documents.ListDocuments is not implemented"))
 }
 
 // SchemasClient is a client for the elephant.repository.Schemas service.
