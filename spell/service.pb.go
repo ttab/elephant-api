@@ -27,6 +27,13 @@ const (
 	CorrectionLevel_LEVEL_UNSPECIFIED CorrectionLevel = 0
 	CorrectionLevel_LEVEL_ERROR       CorrectionLevel = 1
 	CorrectionLevel_LEVEL_SUGGESTION  CorrectionLevel = 2
+	// LEVEL_ENTITY marks text that matches a known entity in the repository.
+	// Matching is case-sensitive, so the name must appear with the entity's own
+	// casing. The suggestions carry the candidate entities' uuid and type; a
+	// client presents it as "is this?" rather than as a correction. Entities are
+	// reported whether or not the text would otherwise have been flagged, so a
+	// correctly spelled name is reported too.
+	CorrectionLevel_LEVEL_ENTITY CorrectionLevel = 3
 )
 
 // Enum value maps for CorrectionLevel.
@@ -35,11 +42,13 @@ var (
 		0: "LEVEL_UNSPECIFIED",
 		1: "LEVEL_ERROR",
 		2: "LEVEL_SUGGESTION",
+		3: "LEVEL_ENTITY",
 	}
 	CorrectionLevel_value = map[string]int32{
 		"LEVEL_UNSPECIFIED": 0,
 		"LEVEL_ERROR":       1,
 		"LEVEL_SUGGESTION":  2,
+		"LEVEL_ENTITY":      3,
 	}
 )
 
@@ -209,7 +218,16 @@ type TextRequest struct {
 	// CustomOnly limits checks to the custom dictionary and rules, skipping the
 	// hunspell pass. Useful when you only want to surface custom corrections
 	// without the noise of hunspell results.
-	CustomOnly    bool `protobuf:"varint,4,opt,name=custom_only,json=customOnly,proto3" json:"custom_only,omitempty"`
+	CustomOnly bool `protobuf:"varint,4,opt,name=custom_only,json=customOnly,proto3" json:"custom_only,omitempty"`
+	// Accepted lists words and phrases the caller has already accepted locally,
+	// as entities or otherwise. They are not reported as errors, suggestions or
+	// entities, and they suppress shorter corrections that overlap them.
+	// Matched case-insensitively and applied to every text in the request.
+	//
+	// There is no equivalent on SuggestionsRequest: a client that has accepted a
+	// span should not ask for suggestions for it. Suggestions has no way to know
+	// and will answer.
+	Accepted      []string `protobuf:"bytes,5,rep,name=accepted,proto3" json:"accepted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -270,6 +288,13 @@ func (x *TextRequest) GetCustomOnly() bool {
 		return x.CustomOnly
 	}
 	return false
+}
+
+func (x *TextRequest) GetAccepted() []string {
+	if x != nil {
+		return x.Accepted
+	}
+	return nil
 }
 
 type TextResponse struct {
@@ -615,9 +640,18 @@ func (x *SuggestionsResponse) GetSuggestions() []*Suggestion {
 }
 
 type Suggestion struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Text  string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	// Description is the context shown to the user for this suggestion. For an
+	// entity candidate it is what lets a user tell two entities of the same name
+	// apart: a person's title, or the entity's definition. Can be empty.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// UUID of the entity document this suggestion refers to, when the
+	// suggestion is an entity candidate. Empty otherwise.
+	Uuid string `protobuf:"bytes,3,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	// Type of the entity document, e.g. "core/person". Empty for suggestions
+	// that are not entity candidates.
+	Type          string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -662,6 +696,20 @@ func (x *Suggestion) GetText() string {
 func (x *Suggestion) GetDescription() string {
 	if x != nil {
 		return x.Description
+	}
+	return ""
+}
+
+func (x *Suggestion) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *Suggestion) GetType() string {
+	if x != nil {
+		return x.Type
 	}
 	return ""
 }
@@ -2265,13 +2313,14 @@ const file_spell_service_proto_rawDesc = "" +
 	"\x1aSupportedLanguagesResponse\x126\n" +
 	"\tlanguages\x18\x01 \x03(\v2\x18.elephant.spell.LanguageR\tlanguages\"\x1e\n" +
 	"\bLanguage\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code\"\x80\x01\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\"\x9c\x01\n" +
 	"\vTextRequest\x12\x12\n" +
 	"\x04text\x18\x01 \x03(\tR\x04text\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12 \n" +
 	"\vsuggestions\x18\x03 \x01(\bR\vsuggestions\x12\x1f\n" +
 	"\vcustom_only\x18\x04 \x01(\bR\n" +
-	"customOnly\"J\n" +
+	"customOnly\x12\x1a\n" +
+	"\baccepted\x18\x05 \x03(\tR\baccepted\"J\n" +
 	"\fTextResponse\x12:\n" +
 	"\n" +
 	"misspelled\x18\x01 \x03(\v2\x1a.elephant.spell.MisspelledR\n" +
@@ -2294,11 +2343,13 @@ const file_spell_service_proto_rawDesc = "" +
 	"\vcustom_only\x18\x03 \x01(\bR\n" +
 	"customOnly\"S\n" +
 	"\x13SuggestionsResponse\x12<\n" +
-	"\vsuggestions\x18\x01 \x03(\v2\x1a.elephant.spell.SuggestionR\vsuggestions\"B\n" +
+	"\vsuggestions\x18\x01 \x03(\v2\x1a.elephant.spell.SuggestionR\vsuggestions\"j\n" +
 	"\n" +
 	"Suggestion\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x8f\x01\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04uuid\x18\x03 \x01(\tR\x04uuid\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\"\x8f\x01\n" +
 	"\x12ListEntriesRequest\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x03R\x04page\x12\x14\n" +
@@ -2403,11 +2454,12 @@ const file_spell_service_proto_rawDesc = "" +
 	"\x15SetRuleStatusResponse\"#\n" +
 	"\x11DeleteRuleRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"\x14\n" +
-	"\x12DeleteRuleResponse*O\n" +
+	"\x12DeleteRuleResponse*a\n" +
 	"\x0fCorrectionLevel\x12\x15\n" +
 	"\x11LEVEL_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vLEVEL_ERROR\x10\x01\x12\x14\n" +
-	"\x10LEVEL_SUGGESTION\x10\x022\xa2\x01\n" +
+	"\x10LEVEL_SUGGESTION\x10\x02\x12\x10\n" +
+	"\fLEVEL_ENTITY\x10\x032\xa2\x01\n" +
 	"\x05Check\x12A\n" +
 	"\x04Text\x12\x1b.elephant.spell.TextRequest\x1a\x1c.elephant.spell.TextResponse\x12V\n" +
 	"\vSuggestions\x12\".elephant.spell.SuggestionsRequest\x1a#.elephant.spell.SuggestionsResponse2\xe9\x05\n" +

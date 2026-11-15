@@ -4,6 +4,26 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.29.2] - 2026-11-15
+
+**New enum value (spell entities):** `CorrectionLevel` gains `LEVEL_ENTITY`,
+for text that matches a known entity in the repository. Nothing produces it
+yet; once spell does, `Check.Text` reports recognised entity names, correctly
+spelled ones included, at that level. A client that renders every correction
+as an error has to handle `LEVEL_ENTITY` as an "is this?" prompt instead.
+
+Changes:
+
+- `Suggestion` gains `uuid` and `type`, the entity document a suggestion
+  refers to when it is an entity candidate, with `type` as the raw document
+  type such as `core/person`. Both are empty for other suggestions. The
+  `description` comment now says that for an entity candidate it is what tells
+  two entities of the same name apart.
+- `TextRequest` gains `accepted`, the words and phrases the caller has already
+  accepted, which are then not reported and suppress shorter overlapping
+  corrections. `SuggestionsRequest` deliberately has no equivalent: a client
+  should not ask for suggestions on a span it has accepted.
+
 ## [v0.29.1] - 2026-11-13
 
 Changes:

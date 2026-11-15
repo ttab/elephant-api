@@ -62,6 +62,15 @@ message TextRequest {
   // hunspell pass. Useful when you only want to surface custom corrections
   // without the noise of hunspell results.
   bool custom_only         = 4;
+  // Accepted lists words and phrases the caller has already accepted locally,
+  // as entities or otherwise. They are not reported as errors, suggestions or
+  // entities, and they suppress shorter corrections that overlap them.
+  // Matched case-insensitively and applied to every text in the request.
+  //
+  // There is no equivalent on SuggestionsRequest: a client that has accepted a
+  // span should not ask for suggestions for it. Suggestions has no way to know
+  // and will answer.
+  repeated string accepted = 5;
 }
 
 message TextResponse {
@@ -106,6 +115,13 @@ enum CorrectionLevel {
   LEVEL_UNSPECIFIED = 0;
   LEVEL_ERROR       = 1;
   LEVEL_SUGGESTION  = 2;
+  // LEVEL_ENTITY marks text that matches a known entity in the repository.
+  // Matching is case-sensitive, so the name must appear with the entity's own
+  // casing. The suggestions carry the candidate entities' uuid and type; a
+  // client presents it as "is this?" rather than as a correction. Entities are
+  // reported whether or not the text would otherwise have been flagged, so a
+  // correctly spelled name is reported too.
+  LEVEL_ENTITY      = 3;
 }
 
 message SuggestionsRequest {
@@ -125,7 +141,16 @@ message SuggestionsResponse {
 
 message Suggestion {
   string text        = 1;
+  // Description is the context shown to the user for this suggestion. For an
+  // entity candidate it is what lets a user tell two entities of the same name
+  // apart: a person's title, or the entity's definition. Can be empty.
   string description = 2;
+  // UUID of the entity document this suggestion refers to, when the
+  // suggestion is an entity candidate. Empty otherwise.
+  string uuid        = 3;
+  // Type of the entity document, e.g. "core/person". Empty for suggestions
+  // that are not entity candidates.
+  string type        = 4;
 }
 
 message ListEntriesRequest {
