@@ -3395,8 +3395,12 @@ type CommentThread struct {
 	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	// UUID of the repository document the thread is on.
 	DocumentUuid string `protobuf:"bytes,2,opt,name=document_uuid,json=documentUuid,proto3" json:"document_uuid,omitempty"`
-	// Kind of the thread, such as "factcheck". An open string set when the
-	// thread is created; may be empty.
+	// Kind of the thread in reverse domain notation, such as
+	// "se.ecms.user.comments.factcheck". Set when the thread is created; may
+	// be empty. A non-empty kind is lowercase ASCII labels that start with a
+	// letter and may contain digits and hyphens, at least three of them
+	// joined by single dots, at most 128 bytes:
+	// ^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$
 	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Created timestamp is the RFC3339 timestamp for when the thread was
 	// created with its first comment.
@@ -3676,8 +3680,14 @@ type CreateCommentRequest struct {
 	// thread is new. For an existing thread it may be left empty; a value
 	// that is not the thread's document is refused with invalid_argument.
 	DocumentUuid string `protobuf:"bytes,3,opt,name=document_uuid,json=documentUuid,proto3" json:"document_uuid,omitempty"`
-	// Kind of the thread, such as "factcheck". An open string, may be empty.
-	// Used when the thread is new, ignored otherwise.
+	// Kind of the thread in reverse domain notation, such as
+	// "se.ecms.user.comments.factcheck"; may be empty. Used when the thread is
+	// new, ignored otherwise. A non-empty kind must be lowercase ASCII labels
+	// that start with a letter and may contain digits and hyphens, at least
+	// three of them joined by single dots, at most 128 bytes:
+	// ^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$
+	// Anything else is refused with invalid_argument, also when the thread
+	// exists.
 	Kind string `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Payload is the body of the comment, a newsdoc document of type
 	// core/comment. The service validates it and derives the mentioned
