@@ -4,6 +4,17 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.29.4] - Unreleased
+
+Changes:
+
+- The `kind` of a comment thread, on `CommentThread` and
+  `CreateCommentRequest`, is documented as reverse domain notation, such as
+  `se.ecms.user.comments.factcheck`: lowercase labels that start with a
+  letter, at least three joined by dots, at most 128 bytes. The service
+  refuses any other non-empty kind with `invalid_argument`. Field names and
+  numbers are unchanged.
+
 ## [v0.29.3] - 2026-11-16
 
 **New messages (collab lifecycle events):** a `Collaborate` stream can watch
