@@ -4,6 +4,17 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.29.5] - Unreleased
+
+Changes:
+
+- New RPC `Documents.BulkCheckPermissions`, which takes up to 200 document
+  UUIDs and a permission and returns the UUIDs the caller holds that
+  permission on, answered for the caller's own subject and units. A UUID
+  with no document is left out like one the caller may not use, and
+  elevated scopes grant the permission as they do in `GetPermissions`. New
+  messages `BulkCheckPermissionsRequest` and `BulkCheckPermissionsResponse`.
+
 ## [v0.29.4] - 2026-11-16
 
 Changes:

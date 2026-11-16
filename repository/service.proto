@@ -56,6 +56,10 @@ service Documents {
   rpc GetStatusOverview(GetStatusOverviewRequest) returns (GetStatusOverviewResponse);
   // GetPermissions returns the permissions you have for the document.
   rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
+  // BulkCheckPermissions returns the documents among the requested ones
+  // that you hold a permission on. It answers for your own subject and
+  // units, never for a named grantee, and is limited to 200 documents.
+  rpc BulkCheckPermissions(BulkCheckPermissionsRequest) returns (BulkCheckPermissionsResponse);
   // Lock attempts to acquire a write lock on a document. Fails with
   // FailedPrecondition when the document is already locked; the
   // failure carries error metadata keys "lock_holder_sub",
@@ -271,6 +275,24 @@ message GetPermissionsResponse {
   // unit URI if the permission was granted through a unit membership, or
   // "scope://[name]" if it was granted through elevated privileges.
   map<string, string> permissions = 1;
+}
+
+message BulkCheckPermissionsRequest {
+  // UUIDs of the documents to check, at most 200.
+  repeated string uuids = 1;
+  // Permission to check for: "r", "w", "m" or "s".
+  string permission = 2;
+}
+
+message BulkCheckPermissionsResponse {
+  // UUIDs of the requested documents that the client holds the permission
+  // on, in request order. A document the client has no permission on and a
+  // UUID with no document are both left out, so the two cannot be told
+  // apart. Elevated scopes grant the permission without looking at the
+  // document, as in GetPermissions: doc_read_all and doc_admin for "r",
+  // doc_admin for "w". A client holding one gets every requested UUID back,
+  // including UUIDs with no document.
+  repeated string uuids = 1;
 }
 
 message GetEventlogRequest {
