@@ -127,6 +127,72 @@ func (SubscriptionMode) EnumDescriptor() ([]byte, []int) {
 	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{1}
 }
 
+// Lifecycle events: session and presence events for a set of
+// documents, without a Yjs subscription to each. A client names the
+// documents and the kinds of event it wants with watch; the service
+// sends the current state of each document once, as ordinary events,
+// closes it with watching, and then sends events as they happen.
+// Events are idempotent by session_id and participant_id, and a
+// client must treat them so: an event that commits while the initial
+// state is being read can arrive twice.
+type LifecycleEventKind int32
+
+const (
+	LifecycleEventKind_LIFECYCLE_EVENT_KIND_UNSPECIFIED LifecycleEventKind = 0
+	// A session becomes joinable: an observer subscribe will now
+	// succeed.
+	LifecycleEventKind_LIFECYCLE_EVENT_KIND_SESSION_STARTED LifecycleEventKind = 1
+	// The document can be subscribed to afresh: the stored copy is
+	// current.
+	LifecycleEventKind_LIFECYCLE_EVENT_KIND_SESSION_ENDED LifecycleEventKind = 2
+	// A presence-advertising connection joins or leaves: who has the
+	// document open.
+	LifecycleEventKind_LIFECYCLE_EVENT_KIND_PRESENCE LifecycleEventKind = 3
+)
+
+// Enum value maps for LifecycleEventKind.
+var (
+	LifecycleEventKind_name = map[int32]string{
+		0: "LIFECYCLE_EVENT_KIND_UNSPECIFIED",
+		1: "LIFECYCLE_EVENT_KIND_SESSION_STARTED",
+		2: "LIFECYCLE_EVENT_KIND_SESSION_ENDED",
+		3: "LIFECYCLE_EVENT_KIND_PRESENCE",
+	}
+	LifecycleEventKind_value = map[string]int32{
+		"LIFECYCLE_EVENT_KIND_UNSPECIFIED":     0,
+		"LIFECYCLE_EVENT_KIND_SESSION_STARTED": 1,
+		"LIFECYCLE_EVENT_KIND_SESSION_ENDED":   2,
+		"LIFECYCLE_EVENT_KIND_PRESENCE":        3,
+	}
+)
+
+func (x LifecycleEventKind) Enum() *LifecycleEventKind {
+	p := new(LifecycleEventKind)
+	*p = x
+	return p
+}
+
+func (x LifecycleEventKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (LifecycleEventKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_elephant_collab_v1_service_proto_enumTypes[2].Descriptor()
+}
+
+func (LifecycleEventKind) Type() protoreflect.EnumType {
+	return &file_elephant_collab_v1_service_proto_enumTypes[2]
+}
+
+func (x LifecycleEventKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use LifecycleEventKind.Descriptor instead.
+func (LifecycleEventKind) EnumDescriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{2}
+}
+
 type BeginPublishRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the document to soft-stop.
@@ -6165,10 +6231,32 @@ func (x *XmlTextView) GetDelta() []*DeltaOp {
 
 // CollaborateRequest is one client-to-server message. doc is the
 // multiplexing key and is required for every payload except
-// auth_refresh, which is connection-scoped.
+// auth_refresh, watch and unwatch, which are connection-scoped and
+// leave it empty.
 type CollaborateRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Doc   string                 `protobuf:"bytes,1,opt,name=doc,proto3" json:"doc,omitempty"`
+	// The subscription key: which document, and which of the
+	// connection's subscriptions to it. Its grammar is
+	//
+	//   key      = uuid | mode ":" uuid
+	//   mode     = "o" | "e" [ instance ]
+	//   instance = 1*DIGIT
+	//
+	// A bare uuid is one subscription per document, its mode taken
+	// from Subscribe.observer, as before keys had a mode. o:<uuid> is
+	// an observer's subscription; an observer option that contradicts
+	// it is refused. e:<uuid>, e1:<uuid>, e2:<uuid> and so on are an
+	// editor's, one subscription per key: each asks for read-write and
+	// is granted read-only when the caller has no write permission, as
+	// a bare uuid is. Each key is a full subscription, with its own
+	// handshake, awareness and close, so two keys on one connection
+	// are to the session what two tabs are. A named document's id,
+	// such as __presence__, never takes a mode.
+	//
+	// Every doc-scoped message carries the key, in both directions:
+	// CollaborateResponse.doc echoes the key the subscription was
+	// opened under.
+	Doc string `protobuf:"bytes,1,opt,name=doc,proto3" json:"doc,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*CollaborateRequest_Subscribe
@@ -6178,6 +6266,8 @@ type CollaborateRequest struct {
 	//	*CollaborateRequest_Unsubscribe
 	//	*CollaborateRequest_AuthRefresh
 	//	*CollaborateRequest_SyncStep2
+	//	*CollaborateRequest_Watch
+	//	*CollaborateRequest_Unwatch
 	Payload       isCollaborateRequest_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6290,6 +6380,24 @@ func (x *CollaborateRequest) GetSyncStep2() *SyncStep2 {
 	return nil
 }
 
+func (x *CollaborateRequest) GetWatch() *Watch {
+	if x != nil {
+		if x, ok := x.Payload.(*CollaborateRequest_Watch); ok {
+			return x.Watch
+		}
+	}
+	return nil
+}
+
+func (x *CollaborateRequest) GetUnwatch() *Unwatch {
+	if x != nil {
+		if x, ok := x.Payload.(*CollaborateRequest_Unwatch); ok {
+			return x.Unwatch
+		}
+	}
+	return nil
+}
+
 type isCollaborateRequest_Payload interface {
 	isCollaborateRequest_Payload()
 }
@@ -6365,6 +6473,20 @@ type CollaborateRequest_SyncStep2 struct {
 	SyncStep2 *SyncStep2 `protobuf:"bytes,8,opt,name=sync_step2,json=syncStep2,proto3,oneof"`
 }
 
+type CollaborateRequest_Watch struct {
+	// Adds documents to the connection's watch set, or replaces the
+	// kinds of ones already in it. Connection-scoped: doc is empty.
+	// Answered with the current state of each document as
+	// lifecycle events, closed by one watching.
+	Watch *Watch `protobuf:"bytes,9,opt,name=watch,proto3,oneof"`
+}
+
+type CollaborateRequest_Unwatch struct {
+	// Removes documents from the connection's watch set.
+	// Connection-scoped: doc is empty.
+	Unwatch *Unwatch `protobuf:"bytes,10,opt,name=unwatch,proto3,oneof"`
+}
+
 func (*CollaborateRequest_Subscribe) isCollaborateRequest_Payload() {}
 
 func (*CollaborateRequest_Update) isCollaborateRequest_Payload() {}
@@ -6378,6 +6500,10 @@ func (*CollaborateRequest_Unsubscribe) isCollaborateRequest_Payload() {}
 func (*CollaborateRequest_AuthRefresh) isCollaborateRequest_Payload() {}
 
 func (*CollaborateRequest_SyncStep2) isCollaborateRequest_Payload() {}
+
+func (*CollaborateRequest_Watch) isCollaborateRequest_Payload() {}
+
+func (*CollaborateRequest_Unwatch) isCollaborateRequest_Payload() {}
 
 // CollaborateResponse is one server-to-client message.
 //
@@ -6405,6 +6531,8 @@ type CollaborateResponse struct {
 	//	*CollaborateResponse_Event
 	//	*CollaborateResponse_ServerPing
 	//	*CollaborateResponse_SyncStep1
+	//	*CollaborateResponse_Lifecycle
+	//	*CollaborateResponse_Watching
 	Payload       isCollaborateResponse_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6526,6 +6654,24 @@ func (x *CollaborateResponse) GetSyncStep1() *SyncStep1 {
 	return nil
 }
 
+func (x *CollaborateResponse) GetLifecycle() *LifecycleEvent {
+	if x != nil {
+		if x, ok := x.Payload.(*CollaborateResponse_Lifecycle); ok {
+			return x.Lifecycle
+		}
+	}
+	return nil
+}
+
+func (x *CollaborateResponse) GetWatching() *Watching {
+	if x != nil {
+		if x, ok := x.Payload.(*CollaborateResponse_Watching); ok {
+			return x.Watching
+		}
+	}
+	return nil
+}
+
 type isCollaborateResponse_Payload interface {
 	isCollaborateResponse_Payload()
 }
@@ -6617,6 +6763,19 @@ type CollaborateResponse_SyncStep1 struct {
 	SyncStep1 *SyncStep1 `protobuf:"bytes,9,opt,name=sync_step1,json=syncStep1,proto3,oneof"`
 }
 
+type CollaborateResponse_Lifecycle struct {
+	// A session or presence event for a watched document.
+	// Connection-scoped: doc is empty, and the document is named in
+	// the event.
+	Lifecycle *LifecycleEvent `protobuf:"bytes,10,opt,name=lifecycle,proto3,oneof"`
+}
+
+type CollaborateResponse_Watching struct {
+	// The initial state of one watch has been sent. Connection-scoped:
+	// doc is empty.
+	Watching *Watching `protobuf:"bytes,11,opt,name=watching,proto3,oneof"`
+}
+
 func (*CollaborateResponse_SyncStep2) isCollaborateResponse_Payload() {}
 
 func (*CollaborateResponse_Update) isCollaborateResponse_Payload() {}
@@ -6632,6 +6791,10 @@ func (*CollaborateResponse_Event) isCollaborateResponse_Payload() {}
 func (*CollaborateResponse_ServerPing) isCollaborateResponse_Payload() {}
 
 func (*CollaborateResponse_SyncStep1) isCollaborateResponse_Payload() {}
+
+func (*CollaborateResponse_Lifecycle) isCollaborateResponse_Payload() {}
+
+func (*CollaborateResponse_Watching) isCollaborateResponse_Payload() {}
 
 type Subscribe struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -7274,6 +7437,547 @@ func (x *ServerPing) GetServerTime() string {
 	return ""
 }
 
+// Watch adds documents to the connection's watch set, or replaces the
+// kinds of ones already in it.
+type Watch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocIds        []string               `protobuf:"bytes,1,rep,name=doc_ids,json=docIds,proto3" json:"doc_ids,omitempty"`
+	Kinds         []LifecycleEventKind   `protobuf:"varint,2,rep,packed,name=kinds,proto3,enum=elephant.collab.v1.LifecycleEventKind" json:"kinds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Watch) Reset() {
+	*x = Watch{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[106]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Watch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Watch) ProtoMessage() {}
+
+func (x *Watch) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[106]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Watch.ProtoReflect.Descriptor instead.
+func (*Watch) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{106}
+}
+
+func (x *Watch) GetDocIds() []string {
+	if x != nil {
+		return x.DocIds
+	}
+	return nil
+}
+
+func (x *Watch) GetKinds() []LifecycleEventKind {
+	if x != nil {
+		return x.Kinds
+	}
+	return nil
+}
+
+type Unwatch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocIds        []string               `protobuf:"bytes,1,rep,name=doc_ids,json=docIds,proto3" json:"doc_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Unwatch) Reset() {
+	*x = Unwatch{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[107]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Unwatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Unwatch) ProtoMessage() {}
+
+func (x *Unwatch) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[107]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Unwatch.ProtoReflect.Descriptor instead.
+func (*Unwatch) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{107}
+}
+
+func (x *Unwatch) GetDocIds() []string {
+	if x != nil {
+		return x.DocIds
+	}
+	return nil
+}
+
+// Watching closes the initial state of one Watch: everything the
+// service knew about these documents has been sent.
+type Watching struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DocIds        []string               `protobuf:"bytes,1,rep,name=doc_ids,json=docIds,proto3" json:"doc_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Watching) Reset() {
+	*x = Watching{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[108]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Watching) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Watching) ProtoMessage() {}
+
+func (x *Watching) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[108]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Watching.ProtoReflect.Descriptor instead.
+func (*Watching) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{108}
+}
+
+func (x *Watching) GetDocIds() []string {
+	if x != nil {
+		return x.DocIds
+	}
+	return nil
+}
+
+type LifecycleEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	DocId string                 `protobuf:"bytes,1,opt,name=doc_id,json=docId,proto3" json:"doc_id,omitempty"`
+	// Types that are valid to be assigned to Event:
+	//
+	//	*LifecycleEvent_SessionStarted
+	//	*LifecycleEvent_SessionEnded
+	//	*LifecycleEvent_PresenceJoined
+	//	*LifecycleEvent_PresenceLeft
+	//	*LifecycleEvent_Refused
+	Event         isLifecycleEvent_Event `protobuf_oneof:"event"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LifecycleEvent) Reset() {
+	*x = LifecycleEvent{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[109]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LifecycleEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LifecycleEvent) ProtoMessage() {}
+
+func (x *LifecycleEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[109]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LifecycleEvent.ProtoReflect.Descriptor instead.
+func (*LifecycleEvent) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{109}
+}
+
+func (x *LifecycleEvent) GetDocId() string {
+	if x != nil {
+		return x.DocId
+	}
+	return ""
+}
+
+func (x *LifecycleEvent) GetEvent() isLifecycleEvent_Event {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+func (x *LifecycleEvent) GetSessionStarted() *SessionStarted {
+	if x != nil {
+		if x, ok := x.Event.(*LifecycleEvent_SessionStarted); ok {
+			return x.SessionStarted
+		}
+	}
+	return nil
+}
+
+func (x *LifecycleEvent) GetSessionEnded() *SessionEnded {
+	if x != nil {
+		if x, ok := x.Event.(*LifecycleEvent_SessionEnded); ok {
+			return x.SessionEnded
+		}
+	}
+	return nil
+}
+
+func (x *LifecycleEvent) GetPresenceJoined() *PresenceJoined {
+	if x != nil {
+		if x, ok := x.Event.(*LifecycleEvent_PresenceJoined); ok {
+			return x.PresenceJoined
+		}
+	}
+	return nil
+}
+
+func (x *LifecycleEvent) GetPresenceLeft() *PresenceLeft {
+	if x != nil {
+		if x, ok := x.Event.(*LifecycleEvent_PresenceLeft); ok {
+			return x.PresenceLeft
+		}
+	}
+	return nil
+}
+
+func (x *LifecycleEvent) GetRefused() *WatchRefused {
+	if x != nil {
+		if x, ok := x.Event.(*LifecycleEvent_Refused); ok {
+			return x.Refused
+		}
+	}
+	return nil
+}
+
+type isLifecycleEvent_Event interface {
+	isLifecycleEvent_Event()
+}
+
+type LifecycleEvent_SessionStarted struct {
+	SessionStarted *SessionStarted `protobuf:"bytes,2,opt,name=session_started,json=sessionStarted,proto3,oneof"`
+}
+
+type LifecycleEvent_SessionEnded struct {
+	SessionEnded *SessionEnded `protobuf:"bytes,3,opt,name=session_ended,json=sessionEnded,proto3,oneof"`
+}
+
+type LifecycleEvent_PresenceJoined struct {
+	PresenceJoined *PresenceJoined `protobuf:"bytes,4,opt,name=presence_joined,json=presenceJoined,proto3,oneof"`
+}
+
+type LifecycleEvent_PresenceLeft struct {
+	PresenceLeft *PresenceLeft `protobuf:"bytes,5,opt,name=presence_left,json=presenceLeft,proto3,oneof"`
+}
+
+type LifecycleEvent_Refused struct {
+	// The caller may not watch this document, or it is not a kind
+	// that can be watched. Terminal for the document, not the stream.
+	Refused *WatchRefused `protobuf:"bytes,6,opt,name=refused,proto3,oneof"`
+}
+
+func (*LifecycleEvent_SessionStarted) isLifecycleEvent_Event() {}
+
+func (*LifecycleEvent_SessionEnded) isLifecycleEvent_Event() {}
+
+func (*LifecycleEvent_PresenceJoined) isLifecycleEvent_Event() {}
+
+func (*LifecycleEvent_PresenceLeft) isLifecycleEvent_Event() {}
+
+func (*LifecycleEvent_Refused) isLifecycleEvent_Event() {}
+
+type SessionStarted struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionStarted) Reset() {
+	*x = SessionStarted{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[110]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionStarted) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionStarted) ProtoMessage() {}
+
+func (x *SessionStarted) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[110]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionStarted.ProtoReflect.Descriptor instead.
+func (*SessionStarted) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{110}
+}
+
+func (x *SessionStarted) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type SessionEnded struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	SessionId string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// As CollaborativeSession.close_reason.
+	CloseReason   string `protobuf:"bytes,2,opt,name=close_reason,json=closeReason,proto3" json:"close_reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionEnded) Reset() {
+	*x = SessionEnded{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[111]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionEnded) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionEnded) ProtoMessage() {}
+
+func (x *SessionEnded) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[111]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionEnded.ProtoReflect.Descriptor instead.
+func (*SessionEnded) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{111}
+}
+
+func (x *SessionEnded) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionEnded) GetCloseReason() string {
+	if x != nil {
+		return x.CloseReason
+	}
+	return ""
+}
+
+type PresenceJoined struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The connection's id: presence counts connections, not
+	// subscriptions.
+	ParticipantId string `protobuf:"bytes,1,opt,name=participant_id,json=participantId,proto3" json:"participant_id,omitempty"`
+	Subject       string `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	JoinedAt      string `protobuf:"bytes,3,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"`
+	// The JSON the presence document carries.
+	Identity      string `protobuf:"bytes,4,opt,name=identity,proto3" json:"identity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PresenceJoined) Reset() {
+	*x = PresenceJoined{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[112]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresenceJoined) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresenceJoined) ProtoMessage() {}
+
+func (x *PresenceJoined) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[112]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresenceJoined.ProtoReflect.Descriptor instead.
+func (*PresenceJoined) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{112}
+}
+
+func (x *PresenceJoined) GetParticipantId() string {
+	if x != nil {
+		return x.ParticipantId
+	}
+	return ""
+}
+
+func (x *PresenceJoined) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *PresenceJoined) GetJoinedAt() string {
+	if x != nil {
+		return x.JoinedAt
+	}
+	return ""
+}
+
+func (x *PresenceJoined) GetIdentity() string {
+	if x != nil {
+		return x.Identity
+	}
+	return ""
+}
+
+type PresenceLeft struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Empty means everyone: the document's subscriptions were cleared.
+	ParticipantIds []string `protobuf:"bytes,1,rep,name=participant_ids,json=participantIds,proto3" json:"participant_ids,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *PresenceLeft) Reset() {
+	*x = PresenceLeft{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[113]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresenceLeft) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresenceLeft) ProtoMessage() {}
+
+func (x *PresenceLeft) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[113]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresenceLeft.ProtoReflect.Descriptor instead.
+func (*PresenceLeft) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{113}
+}
+
+func (x *PresenceLeft) GetParticipantIds() []string {
+	if x != nil {
+		return x.ParticipantIds
+	}
+	return nil
+}
+
+type WatchRefused struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reason        string                 `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WatchRefused) Reset() {
+	*x = WatchRefused{}
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[114]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WatchRefused) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchRefused) ProtoMessage() {}
+
+func (x *WatchRefused) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_collab_v1_service_proto_msgTypes[114]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchRefused.ProtoReflect.Descriptor instead.
+func (*WatchRefused) Descriptor() ([]byte, []int) {
+	return file_elephant_collab_v1_service_proto_rawDescGZIP(), []int{114}
+}
+
+func (x *WatchRefused) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 var File_elephant_collab_v1_service_proto protoreflect.FileDescriptor
 
 const file_elephant_collab_v1_service_proto_rawDesc = "" +
@@ -7748,7 +8452,7 @@ const file_elephant_collab_v1_service_proto_rawDesc = "" +
 	"\x06insert\"o\n" +
 	"\vXmlTextView\x12-\n" +
 	"\x05attrs\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x05attrs\x121\n" +
-	"\x05delta\x18\x02 \x03(\v2\x1b.elephant.collab.v1.DeltaOpR\x05delta\"\xff\x03\n" +
+	"\x05delta\x18\x02 \x03(\v2\x1b.elephant.collab.v1.DeltaOpR\x05delta\"\xeb\x04\n" +
 	"\x12CollaborateRequest\x12\x10\n" +
 	"\x03doc\x18\x01 \x01(\tR\x03doc\x12=\n" +
 	"\tsubscribe\x18\x02 \x01(\v2\x1d.elephant.collab.v1.SubscribeH\x00R\tsubscribe\x124\n" +
@@ -7758,8 +8462,11 @@ const file_elephant_collab_v1_service_proto_rawDesc = "" +
 	"\vunsubscribe\x18\x06 \x01(\v2\x1f.elephant.collab.v1.UnsubscribeH\x00R\vunsubscribe\x12D\n" +
 	"\fauth_refresh\x18\a \x01(\v2\x1f.elephant.collab.v1.AuthRefreshH\x00R\vauthRefresh\x12>\n" +
 	"\n" +
-	"sync_step2\x18\b \x01(\v2\x1d.elephant.collab.v1.SyncStep2H\x00R\tsyncStep2B\t\n" +
-	"\apayload\"\x86\x04\n" +
+	"sync_step2\x18\b \x01(\v2\x1d.elephant.collab.v1.SyncStep2H\x00R\tsyncStep2\x121\n" +
+	"\x05watch\x18\t \x01(\v2\x19.elephant.collab.v1.WatchH\x00R\x05watch\x127\n" +
+	"\aunwatch\x18\n" +
+	" \x01(\v2\x1b.elephant.collab.v1.UnwatchH\x00R\aunwatchB\t\n" +
+	"\apayload\"\x86\x05\n" +
 	"\x13CollaborateResponse\x12\x10\n" +
 	"\x03doc\x18\x01 \x01(\tR\x03doc\x12>\n" +
 	"\n" +
@@ -7772,7 +8479,10 @@ const file_elephant_collab_v1_service_proto_rawDesc = "" +
 	"\vserver_ping\x18\b \x01(\v2\x1e.elephant.collab.v1.ServerPingH\x00R\n" +
 	"serverPing\x12>\n" +
 	"\n" +
-	"sync_step1\x18\t \x01(\v2\x1d.elephant.collab.v1.SyncStep1H\x00R\tsyncStep1B\t\n" +
+	"sync_step1\x18\t \x01(\v2\x1d.elephant.collab.v1.SyncStep1H\x00R\tsyncStep1\x12B\n" +
+	"\tlifecycle\x18\n" +
+	" \x01(\v2\".elephant.collab.v1.LifecycleEventH\x00R\tlifecycle\x12:\n" +
+	"\bwatching\x18\v \x01(\v2\x1c.elephant.collab.v1.WatchingH\x00R\bwatchingB\t\n" +
 	"\apayload\"\x83\x02\n" +
 	"\tSubscribe\x12!\n" +
 	"\fstate_vector\x18\x01 \x01(\fR\vstateVector\x122\n" +
@@ -7808,7 +8518,38 @@ const file_elephant_collab_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"ServerPing\x12\x1f\n" +
 	"\vserver_time\x18\x01 \x01(\tR\n" +
-	"serverTime*\xcb\x01\n" +
+	"serverTime\"^\n" +
+	"\x05Watch\x12\x17\n" +
+	"\adoc_ids\x18\x01 \x03(\tR\x06docIds\x12<\n" +
+	"\x05kinds\x18\x02 \x03(\x0e2&.elephant.collab.v1.LifecycleEventKindR\x05kinds\"\"\n" +
+	"\aUnwatch\x12\x17\n" +
+	"\adoc_ids\x18\x01 \x03(\tR\x06docIds\"#\n" +
+	"\bWatching\x12\x17\n" +
+	"\adoc_ids\x18\x01 \x03(\tR\x06docIds\"\x9e\x03\n" +
+	"\x0eLifecycleEvent\x12\x15\n" +
+	"\x06doc_id\x18\x01 \x01(\tR\x05docId\x12M\n" +
+	"\x0fsession_started\x18\x02 \x01(\v2\".elephant.collab.v1.SessionStartedH\x00R\x0esessionStarted\x12G\n" +
+	"\rsession_ended\x18\x03 \x01(\v2 .elephant.collab.v1.SessionEndedH\x00R\fsessionEnded\x12M\n" +
+	"\x0fpresence_joined\x18\x04 \x01(\v2\".elephant.collab.v1.PresenceJoinedH\x00R\x0epresenceJoined\x12G\n" +
+	"\rpresence_left\x18\x05 \x01(\v2 .elephant.collab.v1.PresenceLeftH\x00R\fpresenceLeft\x12<\n" +
+	"\arefused\x18\x06 \x01(\v2 .elephant.collab.v1.WatchRefusedH\x00R\arefusedB\a\n" +
+	"\x05event\"/\n" +
+	"\x0eSessionStarted\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"P\n" +
+	"\fSessionEnded\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12!\n" +
+	"\fclose_reason\x18\x02 \x01(\tR\vcloseReason\"\x8a\x01\n" +
+	"\x0ePresenceJoined\x12%\n" +
+	"\x0eparticipant_id\x18\x01 \x01(\tR\rparticipantId\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\x12\x1b\n" +
+	"\tjoined_at\x18\x03 \x01(\tR\bjoinedAt\x12\x1a\n" +
+	"\bidentity\x18\x04 \x01(\tR\bidentity\"7\n" +
+	"\fPresenceLeft\x12'\n" +
+	"\x0fparticipant_ids\x18\x01 \x03(\tR\x0eparticipantIds\"&\n" +
+	"\fWatchRefused\x12\x16\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason*\xcb\x01\n" +
 	"\x19MirrorRegistrationOutcome\x12+\n" +
 	"'MIRROR_REGISTRATION_OUTCOME_UNSPECIFIED\x10\x00\x12*\n" +
 	"&MIRROR_REGISTRATION_OUTCOME_REGISTERED\x10\x01\x12)\n" +
@@ -7817,7 +8558,12 @@ const file_elephant_collab_v1_service_proto_rawDesc = "" +
 	"\x10SubscriptionMode\x12!\n" +
 	"\x1dSUBSCRIPTION_MODE_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bSUBSCRIPTION_MODE_READ_ONLY\x10\x01\x12 \n" +
-	"\x1cSUBSCRIPTION_MODE_READ_WRITE\x10\x022\xd5\x1a\n" +
+	"\x1cSUBSCRIPTION_MODE_READ_WRITE\x10\x02*\xaf\x01\n" +
+	"\x12LifecycleEventKind\x12$\n" +
+	" LIFECYCLE_EVENT_KIND_UNSPECIFIED\x10\x00\x12(\n" +
+	"$LIFECYCLE_EVENT_KIND_SESSION_STARTED\x10\x01\x12&\n" +
+	"\"LIFECYCLE_EVENT_KIND_SESSION_ENDED\x10\x02\x12!\n" +
+	"\x1dLIFECYCLE_EVENT_KIND_PRESENCE\x10\x032\xd5\x1a\n" +
 	"\x14CollaborationService\x12b\n" +
 	"\vCollaborate\x12&.elephant.collab.v1.CollaborateRequest\x1a'.elephant.collab.v1.CollaborateResponse(\x010\x01\x12U\n" +
 	"\bSnapshot\x12#.elephant.collab.v1.SnapshotRequest\x1a$.elephant.collab.v1.SnapshotResponse\x12a\n" +
@@ -7862,294 +8608,314 @@ func file_elephant_collab_v1_service_proto_rawDescGZIP() []byte {
 	return file_elephant_collab_v1_service_proto_rawDescData
 }
 
-var file_elephant_collab_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_elephant_collab_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 121)
+var file_elephant_collab_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_elephant_collab_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 130)
 var file_elephant_collab_v1_service_proto_goTypes = []any{
 	(MirrorRegistrationOutcome)(0),                  // 0: elephant.collab.v1.MirrorRegistrationOutcome
 	(SubscriptionMode)(0),                           // 1: elephant.collab.v1.SubscriptionMode
-	(*BeginPublishRequest)(nil),                     // 2: elephant.collab.v1.BeginPublishRequest
-	(*BeginPublishResponse)(nil),                    // 3: elephant.collab.v1.BeginPublishResponse
-	(*CancelPublishRequest)(nil),                    // 4: elephant.collab.v1.CancelPublishRequest
-	(*CancelPublishResponse)(nil),                   // 5: elephant.collab.v1.CancelPublishResponse
-	(*SnapshotRequest)(nil),                         // 6: elephant.collab.v1.SnapshotRequest
-	(*SnapshotResponse)(nil),                        // 7: elephant.collab.v1.SnapshotResponse
-	(*StatusUpdate)(nil),                            // 8: elephant.collab.v1.StatusUpdate
-	(*ACLEntry)(nil),                                // 9: elephant.collab.v1.ACLEntry
-	(*InspectNamedDocumentRequest)(nil),             // 10: elephant.collab.v1.InspectNamedDocumentRequest
-	(*InspectNamedDocumentResponse)(nil),            // 11: elephant.collab.v1.InspectNamedDocumentResponse
-	(*InspectDocumentRequest)(nil),                  // 12: elephant.collab.v1.InspectDocumentRequest
-	(*InspectDocumentResponse)(nil),                 // 13: elephant.collab.v1.InspectDocumentResponse
-	(*ResetCollaborativeStateRequest)(nil),          // 14: elephant.collab.v1.ResetCollaborativeStateRequest
-	(*ResetCollaborativeStateResponse)(nil),         // 15: elephant.collab.v1.ResetCollaborativeStateResponse
-	(*UnfreezeRequest)(nil),                         // 16: elephant.collab.v1.UnfreezeRequest
-	(*UnfreezeResponse)(nil),                        // 17: elephant.collab.v1.UnfreezeResponse
-	(*CollaborativeSession)(nil),                    // 18: elephant.collab.v1.CollaborativeSession
-	(*ListCollaborativeSessionsRequest)(nil),        // 19: elephant.collab.v1.ListCollaborativeSessionsRequest
-	(*ListCollaborativeSessionsResponse)(nil),       // 20: elephant.collab.v1.ListCollaborativeSessionsResponse
-	(*GetCollaborativeSessionRequest)(nil),          // 21: elephant.collab.v1.GetCollaborativeSessionRequest
-	(*GetCollaborativeSessionResponse)(nil),         // 22: elephant.collab.v1.GetCollaborativeSessionResponse
-	(*SessionParticipant)(nil),                      // 23: elephant.collab.v1.SessionParticipant
-	(*ParticipantIdentity)(nil),                     // 24: elephant.collab.v1.ParticipantIdentity
-	(*ListActiveCollaborativeSessionsRequest)(nil),  // 25: elephant.collab.v1.ListActiveCollaborativeSessionsRequest
-	(*ListActiveCollaborativeSessionsResponse)(nil), // 26: elephant.collab.v1.ListActiveCollaborativeSessionsResponse
-	(*GetCollaborativeStateSnapshotRequest)(nil),    // 27: elephant.collab.v1.GetCollaborativeStateSnapshotRequest
-	(*FrozenState)(nil),                             // 28: elephant.collab.v1.FrozenState
-	(*SoftStopState)(nil),                           // 29: elephant.collab.v1.SoftStopState
-	(*LockState)(nil),                               // 30: elephant.collab.v1.LockState
-	(*RedisStreamState)(nil),                        // 31: elephant.collab.v1.RedisStreamState
-	(*PurgeCollaborativeSessionRequest)(nil),        // 32: elephant.collab.v1.PurgeCollaborativeSessionRequest
-	(*PurgeCollaborativeSessionResponse)(nil),       // 33: elephant.collab.v1.PurgeCollaborativeSessionResponse
-	(*PurgeDocumentSessionsRequest)(nil),            // 34: elephant.collab.v1.PurgeDocumentSessionsRequest
-	(*PurgeDocumentSessionsResponse)(nil),           // 35: elephant.collab.v1.PurgeDocumentSessionsResponse
-	(*GetSessionUpdatesRequest)(nil),                // 36: elephant.collab.v1.GetSessionUpdatesRequest
-	(*SessionUpdateRecord)(nil),                     // 37: elephant.collab.v1.SessionUpdateRecord
-	(*GetSessionUpdatesResponse)(nil),               // 38: elephant.collab.v1.GetSessionUpdatesResponse
-	(*StreamSessionUpdatesRequest)(nil),             // 39: elephant.collab.v1.StreamSessionUpdatesRequest
-	(*StreamSessionUpdatesResponse)(nil),            // 40: elephant.collab.v1.StreamSessionUpdatesResponse
-	(*UnfreezeMark)(nil),                            // 41: elephant.collab.v1.UnfreezeMark
-	(*ArchiveChunkInfo)(nil),                        // 42: elephant.collab.v1.ArchiveChunkInfo
-	(*GetCollaborativeStateSnapshotResponse)(nil),   // 43: elephant.collab.v1.GetCollaborativeStateSnapshotResponse
-	(*CreateSketchRequest)(nil),                     // 44: elephant.collab.v1.CreateSketchRequest
-	(*CreateSketchResponse)(nil),                    // 45: elephant.collab.v1.CreateSketchResponse
-	(*UpdateSketchACLRequest)(nil),                  // 46: elephant.collab.v1.UpdateSketchACLRequest
-	(*UpdateSketchACLResponse)(nil),                 // 47: elephant.collab.v1.UpdateSketchACLResponse
-	(*UpdateSketchMetadataRequest)(nil),             // 48: elephant.collab.v1.UpdateSketchMetadataRequest
-	(*UpdateSketchMetadataResponse)(nil),            // 49: elephant.collab.v1.UpdateSketchMetadataResponse
-	(*DiscardSketchRequest)(nil),                    // 50: elephant.collab.v1.DiscardSketchRequest
-	(*DiscardSketchResponse)(nil),                   // 51: elephant.collab.v1.DiscardSketchResponse
-	(*ListSketchesRequest)(nil),                     // 52: elephant.collab.v1.ListSketchesRequest
-	(*ListSketchesResponse)(nil),                    // 53: elephant.collab.v1.ListSketchesResponse
-	(*GetSketchRequest)(nil),                        // 54: elephant.collab.v1.GetSketchRequest
-	(*GetSketchResponse)(nil),                       // 55: elephant.collab.v1.GetSketchResponse
-	(*SketchSummary)(nil),                           // 56: elephant.collab.v1.SketchSummary
-	(*BulkSnapshotRequest)(nil),                     // 57: elephant.collab.v1.BulkSnapshotRequest
-	(*BulkSnapshotResponse)(nil),                    // 58: elephant.collab.v1.BulkSnapshotResponse
-	(*GetSessionVersionAnchorsRequest)(nil),         // 59: elephant.collab.v1.GetSessionVersionAnchorsRequest
-	(*VersionAnchor)(nil),                           // 60: elephant.collab.v1.VersionAnchor
-	(*GetSessionVersionAnchorsResponse)(nil),        // 61: elephant.collab.v1.GetSessionVersionAnchorsResponse
-	(*GetDocumentTimelineRequest)(nil),              // 62: elephant.collab.v1.GetDocumentTimelineRequest
-	(*GetDocumentTimelineResponse)(nil),             // 63: elephant.collab.v1.GetDocumentTimelineResponse
-	(*TimelineEntry)(nil),                           // 64: elephant.collab.v1.TimelineEntry
-	(*TimelineVersion)(nil),                         // 65: elephant.collab.v1.TimelineVersion
-	(*TimelineStatusList)(nil),                      // 66: elephant.collab.v1.TimelineStatusList
-	(*TimelineStatus)(nil),                          // 67: elephant.collab.v1.TimelineStatus
-	(*TimelineSession)(nil),                         // 68: elephant.collab.v1.TimelineSession
-	(*RegisterMirrorRequest)(nil),                   // 69: elephant.collab.v1.RegisterMirrorRequest
-	(*RegisterMirrorResponse)(nil),                  // 70: elephant.collab.v1.RegisterMirrorResponse
-	(*MirrorVersion)(nil),                           // 71: elephant.collab.v1.MirrorVersion
-	(*GetMirrorRequest)(nil),                        // 72: elephant.collab.v1.GetMirrorRequest
-	(*GetMirrorResponse)(nil),                       // 73: elephant.collab.v1.GetMirrorResponse
-	(*DescribeMirrorRequest)(nil),                   // 74: elephant.collab.v1.DescribeMirrorRequest
-	(*DescribeMirrorResponse)(nil),                  // 75: elephant.collab.v1.DescribeMirrorResponse
-	(*MirrorApp)(nil),                               // 76: elephant.collab.v1.MirrorApp
-	(*MirrorOwnerSpec)(nil),                         // 77: elephant.collab.v1.MirrorOwnerSpec
-	(*MirrorSeeder)(nil),                            // 78: elephant.collab.v1.MirrorSeeder
-	(*MirrorHtmlKey)(nil),                           // 79: elephant.collab.v1.MirrorHtmlKey
-	(*MirrorMark)(nil),                              // 80: elephant.collab.v1.MirrorMark
-	(*RenderFieldRequest)(nil),                      // 81: elephant.collab.v1.RenderFieldRequest
-	(*RenderFieldResponse)(nil),                     // 82: elephant.collab.v1.RenderFieldResponse
-	(*RenderedOwner)(nil),                           // 83: elephant.collab.v1.RenderedOwner
-	(*MirrorOwner)(nil),                             // 84: elephant.collab.v1.MirrorOwner
-	(*MirrorPathStep)(nil),                          // 85: elephant.collab.v1.MirrorPathStep
-	(*MirrorBlock)(nil),                             // 86: elephant.collab.v1.MirrorBlock
-	(*MirrorDataValue)(nil),                         // 87: elephant.collab.v1.MirrorDataValue
-	(*Tree)(nil),                                    // 88: elephant.collab.v1.Tree
-	(*TreeNode)(nil),                                // 89: elephant.collab.v1.TreeNode
-	(*StageBlocksRequest)(nil),                      // 90: elephant.collab.v1.StageBlocksRequest
-	(*StageBlocksResponse)(nil),                     // 91: elephant.collab.v1.StageBlocksResponse
-	(*DeltaOp)(nil),                                 // 92: elephant.collab.v1.DeltaOp
-	(*XmlTextView)(nil),                             // 93: elephant.collab.v1.XmlTextView
-	(*CollaborateRequest)(nil),                      // 94: elephant.collab.v1.CollaborateRequest
-	(*CollaborateResponse)(nil),                     // 95: elephant.collab.v1.CollaborateResponse
-	(*Subscribe)(nil),                               // 96: elephant.collab.v1.Subscribe
-	(*Update)(nil),                                  // 97: elephant.collab.v1.Update
-	(*Awareness)(nil),                               // 98: elephant.collab.v1.Awareness
-	(*QueryAwareness)(nil),                          // 99: elephant.collab.v1.QueryAwareness
-	(*Unsubscribe)(nil),                             // 100: elephant.collab.v1.Unsubscribe
-	(*AuthRefresh)(nil),                             // 101: elephant.collab.v1.AuthRefresh
-	(*SyncStep1)(nil),                               // 102: elephant.collab.v1.SyncStep1
-	(*SyncStep2)(nil),                               // 103: elephant.collab.v1.SyncStep2
-	(*Synced)(nil),                                  // 104: elephant.collab.v1.Synced
-	(*Close)(nil),                                   // 105: elephant.collab.v1.Close
-	(*Event)(nil),                                   // 106: elephant.collab.v1.Event
-	(*ServerPing)(nil),                              // 107: elephant.collab.v1.ServerPing
-	nil,                                             // 108: elephant.collab.v1.SnapshotRequest.MetaEntry
-	nil,                                             // 109: elephant.collab.v1.SnapshotRequest.AttachObjectsEntry
-	nil,                                             // 110: elephant.collab.v1.StatusUpdate.MetaEntry
-	nil,                                             // 111: elephant.collab.v1.ParticipantIdentity.CustomEntry
-	nil,                                             // 112: elephant.collab.v1.CreateSketchRequest.MetadataEntry
-	nil,                                             // 113: elephant.collab.v1.UpdateSketchMetadataRequest.MetadataEntry
-	nil,                                             // 114: elephant.collab.v1.SketchSummary.MetadataEntry
-	nil,                                             // 115: elephant.collab.v1.TimelineVersion.MetaEntry
-	nil,                                             // 116: elephant.collab.v1.TimelineVersion.StatusesEntry
-	nil,                                             // 117: elephant.collab.v1.TimelineStatus.MetaEntry
-	nil,                                             // 118: elephant.collab.v1.DescribeMirrorResponse.MarksEntry
-	nil,                                             // 119: elephant.collab.v1.MirrorMark.FixedAttributesEntry
-	nil,                                             // 120: elephant.collab.v1.MirrorPathStep.AttributesEntry
-	nil,                                             // 121: elephant.collab.v1.MirrorBlock.DataEntry
-	nil,                                             // 122: elephant.collab.v1.TreeNode.AttributesEntry
-	(*newsdoc.Document)(nil),                        // 123: newsdoc.Document
-	(*structpb.Struct)(nil),                         // 124: google.protobuf.Struct
+	(LifecycleEventKind)(0),                         // 2: elephant.collab.v1.LifecycleEventKind
+	(*BeginPublishRequest)(nil),                     // 3: elephant.collab.v1.BeginPublishRequest
+	(*BeginPublishResponse)(nil),                    // 4: elephant.collab.v1.BeginPublishResponse
+	(*CancelPublishRequest)(nil),                    // 5: elephant.collab.v1.CancelPublishRequest
+	(*CancelPublishResponse)(nil),                   // 6: elephant.collab.v1.CancelPublishResponse
+	(*SnapshotRequest)(nil),                         // 7: elephant.collab.v1.SnapshotRequest
+	(*SnapshotResponse)(nil),                        // 8: elephant.collab.v1.SnapshotResponse
+	(*StatusUpdate)(nil),                            // 9: elephant.collab.v1.StatusUpdate
+	(*ACLEntry)(nil),                                // 10: elephant.collab.v1.ACLEntry
+	(*InspectNamedDocumentRequest)(nil),             // 11: elephant.collab.v1.InspectNamedDocumentRequest
+	(*InspectNamedDocumentResponse)(nil),            // 12: elephant.collab.v1.InspectNamedDocumentResponse
+	(*InspectDocumentRequest)(nil),                  // 13: elephant.collab.v1.InspectDocumentRequest
+	(*InspectDocumentResponse)(nil),                 // 14: elephant.collab.v1.InspectDocumentResponse
+	(*ResetCollaborativeStateRequest)(nil),          // 15: elephant.collab.v1.ResetCollaborativeStateRequest
+	(*ResetCollaborativeStateResponse)(nil),         // 16: elephant.collab.v1.ResetCollaborativeStateResponse
+	(*UnfreezeRequest)(nil),                         // 17: elephant.collab.v1.UnfreezeRequest
+	(*UnfreezeResponse)(nil),                        // 18: elephant.collab.v1.UnfreezeResponse
+	(*CollaborativeSession)(nil),                    // 19: elephant.collab.v1.CollaborativeSession
+	(*ListCollaborativeSessionsRequest)(nil),        // 20: elephant.collab.v1.ListCollaborativeSessionsRequest
+	(*ListCollaborativeSessionsResponse)(nil),       // 21: elephant.collab.v1.ListCollaborativeSessionsResponse
+	(*GetCollaborativeSessionRequest)(nil),          // 22: elephant.collab.v1.GetCollaborativeSessionRequest
+	(*GetCollaborativeSessionResponse)(nil),         // 23: elephant.collab.v1.GetCollaborativeSessionResponse
+	(*SessionParticipant)(nil),                      // 24: elephant.collab.v1.SessionParticipant
+	(*ParticipantIdentity)(nil),                     // 25: elephant.collab.v1.ParticipantIdentity
+	(*ListActiveCollaborativeSessionsRequest)(nil),  // 26: elephant.collab.v1.ListActiveCollaborativeSessionsRequest
+	(*ListActiveCollaborativeSessionsResponse)(nil), // 27: elephant.collab.v1.ListActiveCollaborativeSessionsResponse
+	(*GetCollaborativeStateSnapshotRequest)(nil),    // 28: elephant.collab.v1.GetCollaborativeStateSnapshotRequest
+	(*FrozenState)(nil),                             // 29: elephant.collab.v1.FrozenState
+	(*SoftStopState)(nil),                           // 30: elephant.collab.v1.SoftStopState
+	(*LockState)(nil),                               // 31: elephant.collab.v1.LockState
+	(*RedisStreamState)(nil),                        // 32: elephant.collab.v1.RedisStreamState
+	(*PurgeCollaborativeSessionRequest)(nil),        // 33: elephant.collab.v1.PurgeCollaborativeSessionRequest
+	(*PurgeCollaborativeSessionResponse)(nil),       // 34: elephant.collab.v1.PurgeCollaborativeSessionResponse
+	(*PurgeDocumentSessionsRequest)(nil),            // 35: elephant.collab.v1.PurgeDocumentSessionsRequest
+	(*PurgeDocumentSessionsResponse)(nil),           // 36: elephant.collab.v1.PurgeDocumentSessionsResponse
+	(*GetSessionUpdatesRequest)(nil),                // 37: elephant.collab.v1.GetSessionUpdatesRequest
+	(*SessionUpdateRecord)(nil),                     // 38: elephant.collab.v1.SessionUpdateRecord
+	(*GetSessionUpdatesResponse)(nil),               // 39: elephant.collab.v1.GetSessionUpdatesResponse
+	(*StreamSessionUpdatesRequest)(nil),             // 40: elephant.collab.v1.StreamSessionUpdatesRequest
+	(*StreamSessionUpdatesResponse)(nil),            // 41: elephant.collab.v1.StreamSessionUpdatesResponse
+	(*UnfreezeMark)(nil),                            // 42: elephant.collab.v1.UnfreezeMark
+	(*ArchiveChunkInfo)(nil),                        // 43: elephant.collab.v1.ArchiveChunkInfo
+	(*GetCollaborativeStateSnapshotResponse)(nil),   // 44: elephant.collab.v1.GetCollaborativeStateSnapshotResponse
+	(*CreateSketchRequest)(nil),                     // 45: elephant.collab.v1.CreateSketchRequest
+	(*CreateSketchResponse)(nil),                    // 46: elephant.collab.v1.CreateSketchResponse
+	(*UpdateSketchACLRequest)(nil),                  // 47: elephant.collab.v1.UpdateSketchACLRequest
+	(*UpdateSketchACLResponse)(nil),                 // 48: elephant.collab.v1.UpdateSketchACLResponse
+	(*UpdateSketchMetadataRequest)(nil),             // 49: elephant.collab.v1.UpdateSketchMetadataRequest
+	(*UpdateSketchMetadataResponse)(nil),            // 50: elephant.collab.v1.UpdateSketchMetadataResponse
+	(*DiscardSketchRequest)(nil),                    // 51: elephant.collab.v1.DiscardSketchRequest
+	(*DiscardSketchResponse)(nil),                   // 52: elephant.collab.v1.DiscardSketchResponse
+	(*ListSketchesRequest)(nil),                     // 53: elephant.collab.v1.ListSketchesRequest
+	(*ListSketchesResponse)(nil),                    // 54: elephant.collab.v1.ListSketchesResponse
+	(*GetSketchRequest)(nil),                        // 55: elephant.collab.v1.GetSketchRequest
+	(*GetSketchResponse)(nil),                       // 56: elephant.collab.v1.GetSketchResponse
+	(*SketchSummary)(nil),                           // 57: elephant.collab.v1.SketchSummary
+	(*BulkSnapshotRequest)(nil),                     // 58: elephant.collab.v1.BulkSnapshotRequest
+	(*BulkSnapshotResponse)(nil),                    // 59: elephant.collab.v1.BulkSnapshotResponse
+	(*GetSessionVersionAnchorsRequest)(nil),         // 60: elephant.collab.v1.GetSessionVersionAnchorsRequest
+	(*VersionAnchor)(nil),                           // 61: elephant.collab.v1.VersionAnchor
+	(*GetSessionVersionAnchorsResponse)(nil),        // 62: elephant.collab.v1.GetSessionVersionAnchorsResponse
+	(*GetDocumentTimelineRequest)(nil),              // 63: elephant.collab.v1.GetDocumentTimelineRequest
+	(*GetDocumentTimelineResponse)(nil),             // 64: elephant.collab.v1.GetDocumentTimelineResponse
+	(*TimelineEntry)(nil),                           // 65: elephant.collab.v1.TimelineEntry
+	(*TimelineVersion)(nil),                         // 66: elephant.collab.v1.TimelineVersion
+	(*TimelineStatusList)(nil),                      // 67: elephant.collab.v1.TimelineStatusList
+	(*TimelineStatus)(nil),                          // 68: elephant.collab.v1.TimelineStatus
+	(*TimelineSession)(nil),                         // 69: elephant.collab.v1.TimelineSession
+	(*RegisterMirrorRequest)(nil),                   // 70: elephant.collab.v1.RegisterMirrorRequest
+	(*RegisterMirrorResponse)(nil),                  // 71: elephant.collab.v1.RegisterMirrorResponse
+	(*MirrorVersion)(nil),                           // 72: elephant.collab.v1.MirrorVersion
+	(*GetMirrorRequest)(nil),                        // 73: elephant.collab.v1.GetMirrorRequest
+	(*GetMirrorResponse)(nil),                       // 74: elephant.collab.v1.GetMirrorResponse
+	(*DescribeMirrorRequest)(nil),                   // 75: elephant.collab.v1.DescribeMirrorRequest
+	(*DescribeMirrorResponse)(nil),                  // 76: elephant.collab.v1.DescribeMirrorResponse
+	(*MirrorApp)(nil),                               // 77: elephant.collab.v1.MirrorApp
+	(*MirrorOwnerSpec)(nil),                         // 78: elephant.collab.v1.MirrorOwnerSpec
+	(*MirrorSeeder)(nil),                            // 79: elephant.collab.v1.MirrorSeeder
+	(*MirrorHtmlKey)(nil),                           // 80: elephant.collab.v1.MirrorHtmlKey
+	(*MirrorMark)(nil),                              // 81: elephant.collab.v1.MirrorMark
+	(*RenderFieldRequest)(nil),                      // 82: elephant.collab.v1.RenderFieldRequest
+	(*RenderFieldResponse)(nil),                     // 83: elephant.collab.v1.RenderFieldResponse
+	(*RenderedOwner)(nil),                           // 84: elephant.collab.v1.RenderedOwner
+	(*MirrorOwner)(nil),                             // 85: elephant.collab.v1.MirrorOwner
+	(*MirrorPathStep)(nil),                          // 86: elephant.collab.v1.MirrorPathStep
+	(*MirrorBlock)(nil),                             // 87: elephant.collab.v1.MirrorBlock
+	(*MirrorDataValue)(nil),                         // 88: elephant.collab.v1.MirrorDataValue
+	(*Tree)(nil),                                    // 89: elephant.collab.v1.Tree
+	(*TreeNode)(nil),                                // 90: elephant.collab.v1.TreeNode
+	(*StageBlocksRequest)(nil),                      // 91: elephant.collab.v1.StageBlocksRequest
+	(*StageBlocksResponse)(nil),                     // 92: elephant.collab.v1.StageBlocksResponse
+	(*DeltaOp)(nil),                                 // 93: elephant.collab.v1.DeltaOp
+	(*XmlTextView)(nil),                             // 94: elephant.collab.v1.XmlTextView
+	(*CollaborateRequest)(nil),                      // 95: elephant.collab.v1.CollaborateRequest
+	(*CollaborateResponse)(nil),                     // 96: elephant.collab.v1.CollaborateResponse
+	(*Subscribe)(nil),                               // 97: elephant.collab.v1.Subscribe
+	(*Update)(nil),                                  // 98: elephant.collab.v1.Update
+	(*Awareness)(nil),                               // 99: elephant.collab.v1.Awareness
+	(*QueryAwareness)(nil),                          // 100: elephant.collab.v1.QueryAwareness
+	(*Unsubscribe)(nil),                             // 101: elephant.collab.v1.Unsubscribe
+	(*AuthRefresh)(nil),                             // 102: elephant.collab.v1.AuthRefresh
+	(*SyncStep1)(nil),                               // 103: elephant.collab.v1.SyncStep1
+	(*SyncStep2)(nil),                               // 104: elephant.collab.v1.SyncStep2
+	(*Synced)(nil),                                  // 105: elephant.collab.v1.Synced
+	(*Close)(nil),                                   // 106: elephant.collab.v1.Close
+	(*Event)(nil),                                   // 107: elephant.collab.v1.Event
+	(*ServerPing)(nil),                              // 108: elephant.collab.v1.ServerPing
+	(*Watch)(nil),                                   // 109: elephant.collab.v1.Watch
+	(*Unwatch)(nil),                                 // 110: elephant.collab.v1.Unwatch
+	(*Watching)(nil),                                // 111: elephant.collab.v1.Watching
+	(*LifecycleEvent)(nil),                          // 112: elephant.collab.v1.LifecycleEvent
+	(*SessionStarted)(nil),                          // 113: elephant.collab.v1.SessionStarted
+	(*SessionEnded)(nil),                            // 114: elephant.collab.v1.SessionEnded
+	(*PresenceJoined)(nil),                          // 115: elephant.collab.v1.PresenceJoined
+	(*PresenceLeft)(nil),                            // 116: elephant.collab.v1.PresenceLeft
+	(*WatchRefused)(nil),                            // 117: elephant.collab.v1.WatchRefused
+	nil,                                             // 118: elephant.collab.v1.SnapshotRequest.MetaEntry
+	nil,                                             // 119: elephant.collab.v1.SnapshotRequest.AttachObjectsEntry
+	nil,                                             // 120: elephant.collab.v1.StatusUpdate.MetaEntry
+	nil,                                             // 121: elephant.collab.v1.ParticipantIdentity.CustomEntry
+	nil,                                             // 122: elephant.collab.v1.CreateSketchRequest.MetadataEntry
+	nil,                                             // 123: elephant.collab.v1.UpdateSketchMetadataRequest.MetadataEntry
+	nil,                                             // 124: elephant.collab.v1.SketchSummary.MetadataEntry
+	nil,                                             // 125: elephant.collab.v1.TimelineVersion.MetaEntry
+	nil,                                             // 126: elephant.collab.v1.TimelineVersion.StatusesEntry
+	nil,                                             // 127: elephant.collab.v1.TimelineStatus.MetaEntry
+	nil,                                             // 128: elephant.collab.v1.DescribeMirrorResponse.MarksEntry
+	nil,                                             // 129: elephant.collab.v1.MirrorMark.FixedAttributesEntry
+	nil,                                             // 130: elephant.collab.v1.MirrorPathStep.AttributesEntry
+	nil,                                             // 131: elephant.collab.v1.MirrorBlock.DataEntry
+	nil,                                             // 132: elephant.collab.v1.TreeNode.AttributesEntry
+	(*newsdoc.Document)(nil),                        // 133: newsdoc.Document
+	(*structpb.Struct)(nil),                         // 134: google.protobuf.Struct
 }
 var file_elephant_collab_v1_service_proto_depIdxs = []int32{
-	8,   // 0: elephant.collab.v1.SnapshotRequest.statuses:type_name -> elephant.collab.v1.StatusUpdate
-	9,   // 1: elephant.collab.v1.SnapshotRequest.acl:type_name -> elephant.collab.v1.ACLEntry
-	108, // 2: elephant.collab.v1.SnapshotRequest.meta:type_name -> elephant.collab.v1.SnapshotRequest.MetaEntry
-	109, // 3: elephant.collab.v1.SnapshotRequest.attach_objects:type_name -> elephant.collab.v1.SnapshotRequest.AttachObjectsEntry
-	110, // 4: elephant.collab.v1.StatusUpdate.meta:type_name -> elephant.collab.v1.StatusUpdate.MetaEntry
-	18,  // 5: elephant.collab.v1.ListCollaborativeSessionsResponse.sessions:type_name -> elephant.collab.v1.CollaborativeSession
-	18,  // 6: elephant.collab.v1.GetCollaborativeSessionResponse.metadata:type_name -> elephant.collab.v1.CollaborativeSession
-	23,  // 7: elephant.collab.v1.GetCollaborativeSessionResponse.participant_details:type_name -> elephant.collab.v1.SessionParticipant
-	24,  // 8: elephant.collab.v1.SessionParticipant.identity:type_name -> elephant.collab.v1.ParticipantIdentity
-	111, // 9: elephant.collab.v1.ParticipantIdentity.custom:type_name -> elephant.collab.v1.ParticipantIdentity.CustomEntry
-	18,  // 10: elephant.collab.v1.ListActiveCollaborativeSessionsResponse.sessions:type_name -> elephant.collab.v1.CollaborativeSession
-	37,  // 11: elephant.collab.v1.GetSessionUpdatesResponse.records:type_name -> elephant.collab.v1.SessionUpdateRecord
-	37,  // 12: elephant.collab.v1.StreamSessionUpdatesResponse.record:type_name -> elephant.collab.v1.SessionUpdateRecord
-	18,  // 13: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.active_session:type_name -> elephant.collab.v1.CollaborativeSession
-	30,  // 14: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.lock_state:type_name -> elephant.collab.v1.LockState
-	28,  // 15: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.frozen:type_name -> elephant.collab.v1.FrozenState
-	29,  // 16: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.pending_publish:type_name -> elephant.collab.v1.SoftStopState
-	31,  // 17: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.redis_stream:type_name -> elephant.collab.v1.RedisStreamState
-	41,  // 18: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.explicit_unfreeze_mark:type_name -> elephant.collab.v1.UnfreezeMark
-	42,  // 19: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.recent_archive_chunks:type_name -> elephant.collab.v1.ArchiveChunkInfo
-	123, // 20: elephant.collab.v1.CreateSketchRequest.document:type_name -> newsdoc.Document
-	9,   // 21: elephant.collab.v1.CreateSketchRequest.acl:type_name -> elephant.collab.v1.ACLEntry
-	112, // 22: elephant.collab.v1.CreateSketchRequest.metadata:type_name -> elephant.collab.v1.CreateSketchRequest.MetadataEntry
-	9,   // 23: elephant.collab.v1.UpdateSketchACLRequest.acl:type_name -> elephant.collab.v1.ACLEntry
-	113, // 24: elephant.collab.v1.UpdateSketchMetadataRequest.metadata:type_name -> elephant.collab.v1.UpdateSketchMetadataRequest.MetadataEntry
-	56,  // 25: elephant.collab.v1.ListSketchesResponse.sketches:type_name -> elephant.collab.v1.SketchSummary
-	56,  // 26: elephant.collab.v1.GetSketchResponse.sketch:type_name -> elephant.collab.v1.SketchSummary
-	123, // 27: elephant.collab.v1.GetSketchResponse.document:type_name -> newsdoc.Document
-	114, // 28: elephant.collab.v1.SketchSummary.metadata:type_name -> elephant.collab.v1.SketchSummary.MetadataEntry
-	6,   // 29: elephant.collab.v1.BulkSnapshotRequest.snapshots:type_name -> elephant.collab.v1.SnapshotRequest
-	7,   // 30: elephant.collab.v1.BulkSnapshotResponse.responses:type_name -> elephant.collab.v1.SnapshotResponse
-	60,  // 31: elephant.collab.v1.GetSessionVersionAnchorsResponse.anchors:type_name -> elephant.collab.v1.VersionAnchor
-	64,  // 32: elephant.collab.v1.GetDocumentTimelineResponse.entries:type_name -> elephant.collab.v1.TimelineEntry
-	65,  // 33: elephant.collab.v1.TimelineEntry.version:type_name -> elephant.collab.v1.TimelineVersion
-	68,  // 34: elephant.collab.v1.TimelineEntry.session:type_name -> elephant.collab.v1.TimelineSession
-	115, // 35: elephant.collab.v1.TimelineVersion.meta:type_name -> elephant.collab.v1.TimelineVersion.MetaEntry
-	116, // 36: elephant.collab.v1.TimelineVersion.statuses:type_name -> elephant.collab.v1.TimelineVersion.StatusesEntry
-	67,  // 37: elephant.collab.v1.TimelineStatusList.items:type_name -> elephant.collab.v1.TimelineStatus
-	117, // 38: elephant.collab.v1.TimelineStatus.meta:type_name -> elephant.collab.v1.TimelineStatus.MetaEntry
-	18,  // 39: elephant.collab.v1.TimelineSession.metadata:type_name -> elephant.collab.v1.CollaborativeSession
-	23,  // 40: elephant.collab.v1.TimelineSession.participant_details:type_name -> elephant.collab.v1.SessionParticipant
+	9,   // 0: elephant.collab.v1.SnapshotRequest.statuses:type_name -> elephant.collab.v1.StatusUpdate
+	10,  // 1: elephant.collab.v1.SnapshotRequest.acl:type_name -> elephant.collab.v1.ACLEntry
+	118, // 2: elephant.collab.v1.SnapshotRequest.meta:type_name -> elephant.collab.v1.SnapshotRequest.MetaEntry
+	119, // 3: elephant.collab.v1.SnapshotRequest.attach_objects:type_name -> elephant.collab.v1.SnapshotRequest.AttachObjectsEntry
+	120, // 4: elephant.collab.v1.StatusUpdate.meta:type_name -> elephant.collab.v1.StatusUpdate.MetaEntry
+	19,  // 5: elephant.collab.v1.ListCollaborativeSessionsResponse.sessions:type_name -> elephant.collab.v1.CollaborativeSession
+	19,  // 6: elephant.collab.v1.GetCollaborativeSessionResponse.metadata:type_name -> elephant.collab.v1.CollaborativeSession
+	24,  // 7: elephant.collab.v1.GetCollaborativeSessionResponse.participant_details:type_name -> elephant.collab.v1.SessionParticipant
+	25,  // 8: elephant.collab.v1.SessionParticipant.identity:type_name -> elephant.collab.v1.ParticipantIdentity
+	121, // 9: elephant.collab.v1.ParticipantIdentity.custom:type_name -> elephant.collab.v1.ParticipantIdentity.CustomEntry
+	19,  // 10: elephant.collab.v1.ListActiveCollaborativeSessionsResponse.sessions:type_name -> elephant.collab.v1.CollaborativeSession
+	38,  // 11: elephant.collab.v1.GetSessionUpdatesResponse.records:type_name -> elephant.collab.v1.SessionUpdateRecord
+	38,  // 12: elephant.collab.v1.StreamSessionUpdatesResponse.record:type_name -> elephant.collab.v1.SessionUpdateRecord
+	19,  // 13: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.active_session:type_name -> elephant.collab.v1.CollaborativeSession
+	31,  // 14: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.lock_state:type_name -> elephant.collab.v1.LockState
+	29,  // 15: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.frozen:type_name -> elephant.collab.v1.FrozenState
+	30,  // 16: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.pending_publish:type_name -> elephant.collab.v1.SoftStopState
+	32,  // 17: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.redis_stream:type_name -> elephant.collab.v1.RedisStreamState
+	42,  // 18: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.explicit_unfreeze_mark:type_name -> elephant.collab.v1.UnfreezeMark
+	43,  // 19: elephant.collab.v1.GetCollaborativeStateSnapshotResponse.recent_archive_chunks:type_name -> elephant.collab.v1.ArchiveChunkInfo
+	133, // 20: elephant.collab.v1.CreateSketchRequest.document:type_name -> newsdoc.Document
+	10,  // 21: elephant.collab.v1.CreateSketchRequest.acl:type_name -> elephant.collab.v1.ACLEntry
+	122, // 22: elephant.collab.v1.CreateSketchRequest.metadata:type_name -> elephant.collab.v1.CreateSketchRequest.MetadataEntry
+	10,  // 23: elephant.collab.v1.UpdateSketchACLRequest.acl:type_name -> elephant.collab.v1.ACLEntry
+	123, // 24: elephant.collab.v1.UpdateSketchMetadataRequest.metadata:type_name -> elephant.collab.v1.UpdateSketchMetadataRequest.MetadataEntry
+	57,  // 25: elephant.collab.v1.ListSketchesResponse.sketches:type_name -> elephant.collab.v1.SketchSummary
+	57,  // 26: elephant.collab.v1.GetSketchResponse.sketch:type_name -> elephant.collab.v1.SketchSummary
+	133, // 27: elephant.collab.v1.GetSketchResponse.document:type_name -> newsdoc.Document
+	124, // 28: elephant.collab.v1.SketchSummary.metadata:type_name -> elephant.collab.v1.SketchSummary.MetadataEntry
+	7,   // 29: elephant.collab.v1.BulkSnapshotRequest.snapshots:type_name -> elephant.collab.v1.SnapshotRequest
+	8,   // 30: elephant.collab.v1.BulkSnapshotResponse.responses:type_name -> elephant.collab.v1.SnapshotResponse
+	61,  // 31: elephant.collab.v1.GetSessionVersionAnchorsResponse.anchors:type_name -> elephant.collab.v1.VersionAnchor
+	65,  // 32: elephant.collab.v1.GetDocumentTimelineResponse.entries:type_name -> elephant.collab.v1.TimelineEntry
+	66,  // 33: elephant.collab.v1.TimelineEntry.version:type_name -> elephant.collab.v1.TimelineVersion
+	69,  // 34: elephant.collab.v1.TimelineEntry.session:type_name -> elephant.collab.v1.TimelineSession
+	125, // 35: elephant.collab.v1.TimelineVersion.meta:type_name -> elephant.collab.v1.TimelineVersion.MetaEntry
+	126, // 36: elephant.collab.v1.TimelineVersion.statuses:type_name -> elephant.collab.v1.TimelineVersion.StatusesEntry
+	68,  // 37: elephant.collab.v1.TimelineStatusList.items:type_name -> elephant.collab.v1.TimelineStatus
+	127, // 38: elephant.collab.v1.TimelineStatus.meta:type_name -> elephant.collab.v1.TimelineStatus.MetaEntry
+	19,  // 39: elephant.collab.v1.TimelineSession.metadata:type_name -> elephant.collab.v1.CollaborativeSession
+	24,  // 40: elephant.collab.v1.TimelineSession.participant_details:type_name -> elephant.collab.v1.SessionParticipant
 	0,   // 41: elephant.collab.v1.RegisterMirrorResponse.outcome:type_name -> elephant.collab.v1.MirrorRegistrationOutcome
-	71,  // 42: elephant.collab.v1.RegisterMirrorResponse.current:type_name -> elephant.collab.v1.MirrorVersion
-	71,  // 43: elephant.collab.v1.GetMirrorResponse.current:type_name -> elephant.collab.v1.MirrorVersion
-	124, // 44: elephant.collab.v1.GetMirrorResponse.describe:type_name -> google.protobuf.Struct
-	71,  // 45: elephant.collab.v1.DescribeMirrorResponse.current:type_name -> elephant.collab.v1.MirrorVersion
-	76,  // 46: elephant.collab.v1.DescribeMirrorResponse.apps:type_name -> elephant.collab.v1.MirrorApp
-	78,  // 47: elephant.collab.v1.DescribeMirrorResponse.seeders:type_name -> elephant.collab.v1.MirrorSeeder
-	79,  // 48: elephant.collab.v1.DescribeMirrorResponse.html:type_name -> elephant.collab.v1.MirrorHtmlKey
-	118, // 49: elephant.collab.v1.DescribeMirrorResponse.marks:type_name -> elephant.collab.v1.DescribeMirrorResponse.MarksEntry
-	77,  // 50: elephant.collab.v1.MirrorApp.owners:type_name -> elephant.collab.v1.MirrorOwnerSpec
-	124, // 51: elephant.collab.v1.MirrorApp.fields:type_name -> google.protobuf.Struct
-	119, // 52: elephant.collab.v1.MirrorMark.fixed_attributes:type_name -> elephant.collab.v1.MirrorMark.FixedAttributesEntry
-	71,  // 53: elephant.collab.v1.RenderFieldResponse.mirror:type_name -> elephant.collab.v1.MirrorVersion
-	83,  // 54: elephant.collab.v1.RenderFieldResponse.owners:type_name -> elephant.collab.v1.RenderedOwner
-	84,  // 55: elephant.collab.v1.RenderedOwner.owner:type_name -> elephant.collab.v1.MirrorOwner
-	86,  // 56: elephant.collab.v1.RenderedOwner.blocks:type_name -> elephant.collab.v1.MirrorBlock
-	85,  // 57: elephant.collab.v1.MirrorOwner.path:type_name -> elephant.collab.v1.MirrorPathStep
-	120, // 58: elephant.collab.v1.MirrorPathStep.attributes:type_name -> elephant.collab.v1.MirrorPathStep.AttributesEntry
-	121, // 59: elephant.collab.v1.MirrorBlock.data:type_name -> elephant.collab.v1.MirrorBlock.DataEntry
-	86,  // 60: elephant.collab.v1.MirrorBlock.links:type_name -> elephant.collab.v1.MirrorBlock
-	86,  // 61: elephant.collab.v1.MirrorBlock.content:type_name -> elephant.collab.v1.MirrorBlock
-	86,  // 62: elephant.collab.v1.MirrorBlock.meta:type_name -> elephant.collab.v1.MirrorBlock
-	88,  // 63: elephant.collab.v1.MirrorDataValue.tree:type_name -> elephant.collab.v1.Tree
-	89,  // 64: elephant.collab.v1.Tree.nodes:type_name -> elephant.collab.v1.TreeNode
-	122, // 65: elephant.collab.v1.TreeNode.attributes:type_name -> elephant.collab.v1.TreeNode.AttributesEntry
-	89,  // 66: elephant.collab.v1.TreeNode.children:type_name -> elephant.collab.v1.TreeNode
-	86,  // 67: elephant.collab.v1.StageBlocksRequest.blocks:type_name -> elephant.collab.v1.MirrorBlock
-	71,  // 68: elephant.collab.v1.StageBlocksResponse.mirror:type_name -> elephant.collab.v1.MirrorVersion
-	92,  // 69: elephant.collab.v1.StageBlocksResponse.delta:type_name -> elephant.collab.v1.DeltaOp
-	93,  // 70: elephant.collab.v1.DeltaOp.embed:type_name -> elephant.collab.v1.XmlTextView
-	124, // 71: elephant.collab.v1.DeltaOp.attributes:type_name -> google.protobuf.Struct
-	124, // 72: elephant.collab.v1.XmlTextView.attrs:type_name -> google.protobuf.Struct
-	92,  // 73: elephant.collab.v1.XmlTextView.delta:type_name -> elephant.collab.v1.DeltaOp
-	96,  // 74: elephant.collab.v1.CollaborateRequest.subscribe:type_name -> elephant.collab.v1.Subscribe
-	97,  // 75: elephant.collab.v1.CollaborateRequest.update:type_name -> elephant.collab.v1.Update
-	98,  // 76: elephant.collab.v1.CollaborateRequest.awareness:type_name -> elephant.collab.v1.Awareness
-	99,  // 77: elephant.collab.v1.CollaborateRequest.query_awareness:type_name -> elephant.collab.v1.QueryAwareness
-	100, // 78: elephant.collab.v1.CollaborateRequest.unsubscribe:type_name -> elephant.collab.v1.Unsubscribe
-	101, // 79: elephant.collab.v1.CollaborateRequest.auth_refresh:type_name -> elephant.collab.v1.AuthRefresh
-	103, // 80: elephant.collab.v1.CollaborateRequest.sync_step2:type_name -> elephant.collab.v1.SyncStep2
-	103, // 81: elephant.collab.v1.CollaborateResponse.sync_step2:type_name -> elephant.collab.v1.SyncStep2
-	97,  // 82: elephant.collab.v1.CollaborateResponse.update:type_name -> elephant.collab.v1.Update
-	98,  // 83: elephant.collab.v1.CollaborateResponse.awareness:type_name -> elephant.collab.v1.Awareness
-	104, // 84: elephant.collab.v1.CollaborateResponse.synced:type_name -> elephant.collab.v1.Synced
-	105, // 85: elephant.collab.v1.CollaborateResponse.close:type_name -> elephant.collab.v1.Close
-	106, // 86: elephant.collab.v1.CollaborateResponse.event:type_name -> elephant.collab.v1.Event
-	107, // 87: elephant.collab.v1.CollaborateResponse.server_ping:type_name -> elephant.collab.v1.ServerPing
-	102, // 88: elephant.collab.v1.CollaborateResponse.sync_step1:type_name -> elephant.collab.v1.SyncStep1
-	1,   // 89: elephant.collab.v1.Synced.mode:type_name -> elephant.collab.v1.SubscriptionMode
-	66,  // 90: elephant.collab.v1.TimelineVersion.StatusesEntry.value:type_name -> elephant.collab.v1.TimelineStatusList
-	80,  // 91: elephant.collab.v1.DescribeMirrorResponse.MarksEntry.value:type_name -> elephant.collab.v1.MirrorMark
-	87,  // 92: elephant.collab.v1.MirrorBlock.DataEntry.value:type_name -> elephant.collab.v1.MirrorDataValue
-	94,  // 93: elephant.collab.v1.CollaborationService.Collaborate:input_type -> elephant.collab.v1.CollaborateRequest
-	6,   // 94: elephant.collab.v1.CollaborationService.Snapshot:input_type -> elephant.collab.v1.SnapshotRequest
-	2,   // 95: elephant.collab.v1.CollaborationService.BeginPublish:input_type -> elephant.collab.v1.BeginPublishRequest
-	4,   // 96: elephant.collab.v1.CollaborationService.CancelPublish:input_type -> elephant.collab.v1.CancelPublishRequest
-	10,  // 97: elephant.collab.v1.CollaborationService.InspectNamedDocument:input_type -> elephant.collab.v1.InspectNamedDocumentRequest
-	12,  // 98: elephant.collab.v1.CollaborationService.InspectDocument:input_type -> elephant.collab.v1.InspectDocumentRequest
-	14,  // 99: elephant.collab.v1.CollaborationService.ResetCollaborativeState:input_type -> elephant.collab.v1.ResetCollaborativeStateRequest
-	16,  // 100: elephant.collab.v1.CollaborationService.Unfreeze:input_type -> elephant.collab.v1.UnfreezeRequest
-	19,  // 101: elephant.collab.v1.CollaborationService.ListCollaborativeSessions:input_type -> elephant.collab.v1.ListCollaborativeSessionsRequest
-	21,  // 102: elephant.collab.v1.CollaborationService.GetCollaborativeSession:input_type -> elephant.collab.v1.GetCollaborativeSessionRequest
-	25,  // 103: elephant.collab.v1.CollaborationService.ListActiveCollaborativeSessions:input_type -> elephant.collab.v1.ListActiveCollaborativeSessionsRequest
-	27,  // 104: elephant.collab.v1.CollaborationService.GetCollaborativeStateSnapshot:input_type -> elephant.collab.v1.GetCollaborativeStateSnapshotRequest
-	32,  // 105: elephant.collab.v1.CollaborationService.PurgeCollaborativeSession:input_type -> elephant.collab.v1.PurgeCollaborativeSessionRequest
-	34,  // 106: elephant.collab.v1.CollaborationService.PurgeDocumentSessions:input_type -> elephant.collab.v1.PurgeDocumentSessionsRequest
-	36,  // 107: elephant.collab.v1.CollaborationService.GetSessionUpdates:input_type -> elephant.collab.v1.GetSessionUpdatesRequest
-	39,  // 108: elephant.collab.v1.CollaborationService.StreamSessionUpdates:input_type -> elephant.collab.v1.StreamSessionUpdatesRequest
-	44,  // 109: elephant.collab.v1.CollaborationService.CreateSketch:input_type -> elephant.collab.v1.CreateSketchRequest
-	46,  // 110: elephant.collab.v1.CollaborationService.UpdateSketchACL:input_type -> elephant.collab.v1.UpdateSketchACLRequest
-	48,  // 111: elephant.collab.v1.CollaborationService.UpdateSketchMetadata:input_type -> elephant.collab.v1.UpdateSketchMetadataRequest
-	50,  // 112: elephant.collab.v1.CollaborationService.DiscardSketch:input_type -> elephant.collab.v1.DiscardSketchRequest
-	52,  // 113: elephant.collab.v1.CollaborationService.ListSketches:input_type -> elephant.collab.v1.ListSketchesRequest
-	54,  // 114: elephant.collab.v1.CollaborationService.GetSketch:input_type -> elephant.collab.v1.GetSketchRequest
-	57,  // 115: elephant.collab.v1.CollaborationService.BulkSnapshot:input_type -> elephant.collab.v1.BulkSnapshotRequest
-	59,  // 116: elephant.collab.v1.CollaborationService.GetSessionVersionAnchors:input_type -> elephant.collab.v1.GetSessionVersionAnchorsRequest
-	62,  // 117: elephant.collab.v1.CollaborationService.GetDocumentTimeline:input_type -> elephant.collab.v1.GetDocumentTimelineRequest
-	69,  // 118: elephant.collab.v1.CollaborationService.RegisterMirror:input_type -> elephant.collab.v1.RegisterMirrorRequest
-	72,  // 119: elephant.collab.v1.CollaborationService.GetMirror:input_type -> elephant.collab.v1.GetMirrorRequest
-	74,  // 120: elephant.collab.v1.CollaborationService.DescribeMirror:input_type -> elephant.collab.v1.DescribeMirrorRequest
-	81,  // 121: elephant.collab.v1.CollaborationService.RenderField:input_type -> elephant.collab.v1.RenderFieldRequest
-	90,  // 122: elephant.collab.v1.CollaborationService.StageBlocks:input_type -> elephant.collab.v1.StageBlocksRequest
-	95,  // 123: elephant.collab.v1.CollaborationService.Collaborate:output_type -> elephant.collab.v1.CollaborateResponse
-	7,   // 124: elephant.collab.v1.CollaborationService.Snapshot:output_type -> elephant.collab.v1.SnapshotResponse
-	3,   // 125: elephant.collab.v1.CollaborationService.BeginPublish:output_type -> elephant.collab.v1.BeginPublishResponse
-	5,   // 126: elephant.collab.v1.CollaborationService.CancelPublish:output_type -> elephant.collab.v1.CancelPublishResponse
-	11,  // 127: elephant.collab.v1.CollaborationService.InspectNamedDocument:output_type -> elephant.collab.v1.InspectNamedDocumentResponse
-	13,  // 128: elephant.collab.v1.CollaborationService.InspectDocument:output_type -> elephant.collab.v1.InspectDocumentResponse
-	15,  // 129: elephant.collab.v1.CollaborationService.ResetCollaborativeState:output_type -> elephant.collab.v1.ResetCollaborativeStateResponse
-	17,  // 130: elephant.collab.v1.CollaborationService.Unfreeze:output_type -> elephant.collab.v1.UnfreezeResponse
-	20,  // 131: elephant.collab.v1.CollaborationService.ListCollaborativeSessions:output_type -> elephant.collab.v1.ListCollaborativeSessionsResponse
-	22,  // 132: elephant.collab.v1.CollaborationService.GetCollaborativeSession:output_type -> elephant.collab.v1.GetCollaborativeSessionResponse
-	26,  // 133: elephant.collab.v1.CollaborationService.ListActiveCollaborativeSessions:output_type -> elephant.collab.v1.ListActiveCollaborativeSessionsResponse
-	43,  // 134: elephant.collab.v1.CollaborationService.GetCollaborativeStateSnapshot:output_type -> elephant.collab.v1.GetCollaborativeStateSnapshotResponse
-	33,  // 135: elephant.collab.v1.CollaborationService.PurgeCollaborativeSession:output_type -> elephant.collab.v1.PurgeCollaborativeSessionResponse
-	35,  // 136: elephant.collab.v1.CollaborationService.PurgeDocumentSessions:output_type -> elephant.collab.v1.PurgeDocumentSessionsResponse
-	38,  // 137: elephant.collab.v1.CollaborationService.GetSessionUpdates:output_type -> elephant.collab.v1.GetSessionUpdatesResponse
-	40,  // 138: elephant.collab.v1.CollaborationService.StreamSessionUpdates:output_type -> elephant.collab.v1.StreamSessionUpdatesResponse
-	45,  // 139: elephant.collab.v1.CollaborationService.CreateSketch:output_type -> elephant.collab.v1.CreateSketchResponse
-	47,  // 140: elephant.collab.v1.CollaborationService.UpdateSketchACL:output_type -> elephant.collab.v1.UpdateSketchACLResponse
-	49,  // 141: elephant.collab.v1.CollaborationService.UpdateSketchMetadata:output_type -> elephant.collab.v1.UpdateSketchMetadataResponse
-	51,  // 142: elephant.collab.v1.CollaborationService.DiscardSketch:output_type -> elephant.collab.v1.DiscardSketchResponse
-	53,  // 143: elephant.collab.v1.CollaborationService.ListSketches:output_type -> elephant.collab.v1.ListSketchesResponse
-	55,  // 144: elephant.collab.v1.CollaborationService.GetSketch:output_type -> elephant.collab.v1.GetSketchResponse
-	58,  // 145: elephant.collab.v1.CollaborationService.BulkSnapshot:output_type -> elephant.collab.v1.BulkSnapshotResponse
-	61,  // 146: elephant.collab.v1.CollaborationService.GetSessionVersionAnchors:output_type -> elephant.collab.v1.GetSessionVersionAnchorsResponse
-	63,  // 147: elephant.collab.v1.CollaborationService.GetDocumentTimeline:output_type -> elephant.collab.v1.GetDocumentTimelineResponse
-	70,  // 148: elephant.collab.v1.CollaborationService.RegisterMirror:output_type -> elephant.collab.v1.RegisterMirrorResponse
-	73,  // 149: elephant.collab.v1.CollaborationService.GetMirror:output_type -> elephant.collab.v1.GetMirrorResponse
-	75,  // 150: elephant.collab.v1.CollaborationService.DescribeMirror:output_type -> elephant.collab.v1.DescribeMirrorResponse
-	82,  // 151: elephant.collab.v1.CollaborationService.RenderField:output_type -> elephant.collab.v1.RenderFieldResponse
-	91,  // 152: elephant.collab.v1.CollaborationService.StageBlocks:output_type -> elephant.collab.v1.StageBlocksResponse
-	123, // [123:153] is the sub-list for method output_type
-	93,  // [93:123] is the sub-list for method input_type
-	93,  // [93:93] is the sub-list for extension type_name
-	93,  // [93:93] is the sub-list for extension extendee
-	0,   // [0:93] is the sub-list for field type_name
+	72,  // 42: elephant.collab.v1.RegisterMirrorResponse.current:type_name -> elephant.collab.v1.MirrorVersion
+	72,  // 43: elephant.collab.v1.GetMirrorResponse.current:type_name -> elephant.collab.v1.MirrorVersion
+	134, // 44: elephant.collab.v1.GetMirrorResponse.describe:type_name -> google.protobuf.Struct
+	72,  // 45: elephant.collab.v1.DescribeMirrorResponse.current:type_name -> elephant.collab.v1.MirrorVersion
+	77,  // 46: elephant.collab.v1.DescribeMirrorResponse.apps:type_name -> elephant.collab.v1.MirrorApp
+	79,  // 47: elephant.collab.v1.DescribeMirrorResponse.seeders:type_name -> elephant.collab.v1.MirrorSeeder
+	80,  // 48: elephant.collab.v1.DescribeMirrorResponse.html:type_name -> elephant.collab.v1.MirrorHtmlKey
+	128, // 49: elephant.collab.v1.DescribeMirrorResponse.marks:type_name -> elephant.collab.v1.DescribeMirrorResponse.MarksEntry
+	78,  // 50: elephant.collab.v1.MirrorApp.owners:type_name -> elephant.collab.v1.MirrorOwnerSpec
+	134, // 51: elephant.collab.v1.MirrorApp.fields:type_name -> google.protobuf.Struct
+	129, // 52: elephant.collab.v1.MirrorMark.fixed_attributes:type_name -> elephant.collab.v1.MirrorMark.FixedAttributesEntry
+	72,  // 53: elephant.collab.v1.RenderFieldResponse.mirror:type_name -> elephant.collab.v1.MirrorVersion
+	84,  // 54: elephant.collab.v1.RenderFieldResponse.owners:type_name -> elephant.collab.v1.RenderedOwner
+	85,  // 55: elephant.collab.v1.RenderedOwner.owner:type_name -> elephant.collab.v1.MirrorOwner
+	87,  // 56: elephant.collab.v1.RenderedOwner.blocks:type_name -> elephant.collab.v1.MirrorBlock
+	86,  // 57: elephant.collab.v1.MirrorOwner.path:type_name -> elephant.collab.v1.MirrorPathStep
+	130, // 58: elephant.collab.v1.MirrorPathStep.attributes:type_name -> elephant.collab.v1.MirrorPathStep.AttributesEntry
+	131, // 59: elephant.collab.v1.MirrorBlock.data:type_name -> elephant.collab.v1.MirrorBlock.DataEntry
+	87,  // 60: elephant.collab.v1.MirrorBlock.links:type_name -> elephant.collab.v1.MirrorBlock
+	87,  // 61: elephant.collab.v1.MirrorBlock.content:type_name -> elephant.collab.v1.MirrorBlock
+	87,  // 62: elephant.collab.v1.MirrorBlock.meta:type_name -> elephant.collab.v1.MirrorBlock
+	89,  // 63: elephant.collab.v1.MirrorDataValue.tree:type_name -> elephant.collab.v1.Tree
+	90,  // 64: elephant.collab.v1.Tree.nodes:type_name -> elephant.collab.v1.TreeNode
+	132, // 65: elephant.collab.v1.TreeNode.attributes:type_name -> elephant.collab.v1.TreeNode.AttributesEntry
+	90,  // 66: elephant.collab.v1.TreeNode.children:type_name -> elephant.collab.v1.TreeNode
+	87,  // 67: elephant.collab.v1.StageBlocksRequest.blocks:type_name -> elephant.collab.v1.MirrorBlock
+	72,  // 68: elephant.collab.v1.StageBlocksResponse.mirror:type_name -> elephant.collab.v1.MirrorVersion
+	93,  // 69: elephant.collab.v1.StageBlocksResponse.delta:type_name -> elephant.collab.v1.DeltaOp
+	94,  // 70: elephant.collab.v1.DeltaOp.embed:type_name -> elephant.collab.v1.XmlTextView
+	134, // 71: elephant.collab.v1.DeltaOp.attributes:type_name -> google.protobuf.Struct
+	134, // 72: elephant.collab.v1.XmlTextView.attrs:type_name -> google.protobuf.Struct
+	93,  // 73: elephant.collab.v1.XmlTextView.delta:type_name -> elephant.collab.v1.DeltaOp
+	97,  // 74: elephant.collab.v1.CollaborateRequest.subscribe:type_name -> elephant.collab.v1.Subscribe
+	98,  // 75: elephant.collab.v1.CollaborateRequest.update:type_name -> elephant.collab.v1.Update
+	99,  // 76: elephant.collab.v1.CollaborateRequest.awareness:type_name -> elephant.collab.v1.Awareness
+	100, // 77: elephant.collab.v1.CollaborateRequest.query_awareness:type_name -> elephant.collab.v1.QueryAwareness
+	101, // 78: elephant.collab.v1.CollaborateRequest.unsubscribe:type_name -> elephant.collab.v1.Unsubscribe
+	102, // 79: elephant.collab.v1.CollaborateRequest.auth_refresh:type_name -> elephant.collab.v1.AuthRefresh
+	104, // 80: elephant.collab.v1.CollaborateRequest.sync_step2:type_name -> elephant.collab.v1.SyncStep2
+	109, // 81: elephant.collab.v1.CollaborateRequest.watch:type_name -> elephant.collab.v1.Watch
+	110, // 82: elephant.collab.v1.CollaborateRequest.unwatch:type_name -> elephant.collab.v1.Unwatch
+	104, // 83: elephant.collab.v1.CollaborateResponse.sync_step2:type_name -> elephant.collab.v1.SyncStep2
+	98,  // 84: elephant.collab.v1.CollaborateResponse.update:type_name -> elephant.collab.v1.Update
+	99,  // 85: elephant.collab.v1.CollaborateResponse.awareness:type_name -> elephant.collab.v1.Awareness
+	105, // 86: elephant.collab.v1.CollaborateResponse.synced:type_name -> elephant.collab.v1.Synced
+	106, // 87: elephant.collab.v1.CollaborateResponse.close:type_name -> elephant.collab.v1.Close
+	107, // 88: elephant.collab.v1.CollaborateResponse.event:type_name -> elephant.collab.v1.Event
+	108, // 89: elephant.collab.v1.CollaborateResponse.server_ping:type_name -> elephant.collab.v1.ServerPing
+	103, // 90: elephant.collab.v1.CollaborateResponse.sync_step1:type_name -> elephant.collab.v1.SyncStep1
+	112, // 91: elephant.collab.v1.CollaborateResponse.lifecycle:type_name -> elephant.collab.v1.LifecycleEvent
+	111, // 92: elephant.collab.v1.CollaborateResponse.watching:type_name -> elephant.collab.v1.Watching
+	1,   // 93: elephant.collab.v1.Synced.mode:type_name -> elephant.collab.v1.SubscriptionMode
+	2,   // 94: elephant.collab.v1.Watch.kinds:type_name -> elephant.collab.v1.LifecycleEventKind
+	113, // 95: elephant.collab.v1.LifecycleEvent.session_started:type_name -> elephant.collab.v1.SessionStarted
+	114, // 96: elephant.collab.v1.LifecycleEvent.session_ended:type_name -> elephant.collab.v1.SessionEnded
+	115, // 97: elephant.collab.v1.LifecycleEvent.presence_joined:type_name -> elephant.collab.v1.PresenceJoined
+	116, // 98: elephant.collab.v1.LifecycleEvent.presence_left:type_name -> elephant.collab.v1.PresenceLeft
+	117, // 99: elephant.collab.v1.LifecycleEvent.refused:type_name -> elephant.collab.v1.WatchRefused
+	67,  // 100: elephant.collab.v1.TimelineVersion.StatusesEntry.value:type_name -> elephant.collab.v1.TimelineStatusList
+	81,  // 101: elephant.collab.v1.DescribeMirrorResponse.MarksEntry.value:type_name -> elephant.collab.v1.MirrorMark
+	88,  // 102: elephant.collab.v1.MirrorBlock.DataEntry.value:type_name -> elephant.collab.v1.MirrorDataValue
+	95,  // 103: elephant.collab.v1.CollaborationService.Collaborate:input_type -> elephant.collab.v1.CollaborateRequest
+	7,   // 104: elephant.collab.v1.CollaborationService.Snapshot:input_type -> elephant.collab.v1.SnapshotRequest
+	3,   // 105: elephant.collab.v1.CollaborationService.BeginPublish:input_type -> elephant.collab.v1.BeginPublishRequest
+	5,   // 106: elephant.collab.v1.CollaborationService.CancelPublish:input_type -> elephant.collab.v1.CancelPublishRequest
+	11,  // 107: elephant.collab.v1.CollaborationService.InspectNamedDocument:input_type -> elephant.collab.v1.InspectNamedDocumentRequest
+	13,  // 108: elephant.collab.v1.CollaborationService.InspectDocument:input_type -> elephant.collab.v1.InspectDocumentRequest
+	15,  // 109: elephant.collab.v1.CollaborationService.ResetCollaborativeState:input_type -> elephant.collab.v1.ResetCollaborativeStateRequest
+	17,  // 110: elephant.collab.v1.CollaborationService.Unfreeze:input_type -> elephant.collab.v1.UnfreezeRequest
+	20,  // 111: elephant.collab.v1.CollaborationService.ListCollaborativeSessions:input_type -> elephant.collab.v1.ListCollaborativeSessionsRequest
+	22,  // 112: elephant.collab.v1.CollaborationService.GetCollaborativeSession:input_type -> elephant.collab.v1.GetCollaborativeSessionRequest
+	26,  // 113: elephant.collab.v1.CollaborationService.ListActiveCollaborativeSessions:input_type -> elephant.collab.v1.ListActiveCollaborativeSessionsRequest
+	28,  // 114: elephant.collab.v1.CollaborationService.GetCollaborativeStateSnapshot:input_type -> elephant.collab.v1.GetCollaborativeStateSnapshotRequest
+	33,  // 115: elephant.collab.v1.CollaborationService.PurgeCollaborativeSession:input_type -> elephant.collab.v1.PurgeCollaborativeSessionRequest
+	35,  // 116: elephant.collab.v1.CollaborationService.PurgeDocumentSessions:input_type -> elephant.collab.v1.PurgeDocumentSessionsRequest
+	37,  // 117: elephant.collab.v1.CollaborationService.GetSessionUpdates:input_type -> elephant.collab.v1.GetSessionUpdatesRequest
+	40,  // 118: elephant.collab.v1.CollaborationService.StreamSessionUpdates:input_type -> elephant.collab.v1.StreamSessionUpdatesRequest
+	45,  // 119: elephant.collab.v1.CollaborationService.CreateSketch:input_type -> elephant.collab.v1.CreateSketchRequest
+	47,  // 120: elephant.collab.v1.CollaborationService.UpdateSketchACL:input_type -> elephant.collab.v1.UpdateSketchACLRequest
+	49,  // 121: elephant.collab.v1.CollaborationService.UpdateSketchMetadata:input_type -> elephant.collab.v1.UpdateSketchMetadataRequest
+	51,  // 122: elephant.collab.v1.CollaborationService.DiscardSketch:input_type -> elephant.collab.v1.DiscardSketchRequest
+	53,  // 123: elephant.collab.v1.CollaborationService.ListSketches:input_type -> elephant.collab.v1.ListSketchesRequest
+	55,  // 124: elephant.collab.v1.CollaborationService.GetSketch:input_type -> elephant.collab.v1.GetSketchRequest
+	58,  // 125: elephant.collab.v1.CollaborationService.BulkSnapshot:input_type -> elephant.collab.v1.BulkSnapshotRequest
+	60,  // 126: elephant.collab.v1.CollaborationService.GetSessionVersionAnchors:input_type -> elephant.collab.v1.GetSessionVersionAnchorsRequest
+	63,  // 127: elephant.collab.v1.CollaborationService.GetDocumentTimeline:input_type -> elephant.collab.v1.GetDocumentTimelineRequest
+	70,  // 128: elephant.collab.v1.CollaborationService.RegisterMirror:input_type -> elephant.collab.v1.RegisterMirrorRequest
+	73,  // 129: elephant.collab.v1.CollaborationService.GetMirror:input_type -> elephant.collab.v1.GetMirrorRequest
+	75,  // 130: elephant.collab.v1.CollaborationService.DescribeMirror:input_type -> elephant.collab.v1.DescribeMirrorRequest
+	82,  // 131: elephant.collab.v1.CollaborationService.RenderField:input_type -> elephant.collab.v1.RenderFieldRequest
+	91,  // 132: elephant.collab.v1.CollaborationService.StageBlocks:input_type -> elephant.collab.v1.StageBlocksRequest
+	96,  // 133: elephant.collab.v1.CollaborationService.Collaborate:output_type -> elephant.collab.v1.CollaborateResponse
+	8,   // 134: elephant.collab.v1.CollaborationService.Snapshot:output_type -> elephant.collab.v1.SnapshotResponse
+	4,   // 135: elephant.collab.v1.CollaborationService.BeginPublish:output_type -> elephant.collab.v1.BeginPublishResponse
+	6,   // 136: elephant.collab.v1.CollaborationService.CancelPublish:output_type -> elephant.collab.v1.CancelPublishResponse
+	12,  // 137: elephant.collab.v1.CollaborationService.InspectNamedDocument:output_type -> elephant.collab.v1.InspectNamedDocumentResponse
+	14,  // 138: elephant.collab.v1.CollaborationService.InspectDocument:output_type -> elephant.collab.v1.InspectDocumentResponse
+	16,  // 139: elephant.collab.v1.CollaborationService.ResetCollaborativeState:output_type -> elephant.collab.v1.ResetCollaborativeStateResponse
+	18,  // 140: elephant.collab.v1.CollaborationService.Unfreeze:output_type -> elephant.collab.v1.UnfreezeResponse
+	21,  // 141: elephant.collab.v1.CollaborationService.ListCollaborativeSessions:output_type -> elephant.collab.v1.ListCollaborativeSessionsResponse
+	23,  // 142: elephant.collab.v1.CollaborationService.GetCollaborativeSession:output_type -> elephant.collab.v1.GetCollaborativeSessionResponse
+	27,  // 143: elephant.collab.v1.CollaborationService.ListActiveCollaborativeSessions:output_type -> elephant.collab.v1.ListActiveCollaborativeSessionsResponse
+	44,  // 144: elephant.collab.v1.CollaborationService.GetCollaborativeStateSnapshot:output_type -> elephant.collab.v1.GetCollaborativeStateSnapshotResponse
+	34,  // 145: elephant.collab.v1.CollaborationService.PurgeCollaborativeSession:output_type -> elephant.collab.v1.PurgeCollaborativeSessionResponse
+	36,  // 146: elephant.collab.v1.CollaborationService.PurgeDocumentSessions:output_type -> elephant.collab.v1.PurgeDocumentSessionsResponse
+	39,  // 147: elephant.collab.v1.CollaborationService.GetSessionUpdates:output_type -> elephant.collab.v1.GetSessionUpdatesResponse
+	41,  // 148: elephant.collab.v1.CollaborationService.StreamSessionUpdates:output_type -> elephant.collab.v1.StreamSessionUpdatesResponse
+	46,  // 149: elephant.collab.v1.CollaborationService.CreateSketch:output_type -> elephant.collab.v1.CreateSketchResponse
+	48,  // 150: elephant.collab.v1.CollaborationService.UpdateSketchACL:output_type -> elephant.collab.v1.UpdateSketchACLResponse
+	50,  // 151: elephant.collab.v1.CollaborationService.UpdateSketchMetadata:output_type -> elephant.collab.v1.UpdateSketchMetadataResponse
+	52,  // 152: elephant.collab.v1.CollaborationService.DiscardSketch:output_type -> elephant.collab.v1.DiscardSketchResponse
+	54,  // 153: elephant.collab.v1.CollaborationService.ListSketches:output_type -> elephant.collab.v1.ListSketchesResponse
+	56,  // 154: elephant.collab.v1.CollaborationService.GetSketch:output_type -> elephant.collab.v1.GetSketchResponse
+	59,  // 155: elephant.collab.v1.CollaborationService.BulkSnapshot:output_type -> elephant.collab.v1.BulkSnapshotResponse
+	62,  // 156: elephant.collab.v1.CollaborationService.GetSessionVersionAnchors:output_type -> elephant.collab.v1.GetSessionVersionAnchorsResponse
+	64,  // 157: elephant.collab.v1.CollaborationService.GetDocumentTimeline:output_type -> elephant.collab.v1.GetDocumentTimelineResponse
+	71,  // 158: elephant.collab.v1.CollaborationService.RegisterMirror:output_type -> elephant.collab.v1.RegisterMirrorResponse
+	74,  // 159: elephant.collab.v1.CollaborationService.GetMirror:output_type -> elephant.collab.v1.GetMirrorResponse
+	76,  // 160: elephant.collab.v1.CollaborationService.DescribeMirror:output_type -> elephant.collab.v1.DescribeMirrorResponse
+	83,  // 161: elephant.collab.v1.CollaborationService.RenderField:output_type -> elephant.collab.v1.RenderFieldResponse
+	92,  // 162: elephant.collab.v1.CollaborationService.StageBlocks:output_type -> elephant.collab.v1.StageBlocksResponse
+	133, // [133:163] is the sub-list for method output_type
+	103, // [103:133] is the sub-list for method input_type
+	103, // [103:103] is the sub-list for extension type_name
+	103, // [103:103] is the sub-list for extension extendee
+	0,   // [0:103] is the sub-list for field type_name
 }
 
 func init() { file_elephant_collab_v1_service_proto_init() }
@@ -8177,6 +8943,8 @@ func file_elephant_collab_v1_service_proto_init() {
 		(*CollaborateRequest_Unsubscribe)(nil),
 		(*CollaborateRequest_AuthRefresh)(nil),
 		(*CollaborateRequest_SyncStep2)(nil),
+		(*CollaborateRequest_Watch)(nil),
+		(*CollaborateRequest_Unwatch)(nil),
 	}
 	file_elephant_collab_v1_service_proto_msgTypes[93].OneofWrappers = []any{
 		(*CollaborateResponse_SyncStep2)(nil),
@@ -8187,15 +8955,24 @@ func file_elephant_collab_v1_service_proto_init() {
 		(*CollaborateResponse_Event)(nil),
 		(*CollaborateResponse_ServerPing)(nil),
 		(*CollaborateResponse_SyncStep1)(nil),
+		(*CollaborateResponse_Lifecycle)(nil),
+		(*CollaborateResponse_Watching)(nil),
 	}
 	file_elephant_collab_v1_service_proto_msgTypes[94].OneofWrappers = []any{}
+	file_elephant_collab_v1_service_proto_msgTypes[109].OneofWrappers = []any{
+		(*LifecycleEvent_SessionStarted)(nil),
+		(*LifecycleEvent_SessionEnded)(nil),
+		(*LifecycleEvent_PresenceJoined)(nil),
+		(*LifecycleEvent_PresenceLeft)(nil),
+		(*LifecycleEvent_Refused)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_elephant_collab_v1_service_proto_rawDesc), len(file_elephant_collab_v1_service_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   121,
+			NumEnums:      3,
+			NumMessages:   130,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

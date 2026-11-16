@@ -4,6 +4,28 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.29.3] - Unreleased
+
+**New messages (collab lifecycle events):** a `Collaborate` stream can watch
+session and presence events for a set of documents without a Yjs
+subscription to each. `CollaborateRequest` gains `watch` and `unwatch`, and
+`CollaborateResponse` gains `lifecycle` and `watching`; all four are
+connection-scoped and leave `doc` empty. The service sends the current state
+of each watched document as ordinary events, then `watching`, then events as
+they happen. There is no new RPC. Nothing serves these yet.
+
+**Documented (subscription keys):** `CollaborateRequest.doc` is a
+subscription key, `uuid | mode ":" uuid`: `o:<uuid>` is an observer's
+subscription and `e<N>:<uuid>` one editor's per key. A bare UUID behaves as
+before, so existing clients are unaffected.
+
+Changes:
+
+- New enum `LifecycleEventKind` (`SESSION_STARTED`, `SESSION_ENDED`,
+  `PRESENCE`), and new messages `Watch`, `Unwatch`, `Watching`,
+  `LifecycleEvent`, `SessionStarted`, `SessionEnded`, `PresenceJoined`,
+  `PresenceLeft` and `WatchRefused`.
+
 ## [v0.29.2] - 2026-11-15
 
 **New enum value (spell entities):** `CorrectionLevel` gains `LEVEL_ENTITY`,

@@ -1453,8 +1453,30 @@ message XmlTextView {
 
 // CollaborateRequest is one client-to-server message. doc is the
 // multiplexing key and is required for every payload except
-// auth_refresh, which is connection-scoped.
+// auth_refresh, watch and unwatch, which are connection-scoped and
+// leave it empty.
 message CollaborateRequest {
+  // The subscription key: which document, and which of the
+  // connection's subscriptions to it. Its grammar is
+  //
+  //   key      = uuid | mode ":" uuid
+  //   mode     = "o" | "e" [ instance ]
+  //   instance = 1*DIGIT
+  //
+  // A bare uuid is one subscription per document, its mode taken
+  // from Subscribe.observer, as before keys had a mode. o:<uuid> is
+  // an observer's subscription; an observer option that contradicts
+  // it is refused. e:<uuid>, e1:<uuid>, e2:<uuid> and so on are an
+  // editor's, one subscription per key: each asks for read-write and
+  // is granted read-only when the caller has no write permission, as
+  // a bare uuid is. Each key is a full subscription, with its own
+  // handshake, awareness and close, so two keys on one connection
+  // are to the session what two tabs are. A named document's id,
+  // such as __presence__, never takes a mode.
+  //
+  // Every doc-scoped message carries the key, in both directions:
+  // CollaborateResponse.doc echoes the key the subscription was
+  // opened under.
   string doc = 1;
 
   oneof payload {
@@ -1508,6 +1530,14 @@ message CollaborateRequest {
     // sending subscribe again on the open subscription, which
     // brings a fresh sync_step1 to answer.
     SyncStep2 sync_step2 = 8;
+    // Adds documents to the connection's watch set, or replaces the
+    // kinds of ones already in it. Connection-scoped: doc is empty.
+    // Answered with the current state of each document as
+    // lifecycle events, closed by one watching.
+    Watch watch = 9;
+    // Removes documents from the connection's watch set.
+    // Connection-scoped: doc is empty.
+    Unwatch unwatch = 10;
   }
 }
 
@@ -1591,6 +1621,13 @@ message CollaborateResponse {
     // read-write. The client answers with a
     // CollaborateRequest.sync_step2 carrying what the server lacks.
     SyncStep1 sync_step1 = 9;
+    // A session or presence event for a watched document.
+    // Connection-scoped: doc is empty, and the document is named in
+    // the event.
+    LifecycleEvent lifecycle = 10;
+    // The initial state of one watch has been sent. Connection-scoped:
+    // doc is empty.
+    Watching watching = 11;
   }
 }
 
@@ -1701,4 +1738,84 @@ message ServerPing {
   // RFC3339Nano, the same string the WebSocket ping carries and
   // that SnapshotRequest.client_last_server_ping expects back.
   string server_time = 1;
+}
+
+// Lifecycle events: session and presence events for a set of
+// documents, without a Yjs subscription to each. A client names the
+// documents and the kinds of event it wants with watch; the service
+// sends the current state of each document once, as ordinary events,
+// closes it with watching, and then sends events as they happen.
+// Events are idempotent by session_id and participant_id, and a
+// client must treat them so: an event that commits while the initial
+// state is being read can arrive twice.
+enum LifecycleEventKind {
+  LIFECYCLE_EVENT_KIND_UNSPECIFIED = 0;
+  // A session becomes joinable: an observer subscribe will now
+  // succeed.
+  LIFECYCLE_EVENT_KIND_SESSION_STARTED = 1;
+  // The document can be subscribed to afresh: the stored copy is
+  // current.
+  LIFECYCLE_EVENT_KIND_SESSION_ENDED = 2;
+  // A presence-advertising connection joins or leaves: who has the
+  // document open.
+  LIFECYCLE_EVENT_KIND_PRESENCE = 3;
+}
+
+// Watch adds documents to the connection's watch set, or replaces the
+// kinds of ones already in it.
+message Watch {
+  repeated string doc_ids = 1;
+  repeated LifecycleEventKind kinds = 2;
+}
+
+message Unwatch {
+  repeated string doc_ids = 1;
+}
+
+// Watching closes the initial state of one Watch: everything the
+// service knew about these documents has been sent.
+message Watching {
+  repeated string doc_ids = 1;
+}
+
+message LifecycleEvent {
+  string doc_id = 1;
+  oneof event {
+    SessionStarted session_started = 2;
+    SessionEnded session_ended = 3;
+    PresenceJoined presence_joined = 4;
+    PresenceLeft presence_left = 5;
+    // The caller may not watch this document, or it is not a kind
+    // that can be watched. Terminal for the document, not the stream.
+    WatchRefused refused = 6;
+  }
+}
+
+message SessionStarted {
+  string session_id = 1;
+}
+
+message SessionEnded {
+  string session_id = 1;
+  // As CollaborativeSession.close_reason.
+  string close_reason = 2;
+}
+
+message PresenceJoined {
+  // The connection's id: presence counts connections, not
+  // subscriptions.
+  string participant_id = 1;
+  string subject = 2;
+  string joined_at = 3;
+  // The JSON the presence document carries.
+  string identity = 4;
+}
+
+message PresenceLeft {
+  // Empty means everyone: the document's subscriptions were cleared.
+  repeated string participant_ids = 1;
+}
+
+message WatchRefused {
+  string reason = 1;
 }
