@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.29.3] - Unreleased
+## [v0.29.3] - 2026-11-16
 
 **New messages (collab lifecycle events):** a `Collaborate` stream can watch
 session and presence events for a set of documents without a Yjs
