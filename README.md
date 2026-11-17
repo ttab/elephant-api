@@ -24,6 +24,7 @@ Consuming the Go code needs Go 1.27 or later.
 | **Collab** | `elephant.collab.v1` | Collaborative editing. Materialize live Y.Doc state into repository versions, manage freezes and sketches, inspect and administer sessions, and edit live over the `Collaborate` stream. | [proto](elephant/collab/v1/service.proto) |
 | **Stream** | `elephant.stream.v1` | Live events and their media, served by elephant-stream. The event lifecycle (`ControlService`), signed playback URLs and downloads (`PlaybackService`), clips (`ClipService`), audio for transcription (`AudioService`), transcripts (`TranscriptService`), chunked uploads (`UploadService`) and the photo outbox (`PhotoService`). | [protos](elephant/stream/v1/) |
 | **Delegate** | `elephant.delegate.v1` | Tokens for the Elephant CMS app's native shell, served by elephant-delegate. Every token is derived from the caller's own and carries no more power than it. | [proto](elephant/delegate/v1/service.proto) |
+| **Notifications** | `elephant.user.v1` | The notification feed. Stream and list the caller's notifications, subscribe users to documents, and ingest events about documents from producers. | [proto](elephant/user/v1/service.proto) |
 
 The [`newsdoc`](newsdoc/newsdoc.proto) package carries the shared NewsDoc
 document model used across the services. It is generated from the
@@ -46,6 +47,9 @@ too, and so are Connect-only in the same way: no Twirp and no plain interface,
 only connect-go's clients and handlers in `streamv1connect` and
 `delegatev1connect`. `elephant.stream.v1` is spread over several files, one
 per service, rather than a single `service.proto`.
+
+`elephant.user.v1` is Connect-only for the same reason as collab: its
+`NotificationsService` declares the server stream `Stream`.
 
 ## Using the APIs
 
@@ -107,6 +111,8 @@ connect-go's, there is no plain interface to adapt to, and a caller reads and
 writes `*connect.Request[T]` and `*connect.Response[T]` directly. The
 `Collaborate` stream is bidirectional, so a client for it needs an HTTP/2
 transport; the unary RPCs on the same service do not.
+`elephant/user/v1/userv1connect` is the same shape, with
+`NewNotificationsServiceClient` and `NewNotificationsServiceHandler`.
 
 #### Twirp clients
 

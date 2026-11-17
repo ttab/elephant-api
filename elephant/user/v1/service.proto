@@ -1,0 +1,239 @@
+syntax = "proto3";
+
+package elephant.user.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/user/v1;userv1";
+
+// NotificationsService is the notification feed: rows under a user, unit or
+// org key, delivered on one server stream per client and listable.
+// Subscriptions decide which document events become rows for a user; the
+// claims in the reader's token decide which keys it reads.
+//
+// Every method but Ingest requires the `user` scope. Ingest requires the
+// `user_notify` scope.
+//
+// Timestamps in this service are RFC3339 with fractional seconds.
+service NotificationsService {
+  // Opens the caller's notification stream; a client keeps one open. The
+  // keys are read from the token: the caller's own user uri, every unit and
+  // the org. The server first sends the rows after its cursor for each key,
+  // no older than the request's replay window, then live rows as they are
+  // written, and a keepalive when nothing else has been sent for a while.
+  // The cursor is held by the server and never crosses the wire. The client
+  // sends nothing after the request.
+  //
+  // The stream ends with unauthenticated when the token expires, and with
+  // unavailable when the server drains for a deploy; in both cases the
+  // client reopens it, with a fresh token for the former.
+  rpc Stream(StreamRequest) returns (stream StreamResponse);
+
+  // Lists the caller's rows across all its keys, newest first, for the bell
+  // and for the list a client reads before opening the stream. Paged on
+  // created.
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+
+  // Subscribes a user to documents, so that events about them become rows
+  // under the user's key. Subscribing the caller needs nothing beyond the
+  // `user` scope. Subscribing another user needs write permission on each
+  // document, as the repository answers it for the caller's token;
+  // otherwise the request is refused with permission_denied and nothing is
+  // written. Subscribing again refreshes the expiry.
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+
+  // Removes a user's subscriptions to documents. Unsubscribing another user
+  // needs write permission on each document, as for Subscribe.
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+
+  // Lists a user's live subscriptions. Listing another user's needs the
+  // `doc_admin` scope; otherwise the request is refused with
+  // permission_denied.
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+
+  // Records an event about a document, for producers. Requires the
+  // `user_notify` scope. A request always names the document. Without a
+  // recipient the service writes a row under the key of every live
+  // subscription to the document; with one it writes a single row under
+  // that key and nothing else. A producer that wants both sends two
+  // requests with the same event_uuid. Producers never derive recipients: a
+  // recipient is for a producer that already holds it, such as a job keyed
+  // by the user that requested it.
+  //
+  // Repeating a request with the same event_uuid under the same key is a
+  // no-op.
+  rpc Ingest(IngestRequest) returns (IngestResponse);
+}
+
+// Notification is one row. key and id identify the row: a client that sees
+// the same pair twice, from the start list and the stream or from a replay,
+// already has it. event_uuid identifies the event: the same event under two
+// of the caller's keys is two rows with one event_uuid, shown once.
+// Everything else is a reference, never a body; readers re-read.
+message Notification {
+  // The key the row belongs to: a user, unit or org uri.
+  string key = 1;
+  // Per-key id, commit-ordered within the key.
+  int64 id = 2;
+  // What happened, in reverse domain notation owned by the producer, such
+  // as "se.tt.wires.updated", "se.ecms.user.comments.created" or
+  // "se.ecms.user.settings.updated". A client ignores kinds it does not
+  // know.
+  string kind = 3;
+  // UUID of the document the event is about. Always set.
+  string document_uuid = 4;
+  // Type of the document the event is about.
+  string document_type = 5;
+  // What else the event refers to: a thread, a comment, an assignment, a
+  // picture.
+  repeated Reference refs = 6;
+  // Who did it: a user uri, or core://application/<name> for a service.
+  // Always set.
+  string actor = 7;
+  // The producer's id for the event. The same event under several keys
+  // shares it, and clients collapse on it for display.
+  string event_uuid = 8;
+  // Created timestamp is the RFC3339 timestamp for when the row was
+  // written.
+  string created = 9;
+  // Producer-supplied facts for display. A hint only, never the source of
+  // truth. Unbounded, like every other string field.
+  map<string, string> meta = 10;
+}
+
+// Reference is something an event refers to besides its document.
+message Reference {
+  // What the reference is: "thread", "comment", "assignment", "picture".
+  string rel = 1;
+  // UUID of the referenced entity.
+  string uuid = 2;
+  // Type of the referenced entity, when it is a document.
+  string type = 3;
+}
+
+message StreamRequest {
+  // How far back to replay on start, per key, in seconds. Zero means the
+  // server default (24 h); a larger value than the server's maximum is
+  // treated as the maximum. A reconnect after a blip can ask for more, a
+  // cold start for less.
+  int64 replay_window_seconds = 1;
+}
+
+message StreamResponse {
+  oneof payload {
+    // A row, replayed or live.
+    Notification notification = 1;
+    // Sent when the stream has otherwise been quiet.
+    Keepalive keepalive = 2;
+  }
+}
+
+// Keepalive is sent when the stream has been quiet for the server's
+// keepalive interval, so the ingress idle timeout is never reached.
+message Keepalive {
+  // RFC3339 timestamp of the server's clock, so a client can notice a
+  // stalled stream.
+  string server_time = 1;
+}
+
+message ListNotificationsRequest {
+  // RFC3339 timestamp; lists rows created before this time. Empty lists
+  // from the newest. Use the created timestamp of the last returned row to
+  // paginate further into the past.
+  string before = 1;
+  // Number of rows to return. Defaults to 50 when unset; a value over 200
+  // is treated as 200.
+  int32 limit = 2;
+}
+
+message ListNotificationsResponse {
+  // Rows sorted by their created timestamp, newest first.
+  repeated Notification notifications = 1;
+}
+
+message SubscribeRequest {
+  // The user to subscribe, a user uri. Empty for the caller.
+  string user = 1;
+  // The documents to subscribe to, each with its lifetime.
+  repeated SubscriptionItem items = 2;
+}
+
+// SubscriptionItem is one document to subscribe to and how long the
+// subscription lives.
+message SubscriptionItem {
+  // UUID of the document. Required.
+  string document_uuid = 1;
+  // How long the subscription lives. None given means the server's default
+  // TTL.
+  oneof lifetime {
+    // Seconds from now.
+    int64 ttl_seconds = 2;
+    // RFC3339 timestamp at which the subscription ends.
+    string until = 3;
+    // The subscription ends only by Unsubscribe; for assignments, not for
+    // opening a document.
+    bool permanent = 4;
+  }
+}
+
+message SubscribeResponse {
+  // The subscriptions as stored, with their expiry.
+  repeated Subscription subscriptions = 1;
+}
+
+// Subscription is a user's subscription to a document.
+message Subscription {
+  // The subscribed user, a user uri.
+  string user = 1;
+  // UUID of the document.
+  string document_uuid = 2;
+  // RFC3339 timestamp at which the subscription ends. Empty for a
+  // permanent subscription.
+  string expires = 3;
+}
+
+message UnsubscribeRequest {
+  // The user to unsubscribe, a user uri. Empty for the caller; another user
+  // needs write permission on each document, as for Subscribe.
+  string user = 1;
+  // UUIDs of the documents to unsubscribe from.
+  repeated string document_uuids = 2;
+}
+
+message UnsubscribeResponse {}
+
+message ListSubscriptionsRequest {
+  // The user whose subscriptions to list, a user uri. Empty for the caller;
+  // another user's subscriptions need the `doc_admin` scope.
+  string user = 1;
+}
+
+message ListSubscriptionsResponse {
+  // The user's live subscriptions.
+  repeated Subscription subscriptions = 1;
+}
+
+message IngestRequest {
+  // UUID of the document the event is about. Required.
+  string document_uuid = 1;
+  // Type of the document the event is about.
+  string document_type = 2;
+  // What happened, in reverse domain notation; see Notification.kind.
+  string kind = 3;
+  // What else the event refers to; see Notification.refs.
+  repeated Reference refs = 4;
+  // Who did it; see Notification.actor.
+  string actor = 5;
+  // The event's id, chosen by the producer. Required. It is the
+  // idempotency key: a repeated request with the same event_uuid writes
+  // nothing new under a key that already has it.
+  string event_uuid = 6;
+  // Producer-supplied facts for display; see Notification.meta.
+  map<string, string> meta = 7;
+  // A key the producer already holds for this event: a user, unit or org
+  // uri. At most one per request. When set, the row lands under this key
+  // only and the document's subscribers get nothing from this request.
+  string recipient = 8;
+}
+
+// IngestResponse is deliberately empty, so that a producer never learns who
+// was subscribed.
+message IngestResponse {}
