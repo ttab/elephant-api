@@ -97,6 +97,16 @@ message DocumentRef {
   // True when the caller cannot read the referenced document. Ignored on
   // writes.
   bool no_access = 3;
+  // True when the service did not look the referenced document up for
+  // this response, because the response references more distinct
+  // documents than one response resolves, or because the lookup failed
+  // after the request's write had committed: the response to a write
+  // that took effect is never an error because of its references, so
+  // that a retry does not write twice. Title is empty and no_access
+  // false; read fewer rows, or read again, to have it resolved. A read
+  // whose references cannot be looked up fails instead. Ignored on
+  // writes.
+  bool unresolved = 4;
 }
 
 // Cursor is a position in a database's change log.
@@ -212,7 +222,10 @@ message CellConflict {
   string table = 1;
   // Id of the row the cell is in.
   int64 row = 2;
-  // Id of the column the cell is in.
+  // Id of the column the cell is in. Empty for a suggested delete or
+  // move of a row that changed after the suggestion was made: the
+  // conflict is with the whole row, which keeps its place and values,
+  // and current and proposed are unset.
   string column = 3;
   // What is in the cell now. It is kept unless the caller asked to
   // overwrite conflicts.
@@ -249,7 +262,7 @@ message PointInTime {
     // A time. Resolves to the nearest restorable point at or before it.
     google.protobuf.Timestamp time = 2;
     // Id of a snapshot of the same database: a restore point or an
-    // export.
+    // export. A publish snapshot is refused with invalid_argument.
     string snapshot = 3;
   }
 }
@@ -284,7 +297,17 @@ service DatabasesService {
   // CreateDatabase creates the database of a document that has none. The
   // document's UUID becomes the database id. Returns already_exists when
   // the document has one, including one that was deleted: a document's
-  // database id is never freed for a new database.
+  // database id is never freed for a new database. A fork into the
+  // document that never opened, because the pod making it died, is not
+  // a database: once it is a few minutes old it is removed, and the
+  // database is created in its place.
+  //
+  // A database whose document was deleted stays archived, bound to that
+  // deletion, until the deletion is purged, even when a new document is
+  // created under the same UUID meanwhile: CreateDatabase for the new
+  // document returns already_exists. A document that the service has
+  // seen deleted is refused with failed_precondition, also when the
+  // caller's access was checked before the deletion.
   //
   // Auth: doc_write on the owning document.
   rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
@@ -308,7 +331,15 @@ service DatabasesService {
   // already has a database imports tables from another one instead, with
   // ImportsService.Analyze and source_database.
   //
-  // Fork forces a sync of the source and waits for it before copying.
+  // Fork copies the state, then forces a sync of the source and waits
+  // until the source's replica holds the fork point, so that the fork
+  // never holds a change the source could still lose.
+  //
+  // A fork that fails before its database opens is removed again. One
+  // whose pod died meanwhile refuses opens with unavailable until it is
+  // removed, a few minutes later, by a sweep or by the next Fork or
+  // CreateDatabase into the same document. A new owning document that the
+  // service has seen deleted is refused with failed_precondition.
   //
   // Auth: doc_read on the source's owning document, and doc_write on the
   // new owning document.
@@ -842,11 +873,21 @@ service DataService {
   rpc Watch(WatchRequest) returns (stream WatchResponse);
 
   // Suggest proposes edits instead of making them, for agents, which
-  // have no write scopes. It takes the same operations as Mutate, and
-  // every cell write must carry the value it expects to replace, so that
-  // a suggestion made stale by later edits fails per cell when applied
-  // rather than overwriting them. The suggestion reaches editors on
-  // Watch, and expires if nobody resolves it.
+  // have no write scopes. It takes the same operations as Mutate. Every
+  // cell write of a RowUpdate must carry the value it expects to
+  // replace, so that a suggestion made stale by later edits conflicts
+  // per cell when applied rather than overwriting them; the cell writes
+  // of a RowInsert write a new row and need none. For every row a delete
+  // or move targets, the service records the row's state when the
+  // suggestion is made, and applying it conflicts when the row has
+  // changed since. The suggestion reaches editors on Watch, and expires
+  // if nobody resolves it.
+  //
+  // The open suggestions of a database are limited in number, in number
+  // per agent and in bytes, and one suggestion in bytes; past a limit
+  // Suggest is refused with resource_exhausted, and one too large with
+  // invalid_argument. Document references in the operations are stored
+  // with their UUID alone.
   //
   // Auth: the agent scope and doc_read on the owning document.
   rpc Suggest(SuggestRequest) returns (SuggestResponse);
@@ -940,8 +981,8 @@ message CellWrite {
   Value value = 2;
   // The value the caller expects the cell to hold: a compare-and-set.
   // When it is set and the cell holds something else, the write is a
-  // conflict. Unset writes unconditionally, except in a suggestion, which
-  // requires it.
+  // conflict. Unset writes unconditionally, except in a RowUpdate of a
+  // suggestion, which requires it. A RowInsert ignores it.
   Value expected = 3;
 }
 
@@ -1196,7 +1237,11 @@ message WatchResponse {
     PresenceUpdate presence = 2;
     // The head and durable cursors.
     Heartbeat heartbeat = 3;
-    // A suggestion that was made, applied, dismissed or expired.
+    // A suggestion that was made, applied, dismissed or expired. One too
+    // large for the stream to carry whole comes as a notice: only its
+    // id, database, table, agent, state, resolved_by, created and
+    // expires are set, and its mutations are empty, which those of a
+    // suggestion never are. ListSuggestions reads an open one whole.
     Suggestion suggestion = 4;
     // The first message of the stream.
     Hello hello = 5;
@@ -1274,7 +1319,8 @@ message SuggestRequest {
   string database = 1;
   // Id of the table the suggestion changes.
   string table = 2;
-  // The proposed operations. Every CellWrite must set expected.
+  // The proposed operations. Every CellWrite of a RowUpdate must set
+  // expected; those of a RowInsert need not.
   repeated Mutation mutations = 3;
   // A short rationale, shown to the editor deciding on it.
   string rationale = 4;
@@ -1366,7 +1412,10 @@ message ListSuggestionsResponse {
 service SnapshotsService {
   // CreateSnapshot takes an export snapshot, for downloads, round trips
   // and agent hand-offs. Publish snapshots are taken by Publish, and
-  // restore points by DatabasesService.Restore.
+  // restore points by DatabasesService.Restore. Every snapshot is synced
+  // to the replica before it is recorded. Taking one again at the same
+  // cursor returns the one already taken, its expiry renewed, unless it
+  // has expired.
   //
   // Auth: doc_read on the owning document.
   rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
@@ -1376,7 +1425,8 @@ service SnapshotsService {
   //
   // Auth: doc_read on the owning document. Snapshots are for the service
   // and for editors, for history and diffing; distribution reads
-  // publications.
+  // publications. An id that names no snapshot is answered exactly as
+  // one the caller may not read.
   rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
 
   // ListSnapshots lists a database's snapshots, newest first. Paginated.
@@ -1401,7 +1451,8 @@ service SnapshotsService {
   // catalog of the published columns, and a short-lived URL to download
   // the rendered JSON from.
   //
-  // Auth: doc_read on the owning document.
+  // Auth: doc_read on the owning document. An id that names no
+  // publication is answered exactly as one the caller may not read.
   rpc GetPublication(GetPublicationRequest) returns (GetPublicationResponse);
 }
 
@@ -1440,7 +1491,10 @@ message Snapshot {
   string database = 2;
   // The state the snapshot holds.
   Cursor cursor = 3;
-  // SQLite transaction id the snapshot was taken at.
+  // Litestream TXID of a position of the database's replica, in the
+  // cursor's epoch, that holds the snapshot's state: every change up to
+  // the cursor, and possibly a few more. The snapshot is synced before
+  // it is recorded, so the replica reaches it.
   int64 txid = 4;
   // SHA-256 of the snapshot file, hex encoded.
   string sha256 = 5;
@@ -1601,7 +1655,10 @@ message GetPublicationResponse {
 // can analyze or apply it.
 service ImportsService {
   // CreateUpload returns a presigned URL to PUT a file to, bound to a
-  // target database and to the caller.
+  // target database, to the caller and to the file's declared size. A
+  // caller holds a limited number of uploads to a database that no plan
+  // has been applied to; past it, CreateUpload is refused with
+  // resource_exhausted until older ones are applied or expire.
   rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
 
   // Analyze reads an uploaded file, or another database, and returns an
@@ -1630,6 +1687,10 @@ message CreateUploadRequest {
   string content_type = 2;
   // The target database. The upload is bound to it and to the caller.
   string database = 3;
+  // Size of the file in bytes. Required. The URL takes a PUT of exactly
+  // this many bytes, so the PUT must send this Content-Length; a size past
+  // the service's file size limit is refused with resource_exhausted.
+  int64 size = 4;
 }
 
 message CreateUploadResponse {
@@ -1856,17 +1917,36 @@ service EventsService {
   // need not be consecutive on one stream. Events carry ids and cursors,
   // never table contents.
   //
+  // deleted and undeleted cannot be checked that way, since the
+  // repository answers nothing for a deleted document. They are sent
+  // only when the caller's token was found to give read access to the
+  // document before it was deleted: earlier on the same stream, or in
+  // the service's short-lived cache of such answers. Otherwise they are
+  // withheld, so a client that needs to know that a database is gone
+  // should keep its stream open. undeleted is also sent when the
+  // restored document is readable with the caller's token.
+  //
+  // A caller whose token carries the eventlog_read scope, the scope the
+  // repository's own event log asks for, is an administrative reader:
+  // it gets every event, unfiltered, and needs no doc_read.
+  //
+  // Every message carries position, the id of the last event the stream
+  // has passed, sent or withheld. Heartbeats go on while the stream
+  // passes over withheld events, at least every 30 seconds, so a client
+  // whose events are all withheld still sees its position advance.
+  //
   // The stream ends with token_expired (code unauthenticated) when the
   // caller's token expires, and with lease_moved (code unavailable) when
   // the serving pod shuts down. Either way the client resumes with after
-  // set to the last event id it received. It ends with cursor_invalid
+  // set to the highest position it received. It ends with cursor_invalid
   // (code failed_precondition) when after is past the newest event, or
   // the events after it are older than the log's retention and gone:
   // the client starts over from 0 and reloads what it follows. The
   // reason is in the error metadata under "reason".
   //
   // Auth: the doc_read scope, and read permission on an event's owning
-  // document for the event to be sent.
+  // document for the event to be sent; or the eventlog_read scope, for
+  // every event.
   rpc WatchEvents(WatchEventsRequest) returns (stream WatchEventsResponse);
 }
 
@@ -1880,6 +1960,12 @@ message WatchEventsResponse {
   // and one every 30 seconds in which no event was sent, so that the
   // client knows the stream is open and alive.
   Event event = 1;
+  // The id of the last event the stream has passed, whether it was sent
+  // or withheld: the event's own id on an event, and on a heartbeat how
+  // far the stream has read. A client resumes with after set to the
+  // highest position it received. On the first heartbeat it is the
+  // request's after.
+  int64 position = 2;
 }
 
 // Event is an entry in the coarse event log.
@@ -1887,10 +1973,14 @@ message Event {
   // Event id: increasing, without gaps.
   int64 id = 1;
   // What happened: database_created, schema_changed, data_changed,
-  // imported, restored, recovered, forked, published or deleted.
-  // data_changed is debounced and carries the latest cursor. recovered
-  // follows a RecoverDatabase, after which cursors from the skipped
-  // epochs are invalid.
+  // imported, restored, recovered, forked, published, deleted or
+  // undeleted. data_changed is debounced and carries the latest cursor.
+  // restored is a database restored in place to an earlier point.
+  // recovered follows a RecoverDatabase, after which cursors from the
+  // skipped epochs are invalid. deleted is a database archived with its
+  // deleted owning document, and undeleted the database live again,
+  // with its data, once that document is restored in the repository;
+  // neither has a cursor.
   string type = 2;
   // The database it happened to.
   string database = 3;

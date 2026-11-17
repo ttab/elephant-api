@@ -30,8 +30,35 @@ Changes:
 
 - `tables.v1.Snapshot.expires` documents that restore points expire too,
   not only exports.
+- `tables.v1.Snapshot.txid` documents a replica position, in the cursor's
+  epoch, that holds the snapshot's state and possibly a few changes more,
+  instead of the transaction the snapshot was taken at, which a snapshot
+  has no TXID of. `CreateSnapshot` documents that every snapshot is synced
+  to the replica before it is recorded, and that taking one again at the
+  same cursor renews its expiry, unless it has expired.
+- `tables.v1.PointInTime.snapshot` documents that a publish snapshot is
+  refused with `invalid_argument`.
+- `DatabasesService.Fork` documents that the source is synced after the
+  state is copied, until its replica holds the fork point, and that a fork
+  whose pod died before it opened refuses opens with `unavailable` until
+  it is removed a few minutes later. `CreateDatabase` documents that such
+  a fork does not keep the document from getting a database.
+- `SnapshotsService.GetSnapshot` and `GetPublication` document that an id
+  that names nothing is answered exactly as one the caller may not read.
 - `tables.v1.ImportJob.error` (field 9) says why a job failed; a failed job
   had no reason before.
+- `tables.v1.DocumentRef.unresolved` (field 4) marks a reference the
+  service did not look up because the response references more distinct
+  documents than one response resolves, or because the lookup failed
+  after the request's write had committed; its title is empty and
+  `no_access` is false. A write's response is never failed because of
+  its references, so that a client does not retry a write that took
+  effect; a read whose references cannot be looked up still fails.
+- `DatabasesService.CreateDatabase` and `Fork` document that a document
+  the service has seen deleted is refused with `failed_precondition`, and
+  that a database archived with its deleted document stays bound to that
+  deletion until it is purged, even when a new document is created under
+  the same UUID meanwhile.
 - `tables.v1.EventsService.WatchEvents` documents that a stream carries only
   the events of documents the caller may read, so ids need not be
   consecutive on one stream; that it opens with a heartbeat, a
@@ -39,6 +66,38 @@ Changes:
   without events; and that it ends with `lease_moved` when the pod shuts
   down and with `cursor_invalid` when resumed past the newest event or
   past the retention.
+- `tables.v1.WatchEventsResponse.position` (field 2) is the id of the last
+  event a `WatchEvents` stream has passed, sent or withheld, on events and
+  heartbeats alike. Heartbeats go on while a stream passes over withheld
+  events, and a client resumes from the highest position it received, so
+  a caller whose events are all withheld no longer falls out of the
+  retention.
+- `tables.v1.Event.type` gains `undeleted`: a database live again, with its
+  data, once its deleted owning document is restored. `deleted` and
+  `undeleted` are sent only to a caller whose token was found to read the
+  document before it was deleted, on the same stream or in the service's
+  short-lived access cache; `undeleted` also when the restored document is
+  readable. A token with the `eventlog_read` scope gets every event
+  unfiltered, without `doc_read`.
+- `tables.v1.CreateUploadRequest.size` (field 4) is required: the file's
+  size in bytes. The presigned URL signs it as the PUT's Content-Length, so
+  the store refuses a body of any other size, and a size past the service's
+  file size limit is refused with `resource_exhausted`. `CreateUpload`
+  documents that a caller holds a limited number of uploads to a database
+  that no plan has been applied to, and is refused with
+  `resource_exhausted` past it.
+- `tables.v1.DataService.Suggest` documents that only the cell writes of a
+  `RowUpdate` need `expected`, not those of a `RowInsert`
+  (`CellWrite.expected` and `SuggestRequest.mutations` likewise); that a
+  suggested delete or move conflicts when its row changed after the
+  suggestion was made, reported as a `CellConflict` with an empty
+  `column`; that the open suggestions of a database are limited in
+  number, per agent and in bytes, refused with `resource_exhausted`
+  past a limit; and that document references in the operations are
+  stored with their UUID alone.
+- `tables.v1.WatchResponse.suggestion` documents that a suggestion too
+  large for the stream comes as a notice without its mutations or
+  rationale, read whole with `ListSuggestions`.
 - `tables.v1.ImportCandidate.header_row` documents that it counts from 1, as
   a spreadsheet numbers its rows, and that 0 means no header row.
 - `elephant.tables.v1` is declared at `elephant/tables/v1/service.proto`, with

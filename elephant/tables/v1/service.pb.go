@@ -784,7 +784,17 @@ type DocumentRef struct {
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	// True when the caller cannot read the referenced document. Ignored on
 	// writes.
-	NoAccess      bool `protobuf:"varint,3,opt,name=no_access,json=noAccess,proto3" json:"no_access,omitempty"`
+	NoAccess bool `protobuf:"varint,3,opt,name=no_access,json=noAccess,proto3" json:"no_access,omitempty"`
+	// True when the service did not look the referenced document up for
+	// this response, because the response references more distinct
+	// documents than one response resolves, or because the lookup failed
+	// after the request's write had committed: the response to a write
+	// that took effect is never an error because of its references, so
+	// that a retry does not write twice. Title is empty and no_access
+	// false; read fewer rows, or read again, to have it resolved. A read
+	// whose references cannot be looked up fails instead. Ignored on
+	// writes.
+	Unresolved    bool `protobuf:"varint,4,opt,name=unresolved,proto3" json:"unresolved,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -836,6 +846,13 @@ func (x *DocumentRef) GetTitle() string {
 func (x *DocumentRef) GetNoAccess() bool {
 	if x != nil {
 		return x.NoAccess
+	}
+	return false
+}
+
+func (x *DocumentRef) GetUnresolved() bool {
+	if x != nil {
+		return x.Unresolved
 	}
 	return false
 }
@@ -1188,7 +1205,10 @@ type CellConflict struct {
 	Table string `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
 	// Id of the row the cell is in.
 	Row int64 `protobuf:"varint,2,opt,name=row,proto3" json:"row,omitempty"`
-	// Id of the column the cell is in.
+	// Id of the column the cell is in. Empty for a suggested delete or
+	// move of a row that changed after the suggestion was made: the
+	// conflict is with the whole row, which keeps its place and values,
+	// and current and proposed are unset.
 	Column string `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
 	// What is in the cell now. It is kept unless the caller asked to
 	// overwrite conflicts.
@@ -1452,7 +1472,7 @@ type PointInTime_Time struct {
 
 type PointInTime_Snapshot struct {
 	// Id of a snapshot of the same database: a restore point or an
-	// export.
+	// export. A publish snapshot is refused with invalid_argument.
 	Snapshot string `protobuf:"bytes,3,opt,name=snapshot,proto3,oneof"`
 }
 
@@ -3968,8 +3988,8 @@ type CellWrite struct {
 	Value *Value `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	// The value the caller expects the cell to hold: a compare-and-set.
 	// When it is set and the cell holds something else, the write is a
-	// conflict. Unset writes unconditionally, except in a suggestion, which
-	// requires it.
+	// conflict. Unset writes unconditionally, except in a RowUpdate of a
+	// suggestion, which requires it. A RowInsert ignores it.
 	Expected      *Value `protobuf:"bytes,3,opt,name=expected,proto3" json:"expected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5677,7 +5697,11 @@ type WatchResponse_Heartbeat struct {
 }
 
 type WatchResponse_Suggestion struct {
-	// A suggestion that was made, applied, dismissed or expired.
+	// A suggestion that was made, applied, dismissed or expired. One too
+	// large for the stream to carry whole comes as a notice: only its
+	// id, database, table, agent, state, resolved_by, created and
+	// expires are set, and its mutations are empty, which those of a
+	// suggestion never are. ListSuggestions reads an open one whole.
 	Suggestion *Suggestion `protobuf:"bytes,4,opt,name=suggestion,proto3,oneof"`
 }
 
@@ -6081,7 +6105,8 @@ type SuggestRequest struct {
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// Id of the table the suggestion changes.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
-	// The proposed operations. Every CellWrite must set expected.
+	// The proposed operations. Every CellWrite of a RowUpdate must set
+	// expected; those of a RowInsert need not.
 	Mutations []*Mutation `protobuf:"bytes,3,rep,name=mutations,proto3" json:"mutations,omitempty"`
 	// A short rationale, shown to the editor deciding on it.
 	Rationale     string `protobuf:"bytes,4,opt,name=rationale,proto3" json:"rationale,omitempty"`
@@ -6555,7 +6580,10 @@ type Snapshot struct {
 	Database string `protobuf:"bytes,2,opt,name=database,proto3" json:"database,omitempty"`
 	// The state the snapshot holds.
 	Cursor *Cursor `protobuf:"bytes,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
-	// SQLite transaction id the snapshot was taken at.
+	// Litestream TXID of a position of the database's replica, in the
+	// cursor's epoch, that holds the snapshot's state: every change up to
+	// the cursor, and possibly a few more. The snapshot is synced before
+	// it is recorded, so the replica reaches it.
 	Txid int64 `protobuf:"varint,4,opt,name=txid,proto3" json:"txid,omitempty"`
 	// SHA-256 of the snapshot file, hex encoded.
 	Sha256 string `protobuf:"bytes,5,opt,name=sha256,proto3" json:"sha256,omitempty"`
@@ -7496,7 +7524,11 @@ type CreateUploadRequest struct {
 	// Media type of the file being uploaded.
 	ContentType string `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// The target database. The upload is bound to it and to the caller.
-	Database      string `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`
+	Database string `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`
+	// Size of the file in bytes. Required. The URL takes a PUT of exactly
+	// this many bytes, so the PUT must send this Content-Length; a size past
+	// the service's file size limit is refused with resource_exhausted.
+	Size          int64 `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7550,6 +7582,13 @@ func (x *CreateUploadRequest) GetDatabase() string {
 		return x.Database
 	}
 	return ""
+}
+
+func (x *CreateUploadRequest) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
 }
 
 type CreateUploadResponse struct {
@@ -8586,7 +8625,13 @@ type WatchEventsResponse struct {
 	// The next event. Unset on a heartbeat: the first message of a stream,
 	// and one every 30 seconds in which no event was sent, so that the
 	// client knows the stream is open and alive.
-	Event         *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	Event *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	// The id of the last event the stream has passed, whether it was sent
+	// or withheld: the event's own id on an event, and on a heartbeat how
+	// far the stream has read. A client resumes with after set to the
+	// highest position it received. On the first heartbeat it is the
+	// request's after.
+	Position      int64 `protobuf:"varint,2,opt,name=position,proto3" json:"position,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8628,16 +8673,27 @@ func (x *WatchEventsResponse) GetEvent() *Event {
 	return nil
 }
 
+func (x *WatchEventsResponse) GetPosition() int64 {
+	if x != nil {
+		return x.Position
+	}
+	return 0
+}
+
 // Event is an entry in the coarse event log.
 type Event struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Event id: increasing, without gaps.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	// What happened: database_created, schema_changed, data_changed,
-	// imported, restored, recovered, forked, published or deleted.
-	// data_changed is debounced and carries the latest cursor. recovered
-	// follows a RecoverDatabase, after which cursors from the skipped
-	// epochs are invalid.
+	// imported, restored, recovered, forked, published, deleted or
+	// undeleted. data_changed is debounced and carries the latest cursor.
+	// restored is a database restored in place to an earlier point.
+	// recovered follows a RecoverDatabase, after which cursors from the
+	// skipped epochs are invalid. deleted is a database archived with its
+	// deleted owning document, and undeleted the database live again,
+	// with its data, once that document is restored in the repository;
+	// neither has a cursor.
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// The database it happened to.
 	Database string `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`
@@ -8754,11 +8810,14 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x04kind\"$\n" +
 	"\n" +
 	"StringList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"T\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"t\n" +
 	"\vDocumentRef\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1b\n" +
-	"\tno_access\x18\x03 \x01(\bR\bnoAccess\"0\n" +
+	"\tno_access\x18\x03 \x01(\bR\bnoAccess\x12\x1e\n" +
+	"\n" +
+	"unresolved\x18\x04 \x01(\bR\n" +
+	"unresolved\"0\n" +
 	"\x06Cursor\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x12\x10\n" +
 	"\x03seq\x18\x02 \x01(\x03R\x03seq\"\xe1\x01\n" +
@@ -9218,11 +9277,12 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\vpublication\x18\x01 \x01(\v2\x1f.elephant.tables.v1.PublicationR\vpublication\x127\n" +
 	"\x04spec\x18\x02 \x01(\v2#.elephant.tables.v1.PublicationSpecR\x04spec\x121\n" +
 	"\x06tables\x18\x03 \x03(\v2\x19.elephant.tables.v1.TableR\x06tables\x12!\n" +
-	"\fdownload_url\x18\x04 \x01(\tR\vdownloadUrl\"p\n" +
+	"\fdownload_url\x18\x04 \x01(\tR\vdownloadUrl\"\x84\x01\n" +
 	"\x13CreateUploadRequest\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1a\n" +
-	"\bdatabase\x18\x03 \x01(\tR\bdatabase\"G\n" +
+	"\bdatabase\x18\x03 \x01(\tR\bdatabase\x12\x12\n" +
+	"\x04size\x18\x04 \x01(\x03R\x04size\"G\n" +
 	"\x14CreateUploadResponse\x12\x16\n" +
 	"\x06upload\x18\x01 \x01(\tR\x06upload\x12\x17\n" +
 	"\aput_url\x18\x02 \x01(\tR\x06putUrl\"\xab\x01\n" +
@@ -9301,9 +9361,10 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\bfailures\x18\b \x03(\v2\x1d.elephant.tables.v1.CellErrorR\bfailures\x12\x14\n" +
 	"\x05error\x18\t \x01(\tR\x05error\"*\n" +
 	"\x12WatchEventsRequest\x12\x14\n" +
-	"\x05after\x18\x01 \x01(\x03R\x05after\"F\n" +
+	"\x05after\x18\x01 \x01(\x03R\x05after\"b\n" +
 	"\x13WatchEventsResponse\x12/\n" +
-	"\x05event\x18\x01 \x01(\v2\x19.elephant.tables.v1.EventR\x05event\"\xf4\x01\n" +
+	"\x05event\x18\x01 \x01(\v2\x19.elephant.tables.v1.EventR\x05event\x12\x1a\n" +
+	"\bposition\x18\x02 \x01(\x03R\bposition\"\xf4\x01\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x1a\n" +

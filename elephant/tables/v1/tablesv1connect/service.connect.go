@@ -181,7 +181,17 @@ type DatabasesServiceClient interface {
 	// CreateDatabase creates the database of a document that has none. The
 	// document's UUID becomes the database id. Returns already_exists when
 	// the document has one, including one that was deleted: a document's
-	// database id is never freed for a new database.
+	// database id is never freed for a new database. A fork into the
+	// document that never opened, because the pod making it died, is not
+	// a database: once it is a few minutes old it is removed, and the
+	// database is created in its place.
+	//
+	// A database whose document was deleted stays archived, bound to that
+	// deletion, until the deletion is purged, even when a new document is
+	// created under the same UUID meanwhile: CreateDatabase for the new
+	// document returns already_exists. A document that the service has
+	// seen deleted is refused with failed_precondition, also when the
+	// caller's access was checked before the deletion.
 	//
 	// Auth: doc_write on the owning document.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
@@ -203,7 +213,15 @@ type DatabasesServiceClient interface {
 	// already has a database imports tables from another one instead, with
 	// ImportsService.Analyze and source_database.
 	//
-	// Fork forces a sync of the source and waits for it before copying.
+	// Fork copies the state, then forces a sync of the source and waits
+	// until the source's replica holds the fork point, so that the fork
+	// never holds a change the source could still lose.
+	//
+	// A fork that fails before its database opens is removed again. One
+	// whose pod died meanwhile refuses opens with unavailable until it is
+	// removed, a few minutes later, by a sweep or by the next Fork or
+	// CreateDatabase into the same document. A new owning document that the
+	// service has seen deleted is refused with failed_precondition.
 	//
 	// Auth: doc_read on the source's owning document, and doc_write on the
 	// new owning document.
@@ -367,7 +385,17 @@ type DatabasesServiceHandler interface {
 	// CreateDatabase creates the database of a document that has none. The
 	// document's UUID becomes the database id. Returns already_exists when
 	// the document has one, including one that was deleted: a document's
-	// database id is never freed for a new database.
+	// database id is never freed for a new database. A fork into the
+	// document that never opened, because the pod making it died, is not
+	// a database: once it is a few minutes old it is removed, and the
+	// database is created in its place.
+	//
+	// A database whose document was deleted stays archived, bound to that
+	// deletion, until the deletion is purged, even when a new document is
+	// created under the same UUID meanwhile: CreateDatabase for the new
+	// document returns already_exists. A document that the service has
+	// seen deleted is refused with failed_precondition, also when the
+	// caller's access was checked before the deletion.
 	//
 	// Auth: doc_write on the owning document.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
@@ -389,7 +417,15 @@ type DatabasesServiceHandler interface {
 	// already has a database imports tables from another one instead, with
 	// ImportsService.Analyze and source_database.
 	//
-	// Fork forces a sync of the source and waits for it before copying.
+	// Fork copies the state, then forces a sync of the source and waits
+	// until the source's replica holds the fork point, so that the fork
+	// never holds a change the source could still lose.
+	//
+	// A fork that fails before its database opens is removed again. One
+	// whose pod died meanwhile refuses opens with unavailable until it is
+	// removed, a few minutes later, by a sweep or by the next Fork or
+	// CreateDatabase into the same document. A new owning document that the
+	// service has seen deleted is refused with failed_precondition.
 	//
 	// Auth: doc_read on the source's owning document, and doc_write on the
 	// new owning document.
@@ -904,11 +940,21 @@ type DataServiceClient interface {
 	// Auth: doc_read on the owning document.
 	Watch(context.Context, *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.WatchResponse], error)
 	// Suggest proposes edits instead of making them, for agents, which
-	// have no write scopes. It takes the same operations as Mutate, and
-	// every cell write must carry the value it expects to replace, so that
-	// a suggestion made stale by later edits fails per cell when applied
-	// rather than overwriting them. The suggestion reaches editors on
-	// Watch, and expires if nobody resolves it.
+	// have no write scopes. It takes the same operations as Mutate. Every
+	// cell write of a RowUpdate must carry the value it expects to
+	// replace, so that a suggestion made stale by later edits conflicts
+	// per cell when applied rather than overwriting them; the cell writes
+	// of a RowInsert write a new row and need none. For every row a delete
+	// or move targets, the service records the row's state when the
+	// suggestion is made, and applying it conflicts when the row has
+	// changed since. The suggestion reaches editors on Watch, and expires
+	// if nobody resolves it.
+	//
+	// The open suggestions of a database are limited in number, in number
+	// per agent and in bytes, and one suggestion in bytes; past a limit
+	// Suggest is refused with resource_exhausted, and one too large with
+	// invalid_argument. Document references in the operations are stored
+	// with their UUID alone.
 	//
 	// Auth: the agent scope and doc_read on the owning document.
 	Suggest(context.Context, *connect.Request[v1.SuggestRequest]) (*connect.Response[v1.SuggestResponse], error)
@@ -1178,11 +1224,21 @@ type DataServiceHandler interface {
 	// Auth: doc_read on the owning document.
 	Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.WatchResponse]) error
 	// Suggest proposes edits instead of making them, for agents, which
-	// have no write scopes. It takes the same operations as Mutate, and
-	// every cell write must carry the value it expects to replace, so that
-	// a suggestion made stale by later edits fails per cell when applied
-	// rather than overwriting them. The suggestion reaches editors on
-	// Watch, and expires if nobody resolves it.
+	// have no write scopes. It takes the same operations as Mutate. Every
+	// cell write of a RowUpdate must carry the value it expects to
+	// replace, so that a suggestion made stale by later edits conflicts
+	// per cell when applied rather than overwriting them; the cell writes
+	// of a RowInsert write a new row and need none. For every row a delete
+	// or move targets, the service records the row's state when the
+	// suggestion is made, and applying it conflicts when the row has
+	// changed since. The suggestion reaches editors on Watch, and expires
+	// if nobody resolves it.
+	//
+	// The open suggestions of a database are limited in number, in number
+	// per agent and in bytes, and one suggestion in bytes; past a limit
+	// Suggest is refused with resource_exhausted, and one too large with
+	// invalid_argument. Document references in the operations are stored
+	// with their UUID alone.
 	//
 	// Auth: the agent scope and doc_read on the owning document.
 	Suggest(context.Context, *connect.Request[v1.SuggestRequest]) (*connect.Response[v1.SuggestResponse], error)
@@ -1386,7 +1442,10 @@ func (UnimplementedDataServiceHandler) UpdatePresence(context.Context, *connect.
 type SnapshotsServiceClient interface {
 	// CreateSnapshot takes an export snapshot, for downloads, round trips
 	// and agent hand-offs. Publish snapshots are taken by Publish, and
-	// restore points by DatabasesService.Restore.
+	// restore points by DatabasesService.Restore. Every snapshot is synced
+	// to the replica before it is recorded. Taking one again at the same
+	// cursor returns the one already taken, its expiry renewed, unless it
+	// has expired.
 	//
 	// Auth: doc_read on the owning document.
 	CreateSnapshot(context.Context, *connect.Request[v1.CreateSnapshotRequest]) (*connect.Response[v1.CreateSnapshotResponse], error)
@@ -1395,7 +1454,8 @@ type SnapshotsServiceClient interface {
 	//
 	// Auth: doc_read on the owning document. Snapshots are for the service
 	// and for editors, for history and diffing; distribution reads
-	// publications.
+	// publications. An id that names no snapshot is answered exactly as
+	// one the caller may not read.
 	GetSnapshot(context.Context, *connect.Request[v1.GetSnapshotRequest]) (*connect.Response[v1.GetSnapshotResponse], error)
 	// ListSnapshots lists a database's snapshots, newest first. Paginated.
 	//
@@ -1417,7 +1477,8 @@ type SnapshotsServiceClient interface {
 	// catalog of the published columns, and a short-lived URL to download
 	// the rendered JSON from.
 	//
-	// Auth: doc_read on the owning document.
+	// Auth: doc_read on the owning document. An id that names no
+	// publication is answered exactly as one the caller may not read.
 	GetPublication(context.Context, *connect.Request[v1.GetPublicationRequest]) (*connect.Response[v1.GetPublicationResponse], error)
 }
 
@@ -1503,7 +1564,10 @@ func (c *snapshotsServiceClient) GetPublication(ctx context.Context, req *connec
 type SnapshotsServiceHandler interface {
 	// CreateSnapshot takes an export snapshot, for downloads, round trips
 	// and agent hand-offs. Publish snapshots are taken by Publish, and
-	// restore points by DatabasesService.Restore.
+	// restore points by DatabasesService.Restore. Every snapshot is synced
+	// to the replica before it is recorded. Taking one again at the same
+	// cursor returns the one already taken, its expiry renewed, unless it
+	// has expired.
 	//
 	// Auth: doc_read on the owning document.
 	CreateSnapshot(context.Context, *connect.Request[v1.CreateSnapshotRequest]) (*connect.Response[v1.CreateSnapshotResponse], error)
@@ -1512,7 +1576,8 @@ type SnapshotsServiceHandler interface {
 	//
 	// Auth: doc_read on the owning document. Snapshots are for the service
 	// and for editors, for history and diffing; distribution reads
-	// publications.
+	// publications. An id that names no snapshot is answered exactly as
+	// one the caller may not read.
 	GetSnapshot(context.Context, *connect.Request[v1.GetSnapshotRequest]) (*connect.Response[v1.GetSnapshotResponse], error)
 	// ListSnapshots lists a database's snapshots, newest first. Paginated.
 	//
@@ -1534,7 +1599,8 @@ type SnapshotsServiceHandler interface {
 	// catalog of the published columns, and a short-lived URL to download
 	// the rendered JSON from.
 	//
-	// Auth: doc_read on the owning document.
+	// Auth: doc_read on the owning document. An id that names no
+	// publication is answered exactly as one the caller may not read.
 	GetPublication(context.Context, *connect.Request[v1.GetPublicationRequest]) (*connect.Response[v1.GetPublicationResponse], error)
 }
 
@@ -1619,7 +1685,10 @@ func (UnimplementedSnapshotsServiceHandler) GetPublication(context.Context, *con
 // ImportsServiceClient is a client for the elephant.tables.v1.ImportsService service.
 type ImportsServiceClient interface {
 	// CreateUpload returns a presigned URL to PUT a file to, bound to a
-	// target database and to the caller.
+	// target database, to the caller and to the file's declared size. A
+	// caller holds a limited number of uploads to a database that no plan
+	// has been applied to; past it, CreateUpload is refused with
+	// resource_exhausted until older ones are applied or expire.
 	CreateUpload(context.Context, *connect.Request[v1.CreateUploadRequest]) (*connect.Response[v1.CreateUploadResponse], error)
 	// Analyze reads an uploaded file, or another database, and returns an
 	// editable import plan: the candidate tables, their header rows and
@@ -1707,7 +1776,10 @@ func (c *importsServiceClient) GetJob(ctx context.Context, req *connect.Request[
 // ImportsServiceHandler is an implementation of the elephant.tables.v1.ImportsService service.
 type ImportsServiceHandler interface {
 	// CreateUpload returns a presigned URL to PUT a file to, bound to a
-	// target database and to the caller.
+	// target database, to the caller and to the file's declared size. A
+	// caller holds a limited number of uploads to a database that no plan
+	// has been applied to; past it, CreateUpload is refused with
+	// resource_exhausted until older ones are applied or expire.
 	CreateUpload(context.Context, *connect.Request[v1.CreateUploadRequest]) (*connect.Response[v1.CreateUploadResponse], error)
 	// Analyze reads an uploaded file, or another database, and returns an
 	// editable import plan: the candidate tables, their header rows and
@@ -1804,17 +1876,36 @@ type EventsServiceClient interface {
 	// need not be consecutive on one stream. Events carry ids and cursors,
 	// never table contents.
 	//
+	// deleted and undeleted cannot be checked that way, since the
+	// repository answers nothing for a deleted document. They are sent
+	// only when the caller's token was found to give read access to the
+	// document before it was deleted: earlier on the same stream, or in
+	// the service's short-lived cache of such answers. Otherwise they are
+	// withheld, so a client that needs to know that a database is gone
+	// should keep its stream open. undeleted is also sent when the
+	// restored document is readable with the caller's token.
+	//
+	// A caller whose token carries the eventlog_read scope, the scope the
+	// repository's own event log asks for, is an administrative reader:
+	// it gets every event, unfiltered, and needs no doc_read.
+	//
+	// Every message carries position, the id of the last event the stream
+	// has passed, sent or withheld. Heartbeats go on while the stream
+	// passes over withheld events, at least every 30 seconds, so a client
+	// whose events are all withheld still sees its position advance.
+	//
 	// The stream ends with token_expired (code unauthenticated) when the
 	// caller's token expires, and with lease_moved (code unavailable) when
 	// the serving pod shuts down. Either way the client resumes with after
-	// set to the last event id it received. It ends with cursor_invalid
+	// set to the highest position it received. It ends with cursor_invalid
 	// (code failed_precondition) when after is past the newest event, or
 	// the events after it are older than the log's retention and gone:
 	// the client starts over from 0 and reloads what it follows. The
 	// reason is in the error metadata under "reason".
 	//
 	// Auth: the doc_read scope, and read permission on an event's owning
-	// document for the event to be sent.
+	// document for the event to be sent; or the eventlog_read scope, for
+	// every event.
 	WatchEvents(context.Context, *connect.Request[v1.WatchEventsRequest]) (*connect.ServerStreamForClient[v1.WatchEventsResponse], error)
 }
 
@@ -1860,17 +1951,36 @@ type EventsServiceHandler interface {
 	// need not be consecutive on one stream. Events carry ids and cursors,
 	// never table contents.
 	//
+	// deleted and undeleted cannot be checked that way, since the
+	// repository answers nothing for a deleted document. They are sent
+	// only when the caller's token was found to give read access to the
+	// document before it was deleted: earlier on the same stream, or in
+	// the service's short-lived cache of such answers. Otherwise they are
+	// withheld, so a client that needs to know that a database is gone
+	// should keep its stream open. undeleted is also sent when the
+	// restored document is readable with the caller's token.
+	//
+	// A caller whose token carries the eventlog_read scope, the scope the
+	// repository's own event log asks for, is an administrative reader:
+	// it gets every event, unfiltered, and needs no doc_read.
+	//
+	// Every message carries position, the id of the last event the stream
+	// has passed, sent or withheld. Heartbeats go on while the stream
+	// passes over withheld events, at least every 30 seconds, so a client
+	// whose events are all withheld still sees its position advance.
+	//
 	// The stream ends with token_expired (code unauthenticated) when the
 	// caller's token expires, and with lease_moved (code unavailable) when
 	// the serving pod shuts down. Either way the client resumes with after
-	// set to the last event id it received. It ends with cursor_invalid
+	// set to the highest position it received. It ends with cursor_invalid
 	// (code failed_precondition) when after is past the newest event, or
 	// the events after it are older than the log's retention and gone:
 	// the client starts over from 0 and reloads what it follows. The
 	// reason is in the error metadata under "reason".
 	//
 	// Auth: the doc_read scope, and read permission on an event's owning
-	// document for the event to be sent.
+	// document for the event to be sent; or the eventlog_read scope, for
+	// every event.
 	WatchEvents(context.Context, *connect.Request[v1.WatchEventsRequest], *connect.ServerStream[v1.WatchEventsResponse]) error
 }
 
