@@ -28,6 +28,19 @@ streams and need no HTTP/2 transport.
 
 Changes:
 
+- `tables.v1.Snapshot.expires` documents that restore points expire too,
+  not only exports.
+- `tables.v1.ImportJob.error` (field 9) says why a job failed; a failed job
+  had no reason before.
+- `tables.v1.EventsService.WatchEvents` documents that a stream carries only
+  the events of documents the caller may read, so ids need not be
+  consecutive on one stream; that it opens with a heartbeat, a
+  `WatchEventsResponse` without an event, and sends one every 30 seconds
+  without events; and that it ends with `lease_moved` when the pod shuts
+  down and with `cursor_invalid` when resumed past the newest event or
+  past the retention.
+- `tables.v1.ImportCandidate.header_row` documents that it counts from 1, as
+  a spreadsheet numbers its rows, and that 0 means no header row.
 - `elephant.tables.v1` is declared at `elephant/tables/v1/service.proto`, with
   the messages generated into `elephant/tables/v1` and connect-go's clients
   and handlers into `elephant/tables/v1/tablesv1connect`.

@@ -1794,17 +1794,27 @@ func (UnimplementedImportsServiceHandler) GetJob(context.Context, *connect.Reque
 
 // EventsServiceClient is a client for the elephant.tables.v1.EventsService service.
 type EventsServiceClient interface {
-	// WatchEvents streams the events after an event id, in order and
-	// without gaps, and goes on streaming them as they happen.
+	// WatchEvents streams the events after an event id, in order, and goes
+	// on streaming them as they happen. The first message is a heartbeat,
+	// sent as soon as the stream is open.
+	//
+	// The stream carries only the events of databases whose owning
+	// document the caller may read, checked with the caller's token as
+	// every database-scoped call is. Ids increase but, for that reason,
+	// need not be consecutive on one stream. Events carry ids and cursors,
+	// never table contents.
 	//
 	// The stream ends with token_expired (code unauthenticated) when the
-	// caller's token expires, and with code unavailable when the serving
-	// pod shuts down. Either way the client resumes with after set to the
-	// last event id it received. The reason is in the error metadata under
-	// "reason".
+	// caller's token expires, and with lease_moved (code unavailable) when
+	// the serving pod shuts down. Either way the client resumes with after
+	// set to the last event id it received. It ends with cursor_invalid
+	// (code failed_precondition) when after is past the newest event, or
+	// the events after it are older than the log's retention and gone:
+	// the client starts over from 0 and reloads what it follows. The
+	// reason is in the error metadata under "reason".
 	//
-	// Auth: the doc_read scope. Events carry ids and cursors, never table
-	// contents.
+	// Auth: the doc_read scope, and read permission on an event's owning
+	// document for the event to be sent.
 	WatchEvents(context.Context, *connect.Request[v1.WatchEventsRequest]) (*connect.ServerStreamForClient[v1.WatchEventsResponse], error)
 }
 
@@ -1840,17 +1850,27 @@ func (c *eventsServiceClient) WatchEvents(ctx context.Context, req *connect.Requ
 
 // EventsServiceHandler is an implementation of the elephant.tables.v1.EventsService service.
 type EventsServiceHandler interface {
-	// WatchEvents streams the events after an event id, in order and
-	// without gaps, and goes on streaming them as they happen.
+	// WatchEvents streams the events after an event id, in order, and goes
+	// on streaming them as they happen. The first message is a heartbeat,
+	// sent as soon as the stream is open.
+	//
+	// The stream carries only the events of databases whose owning
+	// document the caller may read, checked with the caller's token as
+	// every database-scoped call is. Ids increase but, for that reason,
+	// need not be consecutive on one stream. Events carry ids and cursors,
+	// never table contents.
 	//
 	// The stream ends with token_expired (code unauthenticated) when the
-	// caller's token expires, and with code unavailable when the serving
-	// pod shuts down. Either way the client resumes with after set to the
-	// last event id it received. The reason is in the error metadata under
-	// "reason".
+	// caller's token expires, and with lease_moved (code unavailable) when
+	// the serving pod shuts down. Either way the client resumes with after
+	// set to the last event id it received. It ends with cursor_invalid
+	// (code failed_precondition) when after is past the newest event, or
+	// the events after it are older than the log's retention and gone:
+	// the client starts over from 0 and reloads what it follows. The
+	// reason is in the error metadata under "reason".
 	//
-	// Auth: the doc_read scope. Events carry ids and cursors, never table
-	// contents.
+	// Auth: the doc_read scope, and read permission on an event's owning
+	// document for the event to be sent.
 	WatchEvents(context.Context, *connect.Request[v1.WatchEventsRequest], *connect.ServerStream[v1.WatchEventsResponse]) error
 }
 

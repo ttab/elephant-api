@@ -6570,7 +6570,9 @@ type Snapshot struct {
 	Pinned bool `protobuf:"varint,9,opt,name=pinned,proto3" json:"pinned,omitempty"`
 	// When the snapshot was taken.
 	Created *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created,proto3" json:"created,omitempty"`
-	// When the snapshot is deleted. Set for exports.
+	// When the snapshot is deleted. Set for exports and restore points;
+	// unset for publish snapshots, which are kept while a publication of
+	// theirs is linked.
 	Expires       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=expires,proto3" json:"expires,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7937,7 +7939,9 @@ type ImportCandidate struct {
 	// Where it is in the source: a sheet such as "Blad1", a range such as
 	// "Blad1!A3:F23", or a table name.
 	Source string `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
-	// Row of the header in the source.
+	// Row of the header in the source, counted from 1 as a spreadsheet
+	// numbers its rows. 0 means the candidate has no header row: every row
+	// is data and the columns are named by their position.
 	HeaderRow int32 `protobuf:"varint,4,opt,name=header_row,json=headerRow,proto3" json:"header_row,omitempty"`
 	// What to do with the candidate.
 	Mode ImportMode `protobuf:"varint,5,opt,name=mode,proto3,enum=elephant.tables.v1.ImportMode" json:"mode,omitempty"`
@@ -8432,7 +8436,9 @@ type ImportJob struct {
 	// Cells others changed after the base, which kept their values.
 	Conflicts []*CellConflict `protobuf:"bytes,7,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
 	// Cells that did not convert, by source coordinates.
-	Failures      []*CellError `protobuf:"bytes,8,rep,name=failures,proto3" json:"failures,omitempty"`
+	Failures []*CellError `protobuf:"bytes,8,rep,name=failures,proto3" json:"failures,omitempty"`
+	// Why the job failed, for a person to read. Set when state is failed.
+	Error         string `protobuf:"bytes,9,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8523,6 +8529,13 @@ func (x *ImportJob) GetFailures() []*CellError {
 	return nil
 }
 
+func (x *ImportJob) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 type WatchEventsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Resume after this event id. 0 starts from the oldest retained event.
@@ -8570,7 +8583,9 @@ func (x *WatchEventsRequest) GetAfter() int64 {
 
 type WatchEventsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The next event.
+	// The next event. Unset on a heartbeat: the first message of a stream,
+	// and one every 30 seconds in which no event was sent, so that the
+	// client knows the stream is open and alive.
 	Event         *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -9274,7 +9289,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\rGetJobRequest\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\"A\n" +
 	"\x0eGetJobResponse\x12/\n" +
-	"\x03job\x18\x01 \x01(\v2\x1d.elephant.tables.v1.ImportJobR\x03job\"\xcf\x02\n" +
+	"\x03job\x18\x01 \x01(\v2\x1d.elephant.tables.v1.ImportJobR\x03job\"\xe5\x02\n" +
 	"\tImportJob\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x1a\n" +
@@ -9283,7 +9298,8 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06cursor\x18\x05 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x129\n" +
 	"\aapplied\x18\x06 \x01(\v2\x1f.elephant.tables.v1.DiffSummaryR\aapplied\x12>\n" +
 	"\tconflicts\x18\a \x03(\v2 .elephant.tables.v1.CellConflictR\tconflicts\x129\n" +
-	"\bfailures\x18\b \x03(\v2\x1d.elephant.tables.v1.CellErrorR\bfailures\"*\n" +
+	"\bfailures\x18\b \x03(\v2\x1d.elephant.tables.v1.CellErrorR\bfailures\x12\x14\n" +
+	"\x05error\x18\t \x01(\tR\x05error\"*\n" +
 	"\x12WatchEventsRequest\x12\x14\n" +
 	"\x05after\x18\x01 \x01(\x03R\x05after\"F\n" +
 	"\x13WatchEventsResponse\x12/\n" +

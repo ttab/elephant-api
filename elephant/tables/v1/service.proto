@@ -1455,7 +1455,9 @@ message Snapshot {
   bool pinned = 9;
   // When the snapshot was taken.
   google.protobuf.Timestamp created = 10;
-  // When the snapshot is deleted. Set for exports.
+  // When the snapshot is deleted. Set for exports and restore points;
+  // unset for publish snapshots, which are kept while a publication of
+  // theirs is linked.
   google.protobuf.Timestamp expires = 11;
 }
 
@@ -1741,7 +1743,9 @@ message ImportCandidate {
   // Where it is in the source: a sheet such as "Blad1", a range such as
   // "Blad1!A3:F23", or a table name.
   string source = 3;
-  // Row of the header in the source.
+  // Row of the header in the source, counted from 1 as a spreadsheet
+  // numbers its rows. 0 means the candidate has no header row: every row
+  // is data and the columns are named by their position.
   int32 header_row = 4;
   // What to do with the candidate.
   ImportMode mode = 5;
@@ -1831,6 +1835,8 @@ message ImportJob {
   repeated CellConflict conflicts = 7;
   // Cells that did not convert, by source coordinates.
   repeated CellError failures = 8;
+  // Why the job failed, for a person to read. Set when state is failed.
+  string error = 9;
 }
 
 // ---------- Events ----------
@@ -1840,17 +1846,27 @@ message ImportJob {
 // leaves the service. Agents and other services follow it, and open a
 // Watch only for the databases they display or act on.
 service EventsService {
-  // WatchEvents streams the events after an event id, in order and
-  // without gaps, and goes on streaming them as they happen.
+  // WatchEvents streams the events after an event id, in order, and goes
+  // on streaming them as they happen. The first message is a heartbeat,
+  // sent as soon as the stream is open.
+  //
+  // The stream carries only the events of databases whose owning
+  // document the caller may read, checked with the caller's token as
+  // every database-scoped call is. Ids increase but, for that reason,
+  // need not be consecutive on one stream. Events carry ids and cursors,
+  // never table contents.
   //
   // The stream ends with token_expired (code unauthenticated) when the
-  // caller's token expires, and with code unavailable when the serving
-  // pod shuts down. Either way the client resumes with after set to the
-  // last event id it received. The reason is in the error metadata under
-  // "reason".
+  // caller's token expires, and with lease_moved (code unavailable) when
+  // the serving pod shuts down. Either way the client resumes with after
+  // set to the last event id it received. It ends with cursor_invalid
+  // (code failed_precondition) when after is past the newest event, or
+  // the events after it are older than the log's retention and gone:
+  // the client starts over from 0 and reloads what it follows. The
+  // reason is in the error metadata under "reason".
   //
-  // Auth: the doc_read scope. Events carry ids and cursors, never table
-  // contents.
+  // Auth: the doc_read scope, and read permission on an event's owning
+  // document for the event to be sent.
   rpc WatchEvents(WatchEventsRequest) returns (stream WatchEventsResponse);
 }
 
@@ -1860,7 +1876,9 @@ message WatchEventsRequest {
 }
 
 message WatchEventsResponse {
-  // The next event.
+  // The next event. Unset on a heartbeat: the first message of a stream,
+  // and one every 30 seconds in which no event was sent, so that the
+  // client knows the stream is open and alive.
   Event event = 1;
 }
 
