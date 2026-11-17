@@ -4,6 +4,55 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.30.0] - Unreleased
+
+**New service (tables):** `elephant.tables.v1` is the declaration for
+elephant-tables, which gives a document its own tabular data in one SQLite
+database per owning document. It is six services in one package:
+`DatabasesService` (create, describe, fork, restore in place, history,
+recovery from a lost replica, delete), `SchemaService` (tables and columns,
+type changes with a dry run), `DataService` (rows, mutations, undo,
+read-only SQL, column summaries, agent suggestions, presence, and the
+`Watch` change stream), `SnapshotsService` (export
+snapshots and publications), `ImportsService` (upload, analyze, apply) and
+`EventsService` (the tenant's coarse event log, over the `WatchEvents`
+stream). Nothing serves it yet. Go consumers import
+`github.com/ttab/elephant-api/elephant/tables/v1` and
+`github.com/ttab/elephant-api/elephant/tables/v1/tablesv1connect`.
+
+**Connect only, on connect-go's own interface:** like collab, tables is in
+the versioned layout and declares streams, so `tablesv1connect` holds only
+connect-go's `New<Service>Client` and `New<Service>Handler`. There is no
+`/twirp/` mount and no plain-interface adapter. Both streams are server
+streams and need no HTTP/2 transport.
+
+Changes:
+
+- `elephant.tables.v1` is declared at `elephant/tables/v1/service.proto`, with
+  the messages generated into `elephant/tables/v1` and connect-go's clients
+  and handlers into `elephant/tables/v1/tablesv1connect`.
+- The README's service table and Connect client section describe it.
+- A database whose newest replica has nothing restorable refuses to open
+  with `failed_precondition` and the reason `recovery_needed`.
+  `GetDatabaseResponse.recovery` (`DatabaseRecovery`) reports the lost
+  epochs, when the lost version was last saved, the epoch and TXID offered
+  instead with the time of its newest restorable version, and the epoch
+  the offer cuts short when only the end of the newest replica is missing,
+  without opening the database. `DatabasesService.RecoverDatabase` accepts
+  the offer, with doc_write and the caller's token, and logs a `recovered`
+  event; cursors from the skipped epochs are invalid afterwards. The
+  request echoes the whole offer (lost epochs, offered epoch and TXID,
+  truncated epoch) and is refused with `failed_precondition` when any part
+  of it no longer matches, so an old warning cannot be accepted after the
+  situation has changed.
+- `DataService.Summarize` returns the distribution of one column for a table
+  widget at card size: a count per value for a choice or boolean column, a
+  histogram for an integer, number, decimal, date or datetime column (decimal
+  values treated as numbers), plus empty and
+  other counts. `Table.summary_column` names the column summarised by
+  default, and `UpdateTableRequest.summary_column` sets it; an empty
+  `UpdateTableRequest.name` now leaves the name unchanged.
+
 ## [v0.29.4] - 2026-11-16
 
 Changes:

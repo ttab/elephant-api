@@ -21,6 +21,7 @@ Consuming the Go code needs Go 1.27 or later.
 | **Replicant** | `elephant.replicant` | Document replication between repository instances. Configure replication targets that follow a source repository's event log and replicate documents onward. | [proto](replicant/service.proto) |
 | **User** | `elephant.user` | Per-user settings, messaging and document comments. Store user settings documents and key-value properties, push/poll user and inbox messages, and keep comment threads on repository documents. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) |
 | **Collab** | `elephant.collab.v1` | Collaborative editing. Materialize live Y.Doc state into repository versions, manage freezes and sketches, inspect and administer sessions, and edit live over the `Collaborate` stream. | [proto](elephant/collab/v1/service.proto) |
+| **Tables** | `elephant.tables.v1` | Tabular data owned by documents: databases, schemas, rows and read-only SQL, live changes over `Watch`, snapshots and publications, imports, and a coarse event log. | [proto](elephant/tables/v1/service.proto) |
 
 The [`newsdoc`](newsdoc/newsdoc.proto) package carries the shared NewsDoc
 document model used across the services. It is generated from the
@@ -29,14 +30,15 @@ document model used across the services. It is generated from the
 `elephant.repositorysocket` declares only message types, so it has no clients
 and no `…connect` package.
 
-`elephant.collab.v1` is Connect-only, and the one service that is not on the
-plain protobuf service interface. It declares a bidirectional stream,
-`Collaborate`, which an interface returning a single response has no room for,
-so neither Twirp nor the Connect adapters are generated for it: there is no
-`/twirp/` mount and no `New<Service>ServiceClient`. Its clients and handlers
-are connect-go's own, described under [Connect clients](#connect-clients). It
-is also the first declaration in the versioned layout, `elephant/collab/v1/`,
-which is where new services go.
+`elephant.collab.v1` and `elephant.tables.v1` are Connect-only, and are not
+on the plain protobuf service interface. Both declare streams — collab the
+bidirectional `Collaborate`, tables the server streams `DataService.Watch` and
+`EventsService.WatchEvents` — which an interface returning a single response
+has no room for, so neither Twirp nor the Connect adapters are generated for
+them: there is no `/twirp/` mount and no `New<Service>ServiceClient`. Their
+clients and handlers are connect-go's own, described under
+[Connect clients](#connect-clients). Collab was the first declaration in the
+versioned layout, `elephant/collab/v1/`, which is where new services go.
 
 ## Using the APIs
 
@@ -98,6 +100,12 @@ connect-go's, there is no plain interface to adapt to, and a caller reads and
 writes `*connect.Request[T]` and `*connect.Response[T]` directly. The
 `Collaborate` stream is bidirectional, so a client for it needs an HTTP/2
 transport; the unary RPCs on the same service do not.
+
+`elephant/tables/v1/tablesv1connect` is the same: connect-go's
+`New<Service>Client` and `New<Service>Handler` for each of `DatabasesService`,
+`SchemaService`, `DataService`, `SnapshotsService`, `ImportsService` and
+`EventsService`, and nothing else. Its streams are server streams, which
+Connect also carries over HTTP/1.1, so they need no HTTP/2 transport.
 
 #### Twirp clients
 
