@@ -4,7 +4,8 @@ Protobuf API declarations for the Elephant platform. Each service is defined in
 a `service.proto` file and shipped with generated Go code for two protocols:
 [Connect](https://connectrpc.com/) and
 [Twirp](https://github.com/twitchtv/twirp), which is what the platform served
-before Connect and is still served for every service but `elephant.collab.v1`.
+before Connect and is still served for every service outside the versioned
+layout under `elephant/`.
 A Connect mount also answers gRPC and gRPC-Web on the same paths, but only from
 inside the cluster — see [Other languages](#other-languages).
 
@@ -21,6 +22,8 @@ Consuming the Go code needs Go 1.27 or later.
 | **Replicant** | `elephant.replicant` | Document replication between repository instances. Configure replication targets that follow a source repository's event log and replicate documents onward. | [proto](replicant/service.proto) |
 | **User** | `elephant.user` | Per-user settings, messaging and document comments. Store user settings documents and key-value properties, push/poll user and inbox messages, and keep comment threads on repository documents. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) |
 | **Collab** | `elephant.collab.v1` | Collaborative editing. Materialize live Y.Doc state into repository versions, manage freezes and sketches, inspect and administer sessions, and edit live over the `Collaborate` stream. | [proto](elephant/collab/v1/service.proto) |
+| **Stream** | `elephant.stream.v1` | Live events and their media, served by elephant-stream. The event lifecycle (`ControlService`), signed playback URLs and downloads (`PlaybackService`), clips (`ClipService`), audio for transcription (`AudioService`), transcripts (`TranscriptService`), chunked uploads (`UploadService`) and the photo outbox (`PhotoService`). | [protos](elephant/stream/v1/) |
+| **Delegate** | `elephant.delegate.v1` | Tokens for the Elephant CMS app's native shell, served by elephant-delegate. Every token is derived from the caller's own and carries no more power than it. | [proto](elephant/delegate/v1/service.proto) |
 
 The [`newsdoc`](newsdoc/newsdoc.proto) package carries the shared NewsDoc
 document model used across the services. It is generated from the
@@ -37,6 +40,12 @@ so neither Twirp nor the Connect adapters are generated for it: there is no
 are connect-go's own, described under [Connect clients](#connect-clients). It
 is also the first declaration in the versioned layout, `elephant/collab/v1/`,
 which is where new services go.
+
+`elephant.stream.v1` and `elephant.delegate.v1` are in the versioned layout
+too, and so are Connect-only in the same way: no Twirp and no plain interface,
+only connect-go's clients and handlers in `streamv1connect` and
+`delegatev1connect`. `elephant.stream.v1` is spread over several files, one
+per service, rather than a single `service.proto`.
 
 ## Using the APIs
 

@@ -20,6 +20,12 @@ Changes:
   are set on every event a restore emits, `restore_finished` included;
   `delete_record_id` stays reserved for delete events. Both are empty for
   documents that weren't created by a restore.
+- New packages `elephant.stream.v1` and `elephant.delegate.v1`, the APIs of
+  elephant-stream and elephant-delegate, moved here from those repositories
+  unchanged on the wire. The Go packages are now
+  `github.com/ttab/elephant-api/elephant/stream/v1` (`streamv1`) and
+  `github.com/ttab/elephant-api/elephant/delegate/v1` (`delegatev1`), with
+  Connect clients and handlers in `streamv1connect` and `delegatev1connect`.
 
 ## [v0.29.4] - 2026-11-16
 

@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package elephant.delegate.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/delegate/v1;delegatev1";
+
+// DelegateService issues tokens for the Elephant CMS app's native shell. Every
+// token it issues is derived from the caller's own token, the one in the
+// Authorization header, and neither method can produce a token with more
+// power than the caller already has.
+service DelegateService {
+  // NarrowToken attenuates the caller's token claim by claim. The caller's
+  // token is either an Elephant session token or an earlier token from this
+  // service. Narrowing a token that carries a cnf claim requires a DPoP proof
+  // for that key in the DPoP header.
+  rpc NarrowToken(NarrowTokenRequest) returns (NarrowTokenResponse);
+  // MintDocumentToken mints a device-bound token for one capability on one
+  // document, optionally narrowed to one assignment within it, after
+  // checking with the repository, using the caller's own token, that the
+  // caller may write to the document, and that the caller's session carries
+  // the capability scope. Streaming from an assignment or uploading photos
+  // to it are examples of such capabilities.
+  rpc MintDocumentToken(MintDocumentTokenRequest) returns (MintDocumentTokenResponse);
+}
+
+message NarrowTokenRequest {
+  // Scopes the narrowed token carries. Each one must be a scope of the input
+  // token, or a suffixable one with a single suffix that restricts it to one
+  // document, as in "doc_read:<document uuid>". The suffix grants nothing:
+  // the repository still checks its ACLs. Leave empty to keep the input's
+  // scopes.
+  repeated string scopes = 1;
+  // Lifetime of the narrowed token in seconds. The token never outlives the
+  // input token. Zero gives the service's default narrowed lifetime.
+  int64 lifetime_seconds = 2;
+  // Audiences of the narrowed token. When the input token has an audience,
+  // each one must be among the input's, and the narrowed token's aud is
+  // exactly this set: a single string when there is one. When the input has
+  // none, any audiences can be given. Leave empty to keep the input's
+  // audience, or to get the service's default when the input has none.
+  repeated string audiences = 3;
+  // Device key to bind the token to. It can only be added when the input
+  // token is not already bound to a key, or must be the key it is bound to.
+  PublicKey device_key = 4;
+}
+
+message NarrowTokenResponse {
+  // The narrowed token.
+  string token = 1;
+  // Expiry of the token, as Unix seconds.
+  int64 expires = 2;
+  // "DPoP" for a token bound to a device key, otherwise "Bearer".
+  string token_type = 3;
+}
+
+message MintDocumentTokenRequest {
+  // UUID of the document the token is bound to.
+  string document_uuid = 1;
+  // UUID of an assignment within the document, to bind the token to that
+  // assignment only. Optional.
+  string assignment_uuid = 2;
+  // Capability scope the token carries, such as "stream": what the holder
+  // may do with the document or assignment. The caller's session must carry
+  // it, and the service must have the capability configured.
+  string capability = 3;
+  // Device key to bind the token to, such as the shell's Secure Enclave key.
+  PublicKey device_key = 4;
+}
+
+message MintDocumentTokenResponse {
+  // The minted token.
+  string token = 1;
+  // Expiry of the token, as Unix seconds.
+  int64 expires = 2;
+  // Always "DPoP", since minted tokens are bound to a device key.
+  string token_type = 3;
+}
+
+// PublicKey is an elliptic curve public key in JWK form (RFC 7517). Only P-256
+// keys are accepted.
+message PublicKey {
+  // Key type, "EC".
+  string kty = 1;
+  // Curve, "P-256".
+  string crv = 2;
+  // X coordinate, base64url without padding.
+  string x = 3;
+  // Y coordinate, base64url without padding.
+  string y = 4;
+}

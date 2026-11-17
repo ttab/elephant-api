@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package elephant.stream.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/stream/v1;streamv1";
+
+// AudioService serves an event's audio to transcription and other
+// processing services, without their downloading any video. Every event has
+// an audio track: the audio of a video event, extracted at segmentation,
+// and the only track of an audio event.
+//
+// Allowed to the callers that may see the event with ControlService.GetEvent
+// (a token bound to its planning document, and to its assignment when the
+// token names one; its creator; stream_admin; anyone the repository lets
+// read the planning document), and to a processing service with the
+// stream_audio_read scope, for any event. Every StreamAudio call is logged
+// with the caller's subject and client.
+service AudioService {
+  // StreamAudio streams the event's audio track segment by segment, in
+  // order, starting at from. While the event is live it follows the live
+  // edge, a segment (about 2 s) behind the phone; it ends once the event
+  // is finalised and every segment has been sent, so one StreamAudio call
+  // serves live processing, catch-up and the finished event alike.
+  //
+  // Each message is one fMP4 segment of AAC as recorded, with its
+  // program-date-time, which is the timeline the playlists and
+  // clip marking use. The init segment comes with the first message and
+  // again whenever it changes, at a reconnect. A discontinuity, at a
+  // reconnect or where segments were lost, means the decoder's timestamps
+  // start again.
+  //
+  // An event that turns out to have no audio, because every connection so
+  // far has come from a phone sending video alone, or because it ended
+  // without any, fails with failed_precondition. A StreamAudio call that fails
+  // or is cut off resumes with from set to the last message's program-date-time
+  // plus its duration.
+  rpc StreamAudio(StreamAudioRequest) returns (stream StreamAudioResponse);
+}
+
+message StreamAudioRequest {
+  string event_id = 1;
+  // Where to start, RFC 3339: the first segment that ends after it. Empty
+  // for the start of the event.
+  string from = 2;
+  // The archive generation to read, zero for the event's current one, which
+  // is what a final transcript job of a generation passes. Only the current
+  // generation is kept: any other is not_found, and a StreamAudio call whose
+  // generation is replaced while it runs ends with not_found.
+  int32 archive_generation = 3;
+}
+
+message StreamAudioResponse {
+  // The segment's sequence number on the audio track. It never means the
+  // same time as the same number on the event's muxed track.
+  int64 sequence = 1;
+  // When the segment starts, RFC 3339 with microseconds.
+  string program_date_time = 2;
+  int64 duration_microseconds = 3;
+  // Set when the decoder's timestamps start again at this segment.
+  bool discontinuity = 4;
+  // The fMP4 init segment the segment needs, when it differs from the one
+  // sent last; empty otherwise.
+  bytes init_segment = 5;
+  // The fMP4 media segment.
+  bytes segment = 6;
+}

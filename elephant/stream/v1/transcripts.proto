@@ -1,0 +1,960 @@
+syntax = "proto3";
+
+package elephant.stream.v1;
+
+import "elephant/stream/v1/service.proto";
+
+option go_package = "github.com/ttab/elephant-api/elephant/stream/v1;streamv1";
+
+// TranscriptService holds the transcripts of events: words and speaker
+// spans on the program-date-time timeline, written by a transcription
+// service and read by the editorial GUI.
+//
+// Work is handed out as leased jobs. elephant-stream queues a live job when
+// an event goes live, and a final job for each archive generation: once the
+// event is finalised, again whenever a replacement moves it to a new
+// generation, and when its language is changed with
+// ControlService.SetEventLanguage. A job carries the event's language,
+// which picks the model; a transcriber that has no model for it releases
+// the job as unsupported. A job nobody claims, such as a live job of a
+// tenant whose transcriber is at its cap, stays queued and is reported as
+// waiting.
+//
+// The job and write methods (ClaimJob to CompleteRun) are allowed to
+// services with the stream_transcript_write scope, never to a token bound
+// to a planning document, and every write carries the lease token of its
+// job. A write whose lease was taken over by another worker, whose job was
+// superseded or released, or whose event was deleted, is refused with
+// aborted: the worker drops the job.
+//
+// The read methods (StreamTranscript, GetTranscript, GetTranscriptStatus)
+// are allowed to the callers that may see the event with
+// ControlService.GetEvent; a service with stream_playback alone gets
+// nothing. The corrections (CorrectWords, RevertCorrection), the speaker
+// changes (ReassignSpeaker, RevertSpeakerReassignment, NameSpeaker), the
+// inserted segments (InsertSegment, RevertInsertedSegment) and the skips
+// (SkipWords, RevertSkip) are allowed to the callers that may
+// ControlService.FinishEvent the event, never to a service. So are the
+// paragraph edits (SplitParagraph, MergeParagraphs, RevertParagraphEdit),
+// the proofread marks (MarkProofread, RevertProofread) and
+// SetSpeakerInterviewer.
+//
+// The bookmarks (AddBookmark, ListBookmarks) are allowed to the people who
+// may see the event, never to a service; RemoveBookmark to the one who set
+// the bookmark and the callers that may finish the event.
+service TranscriptService {
+  // ClaimJob leases the job of the kinds asked for that has waited
+  // longest, live jobs before final ones, waiting for one when there is
+  // none yet. A job whose lease has run out may be claimed again by
+  // another worker, which gets a new lease token; the old one is refused
+  // from then on.
+  rpc ClaimJob(ClaimJobRequest) returns (ClaimJobResponse);
+  // RenewLease extends a lease by the lease time from now.
+  rpc RenewLease(RenewLeaseRequest) returns (RenewLeaseResponse);
+  // ReleaseJob ends a lease: the job is done, unsupported, failed, or
+  // given back for another worker to claim.
+  rpc ReleaseJob(ReleaseJobRequest) returns (ReleaseJobResponse);
+
+  // StartRun opens a run for the job: the event's one live transcript, or a
+  // final job's transcript, diarization or attribution. The live job of an
+  // AUDIO_LAYOUT_CALL_STEREO event also makes the event's one live
+  // attribution, of the live transcript, attributing the words by channel
+  // as they commit. The live runs are made once per event and returned
+  // again to every later StartRun of the live job, for a worker taking
+  // over from one that stopped; resume them from GetRunProgress. A final
+  // job's StartRun always makes a new run.
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
+  // GetRunProgress says where a run stands, for a worker resuming it.
+  rpc GetRunProgress(GetRunProgressRequest) returns (GetRunProgressResponse);
+  // CommitWords appends words to a transcript run. Committed words are
+  // never revised.
+  rpc CommitWords(CommitWordsRequest) returns (CommitWordsResponse);
+  // PutSpeakerSpans appends speaker spans to a diarization run.
+  rpc PutSpeakerSpans(PutSpeakerSpansRequest) returns (PutSpeakerSpansResponse);
+  // PutAttributions records the speaker of words of a transcript run in
+  // an attribution run.
+  rpc PutAttributions(PutAttributionsRequest) returns (PutAttributionsResponse);
+  // CompleteRun makes a final run visible; until then no reader sees it.
+  // Completing the live transcript ends the StreamTranscript calls that
+  // follow it. Completing a completed run changes nothing.
+  rpc CompleteRun(CompleteRunRequest) returns (CompleteRunResponse);
+
+  // StreamTranscript streams the live words of an event as they commit,
+  // from an ordinal, and ends when the live run completes, or when the
+  // live job ends without completing it. It waits for the live run to
+  // start, and ends at once for an event that will have none: an uploaded
+  // recording, one that has ended without a live job to make it, or one
+  // whose live job was released as unsupported or failed.
+  rpc StreamTranscript(StreamTranscriptRequest) returns (stream StreamTranscriptResponse);
+  // GetTranscript returns the words of an event from the layer asked for,
+  // each attributed to a speaker when an attribution of that run exists.
+  // By default it is the completed final layer of the event's current
+  // archive generation with its corrections applied, and the live run
+  // until there is one.
+  rpc GetTranscript(GetTranscriptRequest) returns (GetTranscriptResponse);
+  // GetTranscriptStatus says where an event's transcription stands, for
+  // the media center.
+  rpc GetTranscriptStatus(GetTranscriptStatusRequest) returns (GetTranscriptStatusResponse);
+
+  // CorrectWords replaces a stretch of words of a completed final
+  // transcript run with new text, recording who corrected it and when. The
+  // machine's words are never changed. A later correction of an
+  // overlapping stretch supersedes it.
+  rpc CorrectWords(CorrectWordsRequest) returns (CorrectWordsResponse);
+  // RevertCorrection withdraws a correction. Corrections it superseded
+  // stand again. Reverting a reverted correction changes nothing.
+  rpc RevertCorrection(RevertCorrectionRequest) returns (RevertCorrectionResponse);
+
+  // ReassignSpeaker attributes a stretch of words of a completed final
+  // transcript run to another speaker, an existing label of the run or a
+  // new one, recording who did it and when. The machine's attribution is
+  // never changed. Of the reassignments covering a word the latest decides
+  // its speaker, so a later reassignment of an overlapping stretch
+  // supersedes an earlier one for the words they share.
+  rpc ReassignSpeaker(ReassignSpeakerRequest) returns (ReassignSpeakerResponse);
+  // RevertSpeakerReassignment withdraws a reassignment. The words it
+  // covered get their speaker from the reassignments before it, or from the
+  // machine's attribution, again. Reverting a reverted reassignment changes
+  // nothing.
+  rpc RevertSpeakerReassignment(RevertSpeakerReassignmentRequest) returns (RevertSpeakerReassignmentResponse);
+  // NameSpeaker gives a speaker label of a completed final transcript run a
+  // display name, and optionally links it to a person entity of the
+  // repository, or clears them. Each request sets both.
+  rpc NameSpeaker(NameSpeakerRequest) returns (NameSpeakerResponse);
+
+  // InsertSegment adds text the transcription left out, such as an
+  // interjection spoken over someone else, to a completed final transcript
+  // run: a segment spoken by a speaker of the run, or a new one, between
+  // two of its words or before the first, recording who added it and when.
+  // The machine's words are never changed. Segments inserted at the same
+  // place are read in the order they were made.
+  rpc InsertSegment(InsertSegmentRequest) returns (InsertSegmentResponse);
+  // RevertInsertedSegment withdraws an inserted segment. Reverting a
+  // reverted segment changes nothing.
+  rpc RevertInsertedSegment(RevertInsertedSegmentRequest) returns (RevertInsertedSegmentResponse);
+
+  // SkipWords marks a stretch of words of a completed final transcript run
+  // as skipped: talk that doesn't matter, which a reader collapses and a
+  // player passes over until it is opened. It records who skipped it and
+  // when, and the stretch's time range. The machine's words are never
+  // changed, and skips may overlap.
+  rpc SkipWords(SkipWordsRequest) returns (SkipWordsResponse);
+  // RevertSkip withdraws a skip. Reverting a reverted skip changes nothing.
+  rpc RevertSkip(RevertSkipRequest) returns (RevertSkipResponse);
+
+  // SplitParagraph makes a stretch of words of a completed final transcript
+  // run a paragraph of its own: one starts at its first word, and another
+  // after its last. It records who split it and when.
+  rpc SplitParagraph(SplitParagraphRequest) returns (SplitParagraphResponse);
+  // MergeParagraphs keeps a stretch of words of a completed final
+  // transcript run in one paragraph, the paragraphs it touches whole: the
+  // stretch is widened to the paragraphs its first and last words are in.
+  // Refused when the words don't all have the same speaker. A later change
+  // of speaker inside it still starts a paragraph, as an inserted segment
+  // does.
+  rpc MergeParagraphs(MergeParagraphsRequest) returns (MergeParagraphsResponse);
+  // RevertParagraphEdit withdraws a split or a merge. Reverting a reverted
+  // edit changes nothing.
+  rpc RevertParagraphEdit(RevertParagraphEditRequest) returns (RevertParagraphEditResponse);
+
+  // MarkProofread records that paragraphs of a completed final transcript
+  // run were proofread, by whom and when: the paragraphs a stretch of words
+  // touches, whole, and inserted segments. A paragraph counts as proofread
+  // while standing marks cover all of it. A change to anything a mark
+  // covers made after it, a correction, a reassignment, a skip, a segment
+  // inserted inside it, a paragraph edit, or the revert of one, makes the
+  // mark stale.
+  rpc MarkProofread(MarkProofreadRequest) returns (MarkProofreadResponse);
+  // RevertProofread withdraws a proofread mark. Reverting a reverted mark
+  // changes nothing.
+  rpc RevertProofread(RevertProofreadRequest) returns (RevertProofreadResponse);
+
+  // SetSpeakerInterviewer says whether a speaker label of a completed final
+  // transcript run is an interviewer, whose words a published interview
+  // sets in bold. The journalist of a call is one until someone says
+  // otherwise.
+  rpc SetSpeakerInterviewer(SetSpeakerInterviewerRequest) returns (SetSpeakerInterviewerResponse);
+
+  // AddBookmark marks a stretch of an event's transcript for finding again,
+  // by its time range on the program-date-time timeline, so that it points
+  // at the same words in the live and the final transcript. It records who
+  // set it and when, and the text the words read, which names it. Any
+  // layer of a transcript can be bookmarked, while the event is live too.
+  rpc AddBookmark(AddBookmarkRequest) returns (AddBookmarkResponse);
+  // ListBookmarks returns an event's standing bookmarks, everyone's, in the
+  // order they come in the recording.
+  rpc ListBookmarks(ListBookmarksRequest) returns (ListBookmarksResponse);
+  // RemoveBookmark withdraws a bookmark. Removing a removed bookmark
+  // changes nothing.
+  rpc RemoveBookmark(RemoveBookmarkRequest) returns (RemoveBookmarkResponse);
+}
+
+enum TranscriptJobKind {
+  TRANSCRIPT_JOB_KIND_UNSPECIFIED = 0;
+  // Follow the event while it is live.
+  TRANSCRIPT_JOB_KIND_LIVE = 1;
+  // Transcribe and diarize one archive generation of a finalised event.
+  TRANSCRIPT_JOB_KIND_FINAL = 2;
+}
+
+message TranscriptJob {
+  string id = 1;
+  // The event, as the tenant's elephant-stream knows it.
+  string event_id = 2;
+  TranscriptJobKind kind = 3;
+  // The archive generation to transcribe; for a live job, the one the
+  // event went live at.
+  int32 archive_generation = 4;
+  // The fencing token every write of the job carries.
+  string lease_token = 5;
+  // RFC 3339.
+  string lease_expires = 6;
+  // The event's language when the job was queued, a BCP 47 tag, which
+  // picks the model.
+  string language = 7;
+  // Which attempt at the job this lease is, from 1.
+  int32 attempt = 8;
+  // How the event's audio is laid out. For AUDIO_LAYOUT_CALL_STEREO the
+  // left channel is the journalist and the right the caller, and words are
+  // attributed by channel instead of by diarization.
+  AudioLayout audio_layout = 9;
+}
+
+message ClaimJobRequest {
+  // The kinds to claim; every kind when empty.
+  repeated TranscriptJobKind kinds = 1;
+  // How long to wait for a job when there is none, in seconds, at most 30.
+  int32 wait_seconds = 2;
+}
+
+message ClaimJobResponse {
+  // Unset when the wait ran out.
+  TranscriptJob job = 1;
+}
+
+message RenewLeaseRequest {
+  string lease_token = 1;
+}
+
+message RenewLeaseResponse {
+  // RFC 3339.
+  string lease_expires = 1;
+}
+
+enum ReleaseOutcome {
+  RELEASE_OUTCOME_UNSPECIFIED = 0;
+  // The job is finished.
+  RELEASE_OUTCOME_DONE = 1;
+  // Given back without having failed, such as at a worker's shutdown:
+  // another worker may claim it at once, and the attempt doesn't count.
+  RELEASE_OUTCOME_RETRY = 2;
+  // The attempt failed. The job is tried again after a backoff, and
+  // marked failed after its last attempt.
+  RELEASE_OUTCOME_FAILED = 3;
+  // No configured model covers the job's language. The job ends, and the
+  // event's transcript status says so.
+  RELEASE_OUTCOME_UNSUPPORTED = 4;
+}
+
+message ReleaseJobRequest {
+  string lease_token = 1;
+  ReleaseOutcome outcome = 2;
+  // Why the job failed or is unsupported, for operators and the media
+  // center; never audio or text from the event.
+  string reason = 3;
+}
+
+message ReleaseJobResponse {}
+
+enum RunKind {
+  RUN_KIND_UNSPECIFIED = 0;
+  RUN_KIND_TRANSCRIPT = 1;
+  RUN_KIND_DIARIZATION = 2;
+  // Word to speaker, combining a transcript run and a diarization run.
+  RUN_KIND_ATTRIBUTION = 3;
+}
+
+message StartRunRequest {
+  string lease_token = 1;
+  RunKind kind = 2;
+  // The model and its revision, "KlangAI/pianissimo-sv@{revision}".
+  string model = 3;
+  // For an attribution run, the runs it combines: a transcript run and a
+  // diarization run of the same event. An AUDIO_LAYOUT_CALL_STEREO event's
+  // words are attributed by channel, without a diarization run, so it may
+  // be left out for one; the live attribution names the live transcript.
+  string transcript_run_id = 4;
+  string diarization_run_id = 5;
+}
+
+message StartRunResponse {
+  string run_id = 1;
+  // The live transcript already existed, and this resumes it.
+  bool resumed = 2;
+}
+
+message GetRunProgressRequest {
+  string lease_token = 1;
+  string run_id = 2;
+}
+
+message GetRunProgressResponse {
+  // The ordinal of the next word, speaker span or attribution.
+  int64 next_ordinal = 1;
+  // Where the last committed word ends, RFC 3339 with microseconds; empty
+  // before the first.
+  string committed_until = 2;
+  bool completed = 3;
+}
+
+message Word {
+  string text = 1;
+  // When the word starts, RFC 3339 with microseconds, on the
+  // program-date-time timeline.
+  string start = 2;
+  int64 duration_microseconds = 3;
+  float confidence = 4;
+}
+
+message CommitWordsRequest {
+  string lease_token = 1;
+  string run_id = 2;
+  // The ordinal of the first word: the run's next ordinal, or that of a
+  // batch already stored, which is accepted again without being stored
+  // twice. Any later ordinal is refused with failed_precondition.
+  int64 first_ordinal = 3;
+  // At most 10,000.
+  repeated Word words = 4;
+  // The language the model hears, a BCP 47 tag, where it reports one.
+  string detected_language = 5;
+}
+
+message CommitWordsResponse {
+  int64 next_ordinal = 1;
+}
+
+message SpeakerSpan {
+  // A label local to its run, "S1".
+  string speaker = 1;
+  // RFC 3339 with microseconds.
+  string start = 2;
+  int64 duration_microseconds = 3;
+}
+
+message PutSpeakerSpansRequest {
+  string lease_token = 1;
+  string run_id = 2;
+  // The ordinal of the first span, with CommitWords' rule: the run's next
+  // ordinal, or that of a batch already stored.
+  int64 first_ordinal = 3;
+  // At most 10,000.
+  repeated SpeakerSpan spans = 4;
+}
+
+message PutSpeakerSpansResponse {
+  int64 next_ordinal = 1;
+}
+
+message Attribution {
+  // The word's ordinal in the transcript run.
+  int64 ordinal = 1;
+  // A speaker label of the diarization run. A call attributed by channel
+  // has two: "journalist" (the left channel) and "caller" (the right).
+  string speaker = 2;
+}
+
+message PutAttributionsRequest {
+  string lease_token = 1;
+  string run_id = 2;
+  // At most 10,000. The first attribution of a word stands; sending one
+  // again is accepted and changes nothing.
+  repeated Attribution attributions = 3;
+}
+
+message PutAttributionsResponse {}
+
+message CompleteRunRequest {
+  string lease_token = 1;
+  string run_id = 2;
+  // The language the model heard, a BCP 47 tag, where it reports one.
+  string detected_language = 3;
+}
+
+message CompleteRunResponse {}
+
+// TranscriptLayer is which transcript of an event to read.
+enum TranscriptLayer {
+  // The completed final layer of the current archive generation when
+  // there is one, the live layer otherwise.
+  TRANSCRIPT_LAYER_UNSPECIFIED = 0;
+  // What was shown while the event was live.
+  TRANSCRIPT_LAYER_LIVE = 1;
+  // The final layer of the current archive generation.
+  TRANSCRIPT_LAYER_FINAL = 2;
+}
+
+// TranscriptStatus is where an event's transcription stands.
+enum TranscriptStatus {
+  TRANSCRIPT_STATUS_UNSPECIFIED = 0;
+  // No transcription: the event has no language, no audio, or hasn't gone
+  // live.
+  TRANSCRIPT_STATUS_NONE = 1;
+  // The live job waits for a transcriber, which is at its capacity.
+  TRANSCRIPT_STATUS_WAITING = 2;
+  // A transcriber follows the event.
+  TRANSCRIPT_STATUS_LIVE = 3;
+  // The event has ended and its final transcript is being made; a final
+  // run made before it, in another language or of an earlier generation,
+  // may still be read.
+  TRANSCRIPT_STATUS_FINAL_PENDING = 4;
+  // The final transcript of the current generation is complete.
+  TRANSCRIPT_STATUS_COMPLETE = 5;
+  // No model covers the event's language.
+  TRANSCRIPT_STATUS_UNSUPPORTED = 6;
+  // Transcription failed for good.
+  TRANSCRIPT_STATUS_FAILED = 7;
+}
+
+// TranscriptRun is a run of a transcript job.
+message TranscriptRun {
+  string id = 1;
+  TranscriptLayer layer = 2;
+  RunKind kind = 3;
+  int32 archive_generation = 4;
+  // The language the job asked for, a BCP 47 tag.
+  string language = 5;
+  // The model and its revision.
+  string model = 6;
+  // The language the model heard, where it reports one.
+  string detected_language = 7;
+  // RFC 3339; completed is empty for a live run still being written.
+  string started = 8;
+  string completed = 9;
+  // How many words, speaker spans or attributions it holds.
+  int64 length = 10;
+}
+
+message TranscriptCorrection {
+  string id = 1;
+  string run_id = 2;
+  int64 first_ordinal = 3;
+  int64 last_ordinal = 4;
+  // The text that replaces the words; empty for words struck out.
+  string text = 5;
+  // The program-date-time range the corrected words cover: the start of the
+  // first and the end of the last, RFC 3339 with microseconds.
+  string start = 6;
+  string end = 7;
+  // The subject that made it, and when, RFC 3339.
+  string author = 8;
+  string created = 9;
+  // When and by whom it was reverted; empty while it stands.
+  string reverted = 10;
+  string reverted_by = 11;
+}
+
+// SpeakerReassignment attributes a stretch of words of a run to another
+// speaker.
+message SpeakerReassignment {
+  string id = 1;
+  string run_id = 2;
+  int64 first_ordinal = 3;
+  int64 last_ordinal = 4;
+  // The speaker label the words are attributed to.
+  string speaker = 5;
+  // The program-date-time range the words cover: the start of the first and the
+  // end of the last, RFC 3339 with microseconds.
+  string start = 6;
+  string end = 7;
+  // The subject that made it, and when, RFC 3339.
+  string author = 8;
+  string created = 9;
+  // When and by whom it was reverted; empty while it stands.
+  string reverted = 10;
+  string reverted_by = 11;
+}
+
+// InsertedSegment is text added to a run between two of its words, or
+// before the first: speech the transcription left out.
+message InsertedSegment {
+  string id = 1;
+  string run_id = 2;
+  // The ordinal of the word it follows; -1 for a segment before the first
+  // word.
+  int64 after_ordinal = 3;
+  // The speaker label of the run that speaks it.
+  string speaker = 4;
+  string text = 5;
+  // Where it sits on the program-date-time timeline, RFC 3339 with
+  // microseconds: the end of the word it follows, or the start of the
+  // first word for a segment before it. Its true time is somewhere in the
+  // stretch around it, which the transcription didn't hear; this is the
+  // time a quote or a clip of it starts from.
+  string time = 6;
+  // The subject that added it, and when, RFC 3339.
+  string author = 7;
+  string created = 8;
+  // When and by whom it was reverted; empty while it stands.
+  string reverted = 9;
+  string reverted_by = 10;
+}
+
+// TranscriptSkip is a stretch of a run's words marked as skipped.
+message TranscriptSkip {
+  string id = 1;
+  string run_id = 2;
+  // The first and last word it covers.
+  int64 first_ordinal = 3;
+  int64 last_ordinal = 4;
+  // The time range it covers on the program-date-time timeline, RFC 3339
+  // with microseconds: the start of its first word to the end of its last.
+  // What a player passes over.
+  string start = 5;
+  string end = 6;
+  // The subject that skipped it, and when, RFC 3339.
+  string author = 7;
+  string created = 8;
+  // When and by whom it was reverted; empty while it stands.
+  string reverted = 9;
+  string reverted_by = 10;
+}
+
+// TranscriptSpeaker is a speaker label of a transcript run.
+message TranscriptSpeaker {
+  // The label, local to the run: one of its attribution's, or one minted
+  // by ReassignSpeaker or InsertSegment for a new speaker.
+  string speaker = 1;
+  // The display name; empty until one is given. For a speaker linked to a
+  // person, what to show when the person can't be looked up.
+  string name = 2;
+  // Who gave the name, or cleared it last, and when, RFC 3339; empty when
+  // nobody has.
+  string named_by = 3;
+  string named = 4;
+  // The person entity the speaker is linked to, the UUID of a core/person
+  // document in the repository; empty when it isn't linked. It is stored
+  // as given: elephant-stream never reads the repository for it.
+  string person_uuid = 5;
+  // The speaker is an interviewer, see
+  // TranscriptService.SetSpeakerInterviewer.
+  bool interviewer = 6;
+  // Who said whether the speaker is an interviewer last, and when, RFC
+  // 3339; empty when nobody has.
+  string interviewer_set_by = 7;
+  string interviewer_set = 8;
+}
+
+// TranscriptWord is a word of a transcript, or a corrected stretch of words
+// that stands in their place.
+message TranscriptWord {
+  // The word's ordinal in its run; for a corrected stretch, the ordinal of
+  // its first word.
+  int64 ordinal = 1;
+  string text = 2;
+  // RFC 3339 with microseconds, on the program-date-time timeline.
+  string start = 3;
+  int64 duration_microseconds = 4;
+  float confidence = 5;
+  // The speaker, a label local to the run; empty without one. With
+  // speaker reassignments applied, the speaker they give the word.
+  string speaker = 6;
+  // Set on a corrected stretch, which stands for the words from ordinal
+  // to correction.last_ordinal.
+  TranscriptCorrection correction = 7;
+  // The reassignment that gives the word its speaker, when one does; for a
+  // corrected stretch, the one of its first word.
+  SpeakerReassignment reassignment = 8;
+  // The word starts a paragraph. Paragraphs start at every change of
+  // speaker, after an inserted segment, where a split puts one, and where
+  // the service's own rules break the text at pauses and sentence
+  // boundaries, unless a merge keeps the words together. Each inserted
+  // segment is a paragraph of its own. Set by GetTranscript, on the live
+  // layer too; StreamTranscript leaves it unset, since a live call's
+  // speakers are attributed after its words are sent.
+  bool paragraph_start = 9;
+  // On the final layer, the paragraph the word starts is proofread, see
+  // TranscriptService.MarkProofread. Set on paragraph starts only.
+  bool proofread = 10;
+}
+
+message StreamTranscriptRequest {
+  string event_id = 1;
+  // The ordinal of the first word to send; 0 for the start.
+  int64 from_ordinal = 2;
+}
+
+message StreamTranscriptResponse {
+  // The event's live transcript run. The first message of a stream has no
+  // run and no words: it is sent at once, so that the RPC returns before
+  // the first word is committed.
+  string run_id = 1;
+  // Words in ordinal order, as they were committed, each with its speaker
+  // when the live attribution of a call has it already.
+  repeated TranscriptWord words = 2;
+  // The speakers of words sent earlier without one, as the live
+  // attribution of a call records them, just after the words commit. A
+  // speaker may be sent again; it never changes.
+  repeated Attribution attributions = 3;
+}
+
+message GetTranscriptRequest {
+  string event_id = 1;
+  TranscriptLayer layer = 2;
+  // A run of the event to read instead of a layer, such as a corrected
+  // final run of an earlier generation or language. Only completed runs
+  // and the live run can be read.
+  string run_id = 3;
+  // The machine's words, without the corrections.
+  bool uncorrected = 4;
+  // The ordinal to start from, for the next page.
+  int64 from_ordinal = 5;
+  // At most this many words, 5,000 when zero, at most 20,000.
+  int32 page_size = 6;
+  // Only the words overlapping this stretch of the program-date-time
+  // timeline, RFC 3339; either may be empty.
+  string from = 7;
+  string to = 8;
+}
+
+message GetTranscriptResponse {
+  // The run read; unset when the event has none for the layer asked for.
+  TranscriptRun run = 1;
+  repeated TranscriptWord words = 2;
+  // Pass as from_ordinal for the next page; 0 on the last.
+  int64 next_ordinal = 3;
+  TranscriptStatus status = 4;
+  // The named speakers of the run, by label: those with a display name,
+  // and those linked to a person. A label without either is left out.
+  map<string, TranscriptSpeaker> speaker_names = 5;
+  // Every speaker label of the run, in the order they first speak, then
+  // those that only speak through a reassignment or an inserted segment,
+  // with their names. The same on every page.
+  repeated TranscriptSpeaker speakers = 6;
+  // The standing inserted segments placed among the words of the page, in
+  // reading order: by the word they follow, and those at the same place in
+  // the order they were made. A segment goes with the page holding the
+  // word after it, so each one comes once in a run read page by page; those
+  // after the run's last word come with the page holding it. A reader puts
+  // each after the entry covering its after_ordinal, the words or
+  // corrected stretch, before the next one, and before every word for
+  // after_ordinal -1. Empty with uncorrected, and for the live layer.
+  repeated InsertedSegment inserted_segments = 7;
+  // Every standing skip of the run, in the order they were made; the same
+  // on every page. Skips may overlap: a word or a time any of them covers
+  // is skipped. Empty with uncorrected, and for the live layer.
+  repeated TranscriptSkip skips = 8;
+  // Every standing paragraph edit of the run, in the order they were
+  // made; the same on every page. Empty with uncorrected, and for the live
+  // layer.
+  repeated ParagraphEdit paragraph_edits = 9;
+  // Every standing proofread mark of the run, stale ones too, in the order
+  // they were made; the same on every page. Empty with uncorrected, and
+  // for the live layer.
+  repeated ProofreadMark proofreads = 10;
+  // The standing inserted segments of the page that are proofread.
+  repeated string proofread_segments = 11;
+}
+
+message GetTranscriptStatusRequest {
+  string event_id = 1;
+}
+
+message GetTranscriptStatusResponse {
+  TranscriptStatus status = 1;
+  // The event's language.
+  string language = 2;
+  // The live transcript, when the event has one.
+  TranscriptRun live_run = 3;
+  // The newest completed final transcript of the current generation.
+  TranscriptRun final_run = 4;
+  // The newest completed final transcript, other than final_run, with
+  // corrections, speaker reassignments, inserted segments or skips
+  // standing, or a speaker named: the
+  // corrected earlier version of a transcript that was redone in another
+  // language or for a new generation.
+  TranscriptRun corrected_run = 5;
+  // The language of the newest final job, which final_run may not be in
+  // yet.
+  string final_job_language = 6;
+  // Why the job was unsupported or failed.
+  string reason = 7;
+}
+
+message CorrectWordsRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  int64 first_ordinal = 2;
+  int64 last_ordinal = 3;
+  // The text that replaces the words; empty strikes them out.
+  string text = 4;
+}
+
+message CorrectWordsResponse {
+  TranscriptCorrection correction = 1;
+}
+
+message RevertCorrectionRequest {
+  string correction_id = 1;
+}
+
+message RevertCorrectionResponse {
+  TranscriptCorrection correction = 1;
+}
+
+message ReassignSpeakerRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  int64 first_ordinal = 2;
+  int64 last_ordinal = 3;
+  // A speaker label of the run: one of its attribution's, or one an
+  // earlier reassignment minted. Leave it empty with new_speaker.
+  string speaker = 4;
+  // Attribute the words to a new speaker, for whom a label is minted:
+  // "S1", "S2" and on, the first the run doesn't have yet.
+  bool new_speaker = 5;
+}
+
+message ReassignSpeakerResponse {
+  SpeakerReassignment reassignment = 1;
+}
+
+message RevertSpeakerReassignmentRequest {
+  string reassignment_id = 1;
+}
+
+message RevertSpeakerReassignmentResponse {
+  SpeakerReassignment reassignment = 1;
+}
+
+message NameSpeakerRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  // A speaker label of the run.
+  string speaker = 2;
+  // The display name, at most 200 characters; empty clears it. Required
+  // with person_uuid, as what is shown when the person can't be looked up.
+  string name = 3;
+  // The UUID of the core/person document the speaker is, in the
+  // repository; empty unlinks it, keeping the name.
+  string person_uuid = 4;
+}
+
+message NameSpeakerResponse {
+  TranscriptSpeaker speaker = 1;
+}
+
+message InsertSegmentRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  // The ordinal of the word the segment follows, -1 to put it before the
+  // first word. At the same place as earlier segments, it follows them.
+  int64 after_ordinal = 2;
+  // A speaker label of the run: one of its attribution's, or one minted
+  // for a new speaker earlier. Leave it empty with new_speaker.
+  string speaker = 3;
+  // Give the segment to a new speaker, for whom a label is minted as
+  // ReassignSpeaker does.
+  bool new_speaker = 4;
+  // What was said, at most 10,000 bytes; required.
+  string text = 5;
+}
+
+message InsertSegmentResponse {
+  InsertedSegment segment = 1;
+}
+
+message RevertInsertedSegmentRequest {
+  string segment_id = 1;
+}
+
+message RevertInsertedSegmentResponse {
+  InsertedSegment segment = 1;
+}
+
+message SkipWordsRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  // The stretch of words to skip, from first_ordinal to last_ordinal.
+  int64 first_ordinal = 2;
+  int64 last_ordinal = 3;
+}
+
+message SkipWordsResponse {
+  TranscriptSkip skip = 1;
+}
+
+message RevertSkipRequest {
+  string skip_id = 1;
+}
+
+message RevertSkipResponse {
+  TranscriptSkip skip = 1;
+}
+
+// ParagraphEditKind is what a paragraph edit does.
+enum ParagraphEditKind {
+  PARAGRAPH_EDIT_KIND_UNSPECIFIED = 0;
+  // The stretch is a paragraph of its own.
+  PARAGRAPH_EDIT_KIND_SPLIT = 1;
+  // The stretch is kept in one paragraph.
+  PARAGRAPH_EDIT_KIND_MERGE = 2;
+}
+
+// ParagraphEdit is a split or a merge of a run's paragraphs. Of the edits
+// that decide whether a paragraph starts at a word the latest wins: a
+// split decides its first word and the word after its last, a merge every
+// word of it but the first.
+message ParagraphEdit {
+  string id = 1;
+  string run_id = 2;
+  ParagraphEditKind kind = 3;
+  int64 first_ordinal = 4;
+  int64 last_ordinal = 5;
+  // The subject that made it, and when, RFC 3339.
+  string author = 6;
+  string created = 7;
+  // When and by whom it was reverted; empty while it stands.
+  string reverted = 8;
+  string reverted_by = 9;
+}
+
+// ProofreadMark records that paragraphs of a run were proofread.
+message ProofreadMark {
+  string id = 1;
+  string run_id = 2;
+  // The words it covers, when it covers any; has_words is false for a
+  // mark of inserted segments alone.
+  bool has_words = 3;
+  int64 first_ordinal = 4;
+  int64 last_ordinal = 5;
+  // The inserted segments it covers.
+  repeated string inserted_segments = 6;
+  // The subject that made it, and when, RFC 3339.
+  string author = 7;
+  string created = 8;
+  // When and by whom it was reverted; empty while it stands.
+  string reverted = 9;
+  string reverted_by = 10;
+  // Something it covers was changed after it was made, so it no longer
+  // counts.
+  bool stale = 11;
+}
+
+message SplitParagraphRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  // The stretch of words to make a paragraph of its own.
+  int64 first_ordinal = 2;
+  int64 last_ordinal = 3;
+}
+
+message SplitParagraphResponse {
+  ParagraphEdit edit = 1;
+}
+
+message MergeParagraphsRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  // The stretch of words to keep together; it is widened to the
+  // paragraphs its ends are in.
+  int64 first_ordinal = 2;
+  int64 last_ordinal = 3;
+}
+
+message MergeParagraphsResponse {
+  ParagraphEdit edit = 1;
+}
+
+message RevertParagraphEditRequest {
+  string edit_id = 1;
+}
+
+message RevertParagraphEditResponse {
+  ParagraphEdit edit = 1;
+}
+
+message MarkProofreadRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  // A stretch of words whose paragraphs were proofread; it is widened to
+  // the paragraphs its ends are in. Leave has_words false to mark inserted
+  // segments alone.
+  bool has_words = 2;
+  int64 first_ordinal = 3;
+  int64 last_ordinal = 4;
+  // Standing inserted segments of the run that were proofread.
+  repeated string inserted_segments = 5;
+}
+
+message MarkProofreadResponse {
+  ProofreadMark mark = 1;
+}
+
+message RevertProofreadRequest {
+  string mark_id = 1;
+}
+
+message RevertProofreadResponse {
+  ProofreadMark mark = 1;
+}
+
+message SetSpeakerInterviewerRequest {
+  // A completed final transcript run.
+  string run_id = 1;
+  // A speaker label of the run.
+  string speaker = 2;
+  bool interviewer = 3;
+}
+
+message SetSpeakerInterviewerResponse {
+  TranscriptSpeaker speaker = 1;
+}
+
+// TranscriptBookmark is a stretch of an event's transcript marked for
+// finding again.
+message TranscriptBookmark {
+  string id = 1;
+  string event_id = 2;
+  // The time range it covers on the program-date-time timeline, RFC 3339
+  // with microseconds: the start of its first word to the end of its last.
+  string start = 3;
+  string end = 4;
+  // What the words read when it was set.
+  string text = 5;
+  // The subject that set it, and when, RFC 3339.
+  string author = 6;
+  string created = 7;
+  // When and by whom it was removed; empty while it stands.
+  string removed = 8;
+  string removed_by = 9;
+}
+
+message AddBookmarkRequest {
+  string event_id = 1;
+  // The stretch to bookmark, RFC 3339 on the program-date-time timeline.
+  // end may not be before start.
+  string start = 2;
+  string end = 3;
+  // What the words read, at most 4096 bytes; required.
+  string text = 4;
+}
+
+message AddBookmarkResponse {
+  TranscriptBookmark bookmark = 1;
+}
+
+message ListBookmarksRequest {
+  string event_id = 1;
+}
+
+message ListBookmarksResponse {
+  repeated TranscriptBookmark bookmarks = 1;
+}
+
+message RemoveBookmarkRequest {
+  string bookmark_id = 1;
+}
+
+message RemoveBookmarkResponse {
+  TranscriptBookmark bookmark = 1;
+}

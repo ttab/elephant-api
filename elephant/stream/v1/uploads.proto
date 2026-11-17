@@ -1,0 +1,193 @@
+syntax = "proto3";
+
+package elephant.stream.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/stream/v1;streamv1";
+
+// UploadService takes the files the phone produces besides its live
+// streams: photos, and the master of an event, which it uploads after the
+// event to replace the archive and to make the full-length file from. It
+// also takes pre-recorded audio files, from the phone and the browser
+// alike, each the recording of an event made for it with
+// ControlService.CreateRecording.
+//
+// A file is uploaded in chunks, so that a phone on a bad connection resumes
+// where it was and the service never holds the whole file. CreateUpload
+// registers the file with the hash of every chunk, UploadChunk sends one
+// chunk, and CompleteUpload assembles them. Every chunk but the last is
+// chunk_size bytes, at least 5 MiB, and is stored as one part of an S3
+// multipart upload; each is checked against its hash as it arrives. The
+// file's hash is the SHA-256 of its chunk hashes concatenated in order.
+//
+// Every request is idempotent: an upload is identified by the UUIDv7 the
+// client generates, and a chunk by the upload and its chunk number, so a
+// retried or replayed request repeats what it did and nothing more. An
+// upload that gets no chunk for a while (two days by default) is abandoned:
+// its parts are discarded, and it has to start again under a new ID.
+//
+// Allowed to a caller with the stream scope (or stream_admin) who may
+// create events for the planning document and assignment (see
+// ControlService.CreateEvent): a token bound to them, or a caller the
+// repository lets write the planning document. Only the subject that
+// created an upload may send its chunks and complete it.
+//
+// The phone sends these requests from an iOS background URL session, which
+// can hold a request for hours before it goes out, so the DPoP proof of a
+// device-bound token is accepted for as long as the token lives rather than
+// for a minute. In exchange the proof must bind the request body: besides
+// htm, htu and ath it carries "bh", the base64url SHA-256 of the whole
+// serialised request body as sent, so that a captured proof can't carry
+// another chunk or another upload. Its iat may not be before the token's.
+service UploadService {
+  // CreateUpload registers an upload, or returns the one already registered
+  // under its ID. An ID registered with other parameters, or by someone
+  // else, is refused with already_exists.
+  rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
+
+  // UploadChunk stores one chunk. A chunk whose size or hash isn't what
+  // CreateUpload registered for its chunk number is refused with
+  // invalid_argument; one that was already stored is accepted again without
+  // being stored twice. Chunks may arrive in any order.
+  rpc UploadChunk(UploadChunkRequest) returns (UploadChunkResponse);
+
+  // CompleteUpload assembles the chunks into the file, once every one has
+  // arrived. It is given the chunk hashes again, and refuses with
+  // invalid_argument a list that isn't the registered one; an upload with
+  // chunks missing is refused with failed_precondition, naming them.
+  // Completing a completed upload returns it again.
+  //
+  // A completed photo goes into the photo outbox (PhotoService). A
+  // completed master is recorded for its event and queues the job that
+  // replaces the archive with it if it covers the archive. A completed
+  // recording queues the job that cuts it into its event's audio track and
+  // then finalises the event.
+  rpc CompleteUpload(CompleteUploadRequest) returns (CompleteUploadResponse);
+}
+
+enum UploadKind {
+  UPLOAD_KIND_UNSPECIFIED = 0;
+  // A still photo: image/jpeg or image/heic.
+  UPLOAD_KIND_PHOTO = 1;
+  // The phone's own recording of an event, uploaded after it: video/mp4 or
+  // video/quicktime for a video event, audio/mp4 for an audio event.
+  UPLOAD_KIND_MASTER = 2;
+  // A pre-recorded audio file, the recording of an event made with
+  // ControlService.CreateRecording: audio/mp4, audio/mpeg, audio/wav,
+  // audio/aac, or audio/webm or audio/ogg (Opus, as a browser's
+  // MediaRecorder writes it); media type parameters such as codecs are
+  // ignored. An event has one recording; another upload for it is refused
+  // while one is uploading or complete.
+  UPLOAD_KIND_RECORDING = 3;
+}
+
+enum UploadState {
+  UPLOAD_STATE_UNSPECIFIED = 0;
+  // Registered, taking chunks.
+  UPLOAD_STATE_UPLOADING = 1;
+  // Assembled and stored.
+  UPLOAD_STATE_COMPLETE = 2;
+  // Abandoned, or its event was deleted; its chunks are gone. Upload the
+  // file again under a new ID.
+  UPLOAD_STATE_ABORTED = 3;
+}
+
+message CreateUploadRequest {
+  // A UUIDv7 the client generates for the file and keeps for every request
+  // about it.
+  string upload_id = 1;
+  string planning_uuid = 2;
+  string assignment = 3;
+  UploadKind kind = 4;
+  // For a master, the event it was recorded for, which must belong to the
+  // planning document and assignment and have ended. For a recording, the
+  // event CreateRecording made for it, which must belong to the planning
+  // document and assignment and not have been finished.
+  string event_id = 5;
+  // The file's size in bytes.
+  int64 size = 6;
+  // The size of every chunk but the last, at least 5 MiB unless the file is
+  // one chunk, and at most the service's chunk limit (8 MiB by default).
+  int64 chunk_size = 7;
+  // The SHA-256 of each chunk in order, 32 bytes each: one per chunk_size
+  // bytes of the file, the last for what is left.
+  repeated bytes chunk_hashes = 8;
+  // The file's media type, see UploadKind.
+  string content_type = 9;
+  CaptureMetadata capture = 10;
+}
+
+// CaptureMetadata are the facts the phone records about a photo or a
+// recording. They are passed on to the outbox's consumers as they are.
+message CaptureMetadata {
+  // When the photo was taken, or the recording started, RFC 3339.
+  string captured = 1;
+  // Where, when the phone knew.
+  Location location = 2;
+  // The phone's model, as it reports it.
+  string device = 3;
+  // The file's name on the phone.
+  string filename = 4;
+  // For a master: the wall-clock time of presentation timestamp zero of
+  // the recording, RFC 3339 with microseconds, the clock a replacement
+  // aligns it with the live connections on.
+  string pts_epoch = 5;
+}
+
+message Location {
+  // WGS 84 degrees.
+  double latitude = 1;
+  double longitude = 2;
+  // Metres above sea level.
+  double altitude = 3;
+  // The radius of uncertainty in metres; zero when unknown.
+  double horizontal_accuracy = 4;
+}
+
+message CreateUploadResponse {
+  Upload upload = 1;
+}
+
+message UploadChunkRequest {
+  string upload_id = 1;
+  // The chunk's number, from 0.
+  int32 index = 2;
+  bytes data = 3;
+}
+
+message UploadChunkResponse {
+  // How many of the upload's chunks have arrived.
+  int32 chunks_received = 1;
+}
+
+message CompleteUploadRequest {
+  string upload_id = 1;
+  // The chunk hashes again, which must be the ones CreateUpload registered.
+  repeated bytes chunk_hashes = 2;
+}
+
+message CompleteUploadResponse {
+  Upload upload = 1;
+}
+
+message Upload {
+  string id = 1;
+  UploadKind kind = 2;
+  UploadState state = 3;
+  string planning_uuid = 4;
+  string assignment = 5;
+  // For a master or a recording, its event.
+  string event_id = 6;
+  int64 size = 7;
+  int64 chunk_size = 8;
+  int32 chunk_count = 9;
+  // How many chunks have arrived.
+  int32 chunks_received = 10;
+  // The SHA-256 of the chunk hashes concatenated in order.
+  bytes content_hash = 11;
+  // When it was registered and completed, RFC 3339.
+  string created = 12;
+  string completed = 13;
+  // While uploading, the numbers of the chunks that haven't arrived, which
+  // is what a client resuming after a restart has left to send.
+  repeated int32 missing_chunks = 14;
+}
