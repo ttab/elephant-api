@@ -206,6 +206,15 @@ func (h *documentsServiceHandler) GetPermissions(ctx context.Context, req *conne
 	return connect.NewResponse(res), nil
 }
 
+func (h *documentsServiceHandler) BulkCheckPermissions(ctx context.Context, req *connect.Request[repository.BulkCheckPermissionsRequest]) (*connect.Response[repository.BulkCheckPermissionsResponse], error) {
+	res, err := h.svc.BulkCheckPermissions(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
 func (h *documentsServiceHandler) Lock(ctx context.Context, req *connect.Request[repository.LockRequest]) (*connect.Response[repository.LockResponse], error) {
 	res, err := h.svc.Lock(ctx, req.Msg)
 	if err != nil {
@@ -496,6 +505,15 @@ func (c *documentsServiceClient) GetStatusOverview(ctx context.Context, req *rep
 
 func (c *documentsServiceClient) GetPermissions(ctx context.Context, req *repository.GetPermissionsRequest) (*repository.GetPermissionsResponse, error) {
 	res, err := c.client.GetPermissions(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *documentsServiceClient) BulkCheckPermissions(ctx context.Context, req *repository.BulkCheckPermissionsRequest) (*repository.BulkCheckPermissionsResponse, error) {
+	res, err := c.client.BulkCheckPermissions(ctx, connect.NewRequest(req))
 	if err != nil {
 		return nil, err
 	}
