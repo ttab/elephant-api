@@ -4,6 +4,17 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.29.6] - Unreleased
+
+Changes:
+
+- `EventlogItem` and `DocumentMeta` gain `restored_from_nonce` and
+  `restored_from_delete_record_id`, naming the deleted generation and the
+  delete record a restored document was restored from. On the eventlog they
+  are set on every event a restore emits, `restore_finished` included;
+  `delete_record_id` stays reserved for delete events. Both are empty for
+  documents that weren't created by a restore.
+
 ## [v0.29.5] - Unreleased
 
 Changes:

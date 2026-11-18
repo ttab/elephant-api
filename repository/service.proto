@@ -383,6 +383,7 @@ message EventlogItem {
   // when objects (files) were detached in a document update.
   repeated string detached_objects = 19;
   // DeleteRecordId is the ID of the delete record if this was a delete event.
+  // A restore sets restored_from_delete_record_id instead.
   int64 delete_record_id           = 20;
   // DocumentNonce is the unique nonce for this document. If the document is
   // deleted and recreated with the same ID it will still have a unique nonce.
@@ -395,6 +396,15 @@ message EventlogItem {
   // SchemaGeneration is the ID of the schema generation that was used to
   // validate the document.
   int64 schema_generation          = 24;
+  // RestoredFromNonce is the nonce of the deleted generation that a restore
+  // brought back. It is set on every event a restore emits, restore_finished
+  // included, and is empty on all other events. document_nonce is the nonce
+  // of the new generation the restore created.
+  string restored_from_nonce       = 25;
+  // RestoredFromDeleteRecordId is the ID of the delete record a restore
+  // restored the document from. Set on the same events as
+  // restored_from_nonce.
+  int64 restored_from_delete_record_id = 26;
 }
 
 message Timespan {
@@ -901,6 +911,13 @@ message DocumentMeta {
   string nonce                       = 14;
   // Type is the type of the document.
   string type                        = 15;
+  // RestoredFromNonce is the nonce of the deleted generation that this
+  // generation was restored from. Empty if the document wasn't created by a
+  // restore, and for restores made before the repository recorded it.
+  string restored_from_nonce         = 16;
+  // RestoredFromDeleteRecordId is the ID of the delete record that this
+  // generation was restored from. Zero when restored_from_nonce is empty.
+  int64 restored_from_delete_record_id = 17;
 }
 
 message AttachmentRef {
