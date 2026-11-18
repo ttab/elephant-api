@@ -1,0 +1,433 @@
+syntax = "proto3";
+
+package elephant.stream.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/stream/v1;streamv1";
+
+// ControlService owns the event lifecycle: created, live, finalising and
+// finalised.
+service ControlService {
+  // CreateEvent registers a live event for a planning assignment and issues
+  // the ingest credentials for it: SRT for the phone by default, or a WHIP
+  // endpoint for a browser publishing over WebRTC (ingest_protocol). The
+  // stream token and the passphrase are only ever returned here.
+  //
+  // A token bound to a planning document (elephant-delegate's document
+  // tokens) may only create events for that document, and for its
+  // assignment when it names one, and not while the latest event of the
+  // assignment was force-stopped after the token was minted, see
+  // FinishEvent. Any other caller needs write permission on the planning
+  // document in the repository.
+  rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse);
+
+  // GetEvent returns an event's current state. Allowed to its creator, to a
+  // token bound to its planning document, to stream_admin, and to anyone
+  // the repository lets read the planning document.
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+
+  // ListEvents lists the events of a planning document, or of one
+  // assignment of it, newest first, in pages. Allowed to a token bound to
+  // the planning document (only for its assignment when it names one), to
+  // stream_admin, and to anyone the repository lets read the planning
+  // document. Anyone else gets only the events they created themselves,
+  // which GetEvent would show them anyway: the list never tells a caller
+  // who can't read the document about anyone else's events.
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+
+  // FinishEvent ends an event explicitly. A live event moves to finalising
+  // and its post-event jobs are queued; an event that never went live is
+  // finalised at once. Refused while a publisher is still connected, unless
+  // force is set. Allowed to its creator, to a token bound to its planning
+  // document, to stream_admin, and to anyone the repository lets write the
+  // planning document.
+  //
+  // With force, the event is finished whether or not the phone is still
+  // connected, and the phone is disconnected. Until another event is
+  // created for the assignment, a token bound to the planning document that
+  // was minted before the force-stop can't create one: the next event has
+  // to come from a session, or from a newly minted document token.
+  rpc FinishEvent(FinishEventRequest) returns (FinishEventResponse);
+
+  // DeleteEvent removes a finished event for good, for editorial or legal
+  // reasons. Allowed to stream_admin only, and only for a finalised event: a
+  // live one is force-stopped with FinishEvent first.
+  //
+  // The event is gone from every API, and its playlists from the origin, as
+  // soon as this returns. Its segments, clips and other files are deleted from
+  // the bucket and its CDN paths invalidated in the background, within minutes;
+  // until then a token issued before the deletion can still fetch what the
+  // CDN has cached.
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
+
+  // SetEventLanguage changes the language spoken in an event, which picks
+  // the model that transcribes it. The change is recorded with who made
+  // it. A finalised event gets a new final transcript job in the new
+  // language; the transcripts made in the earlier language stay readable,
+  // each recorded with its language and model. An event that hasn't been
+  // finalised yet is transcribed in the new language from its final job
+  // on, and a live job still waiting for a transcriber takes the new
+  // language too. Setting the language the event already has changes
+  // nothing. Allowed to the callers that may FinishEvent.
+  rpc SetEventLanguage(SetEventLanguageRequest) returns (SetEventLanguageResponse);
+
+  // CreateRecording registers an event for a pre-recorded audio file, which
+  // is then uploaded with UploadService as UPLOAD_KIND_RECORDING for the
+  // event. The event has the source upload and the kind audio, and no SRT
+  // credentials: nothing streams to it. It stays created until its
+  // recording has been uploaded and cut into its audio track, and is then
+  // finalised, after which it is an ordinary audio event: its playlist,
+  // listen mode, clips, StreamAudio, its full-length file and its
+  // transcripts work as for one streamed live.
+  //
+  // Allowed to the callers that may CreateEvent for the planning document
+  // and assignment, so a document token from the app works.
+  rpc CreateRecording(CreateRecordingRequest) returns (CreateRecordingResponse);
+
+  // SetOnAir puts an event on air for customers, or takes it off. Only
+  // what is recorded while an event is on air reaches customer-facing
+  // services: every segment that lies wholly inside an on-air period is
+  // copied to the event's customer prefix, and their playlists, tokens and
+  // full-length file are made from those copies alone. A segment in
+  // progress when the event is taken off air is not copied, so off air
+  // takes effect for customers at the next segment, about 2 s, whatever
+  // tokens they hold. Each switch is recorded with who made it and when.
+  // Setting the state the event already has changes nothing.
+  //
+  // Allowed to a token bound to the event's planning document (and to its
+  // assignment when the token names one), the reporter's app, and to anyone
+  // the repository lets write the planning document. Refused for an
+  // uploaded recording, and putting an event that has finished on air is
+  // refused too: an event's last period ends with it. Putting an event on
+  // air is refused unless its publishing is consent or public, see
+  // SetPublishing.
+  rpc SetOnAir(SetOnAirRequest) returns (SetOnAirResponse);
+
+  // PullAiredStretch takes a stretch of an event back from customers
+  // after the fact: the aired copies that overlap it are removed from the
+  // customer playlists and deleted from the bucket, the customer prefix is
+  // invalidated at the CDN as DeleteEvent's purge does, and nothing in
+  // the stretch is aired again. The customers' full-length file is made
+  // again without it. The editorial archive is untouched. Allowed to
+  // stream_admin and to anyone the repository lets write the planning
+  // document, never to a document-bound token.
+  rpc PullAiredStretch(PullAiredStretchRequest) returns (PullAiredStretchResponse);
+
+  // SetPublishing records whether an event may be published to customers,
+  // as the reporter judged it, with who set it and when. Only an event
+  // whose publishing is consent or public goes on air or reaches
+  // customer-facing services. Setting anything else takes an event that is
+  // on air off it, and pulls everything it aired, as PullAiredStretch does
+  // over the whole event: what was pulled is never aired again, even if
+  // the event is made publishable later. Setting the publishing the event
+  // already has changes nothing. Allowed to the callers that may SetOnAir,
+  // for live and uploaded events alike.
+  rpc SetPublishing(SetPublishingRequest) returns (SetPublishingResponse);
+}
+
+// Publishing is whether an event may be published to customers, as the
+// reporter judged it. An interview needs the interviewee's consent unless
+// it is a public situation such as a press conference.
+enum Publishing {
+  // Nobody has judged it yet. The event can't go on air.
+  PUBLISHING_UNSPECIFIED = 0;
+  // The people recorded consented to its publication.
+  PUBLISHING_CONSENT = 1;
+  // A public situation, such as a press conference, that needs no
+  // consent.
+  PUBLISHING_PUBLIC = 2;
+  // It must not be published.
+  PUBLISHING_DO_NOT_PUBLISH = 3;
+}
+
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_KIND_VIDEO = 1;
+  EVENT_KIND_AUDIO = 2;
+}
+
+// EventSource is where an event's media comes from.
+enum EventSource {
+  EVENT_SOURCE_UNSPECIFIED = 0;
+  // Streamed live from a phone.
+  EVENT_SOURCE_LIVE = 1;
+  // An uploaded recording.
+  EVENT_SOURCE_UPLOAD = 2;
+}
+
+// AudioLayout is how an event's audio is laid out, which says how its
+// transcript tells the speakers apart.
+enum AudioLayout {
+  AUDIO_LAYOUT_UNSPECIFIED = 0;
+  // Every voice in one mix, mono or stereo, as a phone or an uploaded file
+  // records it. The final transcript diarizes it. The default.
+  AUDIO_LAYOUT_MIXED = 1;
+  // A call captured with its two parties on separate channels: left is
+  // the journalist, right is the caller. The transcript attributes words by
+  // channel instead of diarizing. Audio events only.
+  AUDIO_LAYOUT_CALL_STEREO = 2;
+}
+
+// IngestProtocol is how a live event's publisher reaches the relay.
+enum IngestProtocol {
+  INGEST_PROTOCOL_UNSPECIFIED = 0;
+  // SRT from the phone, with the event's passphrase. The default.
+  INGEST_PROTOCOL_SRT = 1;
+  // WebRTC from a browser, through the relay's WHIP endpoint, with the
+  // stream token as the bearer token. Audio events only; the Opus audio is
+  // converted to AAC as it is segmented.
+  INGEST_PROTOCOL_WHIP = 2;
+}
+
+enum EventState {
+  EVENT_STATE_UNSPECIFIED = 0;
+  EVENT_STATE_CREATED = 1;
+  EVENT_STATE_LIVE = 2;
+  EVENT_STATE_FINALISING = 3;
+  EVENT_STATE_FINALISED = 4;
+}
+
+message Event {
+  string id = 1;
+  string planning_uuid = 2;
+  string assignment = 3;
+  EventKind kind = 4;
+  EventState state = 5;
+  // Bumped whenever the archive is rewritten after finalisation.
+  int32 archive_generation = 6;
+  // How long the event stays live after its publisher disconnects, so
+  // that a reconnect continues it, in seconds.
+  int64 reconnect_window_seconds = 7;
+  // The subject that created the event.
+  string created_by = 8;
+  // RFC 3339 timestamps; empty when the transition hasn't happened.
+  string created = 9;
+  string live_at = 10;
+  string finalising_at = 11;
+  string finalised_at = 12;
+  // The subject that finished the event with FinishEvent; empty when the
+  // service finished it, after the reconnect window ran out.
+  string finished_by = 13;
+  // The event was stopped with FinishEvent's force, see FinishEvent.
+  bool forced = 14;
+  EventSource source = 15;
+  // The language spoken in the event, a BCP 47 tag such as "sv" or
+  // "en-GB". Empty for events created before languages were recorded.
+  string language = 16;
+  // For an uploaded recording, when the recording started, RFC 3339, as the
+  // uploader confirmed it: the program-date-times of its segments run from
+  // it. Empty for a live event.
+  string recorded_at = 17;
+  // The event is on air for customers now, see ControlService.SetOnAir.
+  bool on_air = 18;
+  // When the event was on air, oldest first. An event that has never been
+  // on air has none, and customers are refused it.
+  repeated OnAirPeriod on_air_periods = 19;
+  AudioLayout audio_layout = 20;
+  // The event is the recording of a call, see CreateEventRequest.from_call.
+  bool from_call = 21;
+  // How a live event is published; unspecified for an uploaded recording.
+  IngestProtocol ingest_protocol = 22;
+  // Whether the event may be published to customers, see
+  // ControlService.SetPublishing.
+  Publishing publishing = 23;
+  // Who set the publishing last, and when, RFC 3339; empty when nobody
+  // has.
+  string publishing_set_by = 24;
+  string publishing_set = 25;
+}
+
+// OnAirPeriod is a stretch of time an event was on air for customers.
+message OnAirPeriod {
+  // RFC 3339.
+  string started = 1;
+  // The subject that put the event on air, the creator for an event
+  // created on air.
+  string started_by = 2;
+  // RFC 3339. Empty while the event is on air. The last period of an
+  // event that has finished ends when the event left live, and has no
+  // ended_by.
+  string ended = 3;
+  string ended_by = 4;
+}
+
+message SRTIngest {
+  // SRT URL to publish to, with the stream ID in its query.
+  string url = 1;
+  // SRT URL of the SRTLA receiver, for bonded connections. Empty when
+  // bonding isn't configured.
+  string bonded_url = 2;
+  // The stream ID, which carries the event's opaque stream token.
+  string stream_id = 3;
+  // The SRT passphrase. It is the secret: it never travels on the wire.
+  string passphrase = 4;
+}
+
+// WHIPIngest is where a browser publishes an event over WebRTC.
+message WHIPIngest {
+  // The WHIP endpoint of the event's relay path, to POST the SDP offer to.
+  string url = 1;
+  // The stream token, sent as "Authorization: Bearer <token>" with every
+  // WHIP request. It is the only credential, so it travels over HTTPS
+  // only.
+  string bearer_token = 2;
+}
+
+message CreateEventRequest {
+  string planning_uuid = 1;
+  string assignment = 2;
+  EventKind kind = 3;
+  // Optional, the service default applies when zero.
+  int64 reconnect_window_seconds = 4;
+  // The language spoken in the event, a BCP 47 tag. Optional, the
+  // deployment's default language applies when empty.
+  string language = 5;
+  // Put the event on air for customers from the start, so that it is
+  // aired from its first segment. Off air by default. A phone that
+  // creates a successor event passes the on-air state the event it
+  // replaces had: elephant-stream doesn't carry it over.
+  bool on_air = 6;
+  // How the event's audio is laid out; mixed when unspecified.
+  // AUDIO_LAYOUT_CALL_STEREO is for audio events only, and marks the event
+  // as a call (from_call).
+  AudioLayout audio_layout = 7;
+  // The event is the recording of a call. Streaming or publishing a call
+  // needs the other party's consent; the event keeps that it came from one.
+  bool from_call = 8;
+  // How the event will be published; SRT when unspecified. WHIP is for
+  // audio events only, and only where the deployment has a WHIP endpoint.
+  IngestProtocol ingest_protocol = 9;
+  // Whether the event may be published, see SetPublishing; unspecified
+  // when not given. on_air needs consent or public.
+  Publishing publishing = 10;
+}
+
+message CreateEventResponse {
+  Event event = 1;
+  // The SRT ingest, for an event published over SRT.
+  SRTIngest ingest = 2;
+  // The WHIP ingest, for an event published over WHIP.
+  WHIPIngest whip = 3;
+}
+
+message GetEventRequest {
+  string id = 1;
+}
+
+message GetEventResponse {
+  Event event = 1;
+}
+
+message ListEventsRequest {
+  string planning_uuid = 1;
+  // Optional: only the events of this assignment.
+  string assignment = 2;
+  // At most this many events, 50 when zero, at most 200.
+  int32 page_size = 3;
+  // The next_page_token of the previous page; empty for the first.
+  string page_token = 4;
+}
+
+message ListEventsResponse {
+  // Newest first.
+  repeated Event events = 1;
+  // Pass as page_token for the next page; empty on the last.
+  string next_page_token = 2;
+}
+
+message FinishEventRequest {
+  string id = 1;
+  // Finish the event even though a publisher is connected, and disconnect
+  // it: a force-stop, for a desk that has to stop a live event.
+  bool force = 2;
+}
+
+message FinishEventResponse {
+  Event event = 1;
+}
+
+message DeleteEventRequest {
+  string id = 1;
+}
+
+message DeleteEventResponse {}
+
+message SetEventLanguageRequest {
+  string id = 1;
+  // A BCP 47 tag, such as "sv" or "en-GB".
+  string language = 2;
+}
+
+message SetEventLanguageResponse {
+  Event event = 1;
+  // A new final transcript job was queued for the new language.
+  bool transcription_queued = 2;
+}
+
+message CreateRecordingRequest {
+  string planning_uuid = 1;
+  string assignment = 2;
+  // The language spoken in the recording, a BCP 47 tag. Optional, the
+  // deployment's default language applies when empty.
+  string language = 3;
+  // When the recording started, RFC 3339, as the uploader confirmed it. The
+  // app and the browser propose the file's metadata time, else its
+  // modified time. Required, and no more than an hour in the future.
+  string recorded_at = 4;
+  // How the recording's audio is laid out; mixed when unspecified.
+  // AUDIO_LAYOUT_CALL_STEREO marks the event as a call (from_call).
+  AudioLayout audio_layout = 5;
+  // The recording is of a call.
+  bool from_call = 6;
+  // Whether the recording may be published, see SetPublishing; unspecified
+  // when not given.
+  Publishing publishing = 7;
+}
+
+message CreateRecordingResponse {
+  Event event = 1;
+}
+
+message SetOnAirRequest {
+  string event_id = 1;
+  bool on_air = 2;
+}
+
+message SetOnAirResponse {
+  Event event = 1;
+  // Whether this request changed the event's state.
+  bool changed = 2;
+}
+
+message PullAiredStretchRequest {
+  string event_id = 1;
+  // The stretch to take back, RFC 3339 program-date-times: start is
+  // included, end is not, and end must be after start. Every aired
+  // segment that overlaps it is removed.
+  string start = 2;
+  string end = 3;
+}
+
+message PullAiredStretchResponse {
+  Event event = 1;
+  // How many aired segments were removed, on both tracks.
+  int32 removed_segments = 2;
+  // Whether their copies were deleted from the bucket and invalidated at
+  // the CDN before this returned. When not, the control plane's purger
+  // retries it within minutes; until then a customer holding a token can
+  // still fetch them.
+  bool purged = 3;
+}
+
+message SetPublishingRequest {
+  string event_id = 1;
+  Publishing publishing = 2;
+}
+
+message SetPublishingResponse {
+  Event event = 1;
+  // Whether this request changed the event's publishing.
+  bool changed = 2;
+  // How many aired segments were pulled, on both tracks, when the event
+  // was made unpublishable.
+  int32 removed_segments = 3;
+}

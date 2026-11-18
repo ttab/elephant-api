@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.30.0] - Unreleased
+## [v0.31.0] - Unreleased
 
 **New service (tables):** `elephant.tables.v1` is the declaration for
 elephant-tables, which gives a document its own tabular data in a SQLite
@@ -239,6 +239,51 @@ Changes:
   restored. A token
   with the `eventlog_read` scope gets every event unfiltered, without
   `doc_read`.
+## [v0.30.0] - 2026-11-18
+
+**Breaking (Comments):** `Comments.WaitForComments`, the interim wakeup poll
+for comment changes, is removed together with `WaitForCommentsRequest` and
+`WaitForCommentsResponse`. Nothing called it. The `Stream` of the new
+`NotificationsService` replaces it.
+
+Changes:
+
+- New service `elephant.user.v1.NotificationsService`, the notification feed:
+  `Stream` is a server stream of the caller's rows, replayed and then live,
+  `ListNotifications` lists them, `Subscribe`, `Unsubscribe` and
+  `ListSubscriptions` manage which documents a user hears about, and `Ingest`
+  is where producers record an event about a document. `Ingest` needs the
+  new `user_notify` scope, every other RPC the `user` scope.
+- The service is Connect only, in the versioned layout like collab: messages
+  in `github.com/ttab/elephant-api/elephant/user/v1` and connect-go's
+  `NewNotificationsServiceClient` and `NewNotificationsServiceHandler` in
+  `userv1connect`. There is no Twirp path.
+- The `kind` comments on `CommentThread` and `CreateCommentRequest` no longer
+  state a 128 byte limit, since the service no longer enforces one. The
+  pattern is unchanged.
+
+## [v0.29.5] - 2026-11-18
+
+Changes:
+
+- New RPC `Documents.BulkCheckPermissions`, which takes up to 200 document
+  UUIDs and a permission and returns the UUIDs the caller holds that
+  permission on, answered for the caller's own subject and units. A UUID
+  with no document is left out like one the caller may not use, and
+  elevated scopes grant the permission as they do in `GetPermissions`. New
+  messages `BulkCheckPermissionsRequest` and `BulkCheckPermissionsResponse`.
+- `EventlogItem` and `DocumentMeta` gain `restored_from_nonce` and
+  `restored_from_delete_record_id`, naming the deleted generation and the
+  delete record a restored document was restored from. On the eventlog they
+  are set on every event a restore emits, `restore_finished` included;
+  `delete_record_id` stays reserved for delete events. Both are empty for
+  documents that weren't created by a restore.
+- New packages `elephant.stream.v1` and `elephant.delegate.v1`, the APIs of
+  elephant-stream and elephant-delegate, moved here from those repositories
+  unchanged on the wire. The Go packages are now
+  `github.com/ttab/elephant-api/elephant/stream/v1` (`streamv1`) and
+  `github.com/ttab/elephant-api/elephant/delegate/v1` (`delegatev1`), with
+  Connect clients and handlers in `streamv1connect` and `delegatev1connect`.
 
 ## [v0.29.4] - 2026-11-16
 

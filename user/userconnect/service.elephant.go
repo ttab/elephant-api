@@ -593,15 +593,6 @@ func (h *commentsServiceHandler) ListMentions(ctx context.Context, req *connect.
 	return connect.NewResponse(res), nil
 }
 
-func (h *commentsServiceHandler) WaitForComments(ctx context.Context, req *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error) {
-	res, err := h.svc.WaitForComments(ctx, req.Msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return connect.NewResponse(res), nil
-}
-
 // NewCommentsServiceClient constructs a client for the elephant.user.Comments service that
 // implements the plain user.Comments interface, so that it is a drop-in for the Twirp clients. The
 // options are the ones NewCommentsClient takes.
@@ -685,15 +676,6 @@ func (c *commentsServiceClient) ReopenThread(ctx context.Context, req *user.Reop
 
 func (c *commentsServiceClient) ListMentions(ctx context.Context, req *user.ListMentionsRequest) (*user.ListMentionsResponse, error) {
 	res, err := c.client.ListMentions(ctx, connect.NewRequest(req))
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Msg, nil
-}
-
-func (c *commentsServiceClient) WaitForComments(ctx context.Context, req *user.WaitForCommentsRequest) (*user.WaitForCommentsResponse, error) {
-	res, err := c.client.WaitForComments(ctx, connect.NewRequest(req))
 	if err != nil {
 		return nil, err
 	}

@@ -84,6 +84,9 @@ const (
 	// DocumentsGetPermissionsProcedure is the fully-qualified name of the Documents's GetPermissions
 	// RPC.
 	DocumentsGetPermissionsProcedure = "/elephant.repository.Documents/GetPermissions"
+	// DocumentsBulkCheckPermissionsProcedure is the fully-qualified name of the Documents's
+	// BulkCheckPermissions RPC.
+	DocumentsBulkCheckPermissionsProcedure = "/elephant.repository.Documents/BulkCheckPermissions"
 	// DocumentsLockProcedure is the fully-qualified name of the Documents's Lock RPC.
 	DocumentsLockProcedure = "/elephant.repository.Documents/Lock"
 	// DocumentsExtendLockProcedure is the fully-qualified name of the Documents's ExtendLock RPC.
@@ -229,6 +232,10 @@ type DocumentsClient interface {
 	GetStatusOverview(context.Context, *connect.Request[repository.GetStatusOverviewRequest]) (*connect.Response[repository.GetStatusOverviewResponse], error)
 	// GetPermissions returns the permissions you have for the document.
 	GetPermissions(context.Context, *connect.Request[repository.GetPermissionsRequest]) (*connect.Response[repository.GetPermissionsResponse], error)
+	// BulkCheckPermissions returns the documents among the requested ones
+	// that you hold a permission on. It answers for your own subject and
+	// units, never for a named grantee, and is limited to 200 documents.
+	BulkCheckPermissions(context.Context, *connect.Request[repository.BulkCheckPermissionsRequest]) (*connect.Response[repository.BulkCheckPermissionsResponse], error)
 	// Lock attempts to acquire a write lock on a document. Fails with
 	// FailedPrecondition when the document is already locked; the
 	// failure carries error metadata keys "lock_holder_sub",
@@ -397,6 +404,12 @@ func NewDocumentsClient(httpClient connect.HTTPClient, baseURL string, opts ...c
 			connect.WithSchema(documentsMethods.ByName("GetPermissions")),
 			connect.WithClientOptions(opts...),
 		),
+		bulkCheckPermissions: connect.NewClient[repository.BulkCheckPermissionsRequest, repository.BulkCheckPermissionsResponse](
+			httpClient,
+			baseURL+DocumentsBulkCheckPermissionsProcedure,
+			connect.WithSchema(documentsMethods.ByName("BulkCheckPermissions")),
+			connect.WithClientOptions(opts...),
+		),
 		lock: connect.NewClient[repository.LockRequest, repository.LockResponse](
 			httpClient,
 			baseURL+DocumentsLockProcedure,
@@ -488,6 +501,7 @@ type documentsClient struct {
 	getNilStatuses         *connect.Client[repository.GetNilStatusesRequest, repository.GetNilStatusesResponse]
 	getStatusOverview      *connect.Client[repository.GetStatusOverviewRequest, repository.GetStatusOverviewResponse]
 	getPermissions         *connect.Client[repository.GetPermissionsRequest, repository.GetPermissionsResponse]
+	bulkCheckPermissions   *connect.Client[repository.BulkCheckPermissionsRequest, repository.BulkCheckPermissionsResponse]
 	lock                   *connect.Client[repository.LockRequest, repository.LockResponse]
 	extendLock             *connect.Client[repository.ExtendLockRequest, repository.LockResponse]
 	unlock                 *connect.Client[repository.UnlockRequest, repository.UnlockResponse]
@@ -601,6 +615,11 @@ func (c *documentsClient) GetPermissions(ctx context.Context, req *connect.Reque
 	return c.getPermissions.CallUnary(ctx, req)
 }
 
+// BulkCheckPermissions calls elephant.repository.Documents.BulkCheckPermissions.
+func (c *documentsClient) BulkCheckPermissions(ctx context.Context, req *connect.Request[repository.BulkCheckPermissionsRequest]) (*connect.Response[repository.BulkCheckPermissionsResponse], error) {
+	return c.bulkCheckPermissions.CallUnary(ctx, req)
+}
+
 // Lock calls elephant.repository.Documents.Lock.
 func (c *documentsClient) Lock(ctx context.Context, req *connect.Request[repository.LockRequest]) (*connect.Response[repository.LockResponse], error) {
 	return c.lock.CallUnary(ctx, req)
@@ -707,6 +726,10 @@ type DocumentsHandler interface {
 	GetStatusOverview(context.Context, *connect.Request[repository.GetStatusOverviewRequest]) (*connect.Response[repository.GetStatusOverviewResponse], error)
 	// GetPermissions returns the permissions you have for the document.
 	GetPermissions(context.Context, *connect.Request[repository.GetPermissionsRequest]) (*connect.Response[repository.GetPermissionsResponse], error)
+	// BulkCheckPermissions returns the documents among the requested ones
+	// that you hold a permission on. It answers for your own subject and
+	// units, never for a named grantee, and is limited to 200 documents.
+	BulkCheckPermissions(context.Context, *connect.Request[repository.BulkCheckPermissionsRequest]) (*connect.Response[repository.BulkCheckPermissionsResponse], error)
 	// Lock attempts to acquire a write lock on a document. Fails with
 	// FailedPrecondition when the document is already locked; the
 	// failure carries error metadata keys "lock_holder_sub",
@@ -871,6 +894,12 @@ func NewDocumentsHandler(svc DocumentsHandler, opts ...connect.HandlerOption) (s
 		connect.WithSchema(documentsMethods.ByName("GetPermissions")),
 		connect.WithHandlerOptions(opts...),
 	)
+	documentsBulkCheckPermissionsHandler := connect.NewUnaryHandler(
+		DocumentsBulkCheckPermissionsProcedure,
+		svc.BulkCheckPermissions,
+		connect.WithSchema(documentsMethods.ByName("BulkCheckPermissions")),
+		connect.WithHandlerOptions(opts...),
+	)
 	documentsLockHandler := connect.NewUnaryHandler(
 		DocumentsLockProcedure,
 		svc.Lock,
@@ -979,6 +1008,8 @@ func NewDocumentsHandler(svc DocumentsHandler, opts ...connect.HandlerOption) (s
 			documentsGetStatusOverviewHandler.ServeHTTP(w, r)
 		case DocumentsGetPermissionsProcedure:
 			documentsGetPermissionsHandler.ServeHTTP(w, r)
+		case DocumentsBulkCheckPermissionsProcedure:
+			documentsBulkCheckPermissionsHandler.ServeHTTP(w, r)
 		case DocumentsLockProcedure:
 			documentsLockHandler.ServeHTTP(w, r)
 		case DocumentsExtendLockProcedure:
@@ -1088,6 +1119,10 @@ func (UnimplementedDocumentsHandler) GetStatusOverview(context.Context, *connect
 
 func (UnimplementedDocumentsHandler) GetPermissions(context.Context, *connect.Request[repository.GetPermissionsRequest]) (*connect.Response[repository.GetPermissionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.repository.Documents.GetPermissions is not implemented"))
+}
+
+func (UnimplementedDocumentsHandler) BulkCheckPermissions(context.Context, *connect.Request[repository.BulkCheckPermissionsRequest]) (*connect.Response[repository.BulkCheckPermissionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.repository.Documents.BulkCheckPermissions is not implemented"))
 }
 
 func (UnimplementedDocumentsHandler) Lock(context.Context, *connect.Request[repository.LockRequest]) (*connect.Response[repository.LockResponse], error) {

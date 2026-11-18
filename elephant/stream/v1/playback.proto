@@ -1,0 +1,324 @@
+syntax = "proto3";
+
+package elephant.stream.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/stream/v1;streamv1";
+
+// PlaybackService issues signed CDN URLs for events. The signing keys never
+// leave elephant-stream: any other service that needs a playback or download
+// URL asks here.
+//
+// Both methods are allowed to the callers that may see the event with
+// ControlService.GetEvent: a token bound to its planning document (and to
+// its assignment when the token names one), its creator, stream_admin, and
+// anyone the repository lets read the planning document. Besides them, a
+// customer-facing service with the stream_playback scope may get URLs for
+// any event; which of its viewers may see an event is decided by that
+// service before it asks. Every URL set issued is logged with the caller's
+// subject and client.
+//
+// A stream_playback service gets the customers' view of an event: only what
+// was recorded while the event was on air (see ControlService.SetOnAir),
+// from the aired copies under the event's customer prefix /c/{event}/. Its
+// tokens never reach the editorial archive under /s/{event}/, and an event
+// that has never been on air is refused it.
+service PlaybackService {
+  // GetPlaybackURLs issues the playlist URLs of an event and the playback
+  // token that goes with them. The token covers the event's playlists under
+  // /m/{event}/ and everything under /s/{event}/: its segments, init
+  // sections, clips and proxies. A player has to add it to every request,
+  // since the segment URIs in a playlist don't carry it, and should ask
+  // again before it expires on a long event.
+  //
+  // A stream_playback service gets the customer playlists under
+  // /m/c/{event}/ instead, which hold the aired copies alone with a
+  // discontinuity at every cut, and a token for /c/{event}/ and nothing
+  // else. Off air, the customer playlist stops growing until the event is
+  // back on air; it ends once the event is finalised. An event that has
+  // never been on air is refused with failed_precondition.
+  rpc GetPlaybackURLs(GetPlaybackURLsRequest) returns (GetPlaybackURLsResponse);
+
+  // GetDownloadURLs signs download URLs for exact files of an event: clips
+  // and full-length files. Each URL grants its one file and nothing
+  // else, so that a forwarded link reaches no further. The files are named
+  // by their path under the event, and a URL is issued whether or not the
+  // file exists yet.
+  //
+  // For a stream_playback service the paths are under the event's
+  // customer prefix: its customers' full-length file, "full/a{revision}.mp4"
+  // (".m4a" for audio), as GetEventFiles names it. Editorial files, clips
+  // among them, are refused it.
+  rpc GetDownloadURLs(GetDownloadURLsRequest) returns (GetDownloadURLsResponse);
+
+  // GetLatestThumbnail returns the latest thumbnail of a video event, for
+  // overview grids of several live events: polled every few seconds, it
+  // stands in for a player per event. Audio events have no thumbnails.
+  // Thumbnails are editorial: a stream_playback service is refused them.
+  rpc GetLatestThumbnail(GetLatestThumbnailRequest) returns (GetLatestThumbnailResponse);
+
+  // ListThumbnails lists a video event's thumbnails in time order, for
+  // scrub previews. Refused to a stream_playback service, as
+  // GetLatestThumbnail is.
+  rpc ListThumbnails(ListThumbnailsRequest) returns (ListThumbnailsResponse);
+
+  // GetEventFiles returns what has been made of an event since it ended,
+  // at its current archive generation: the full-length file, and the
+  // preview of a video event, a thumbnail sprite for scrub previews. Every file comes with a download URL signed
+  // for exactly that file. The state of the jobs that make them says what
+  // is still to come: a full-length file is made from the archive first,
+  // and again from the phone's master once one that covers the archive is
+  // uploaded, and both are made again when a replacement moves the archive
+  // to a new generation.
+  //
+  // A stream_playback service gets its customers' full-length file instead,
+  // made from the aired copies once the event is finalised (source "aired"),
+  // and only the job that makes it.
+  rpc GetEventFiles(GetEventFilesRequest) returns (GetEventFilesResponse);
+
+  // GetMasterURLs returns the phone's complete masters of an
+  // event, each with a short-lived presigned URL straight to the bucket,
+  // for an editorial download of the original. Masters are never served
+  // through the CDN and no playback or download token reaches them, so this
+  // is the only way to one. Allowed only to the callers that may see the
+  // event with ControlService.GetEvent: a stream_playback service gets no
+  // masters.
+  rpc GetMasterURLs(GetMasterURLsRequest) returns (GetMasterURLsResponse);
+}
+
+message GetPlaybackURLsRequest {
+  string event_id = 1;
+  // How long the token is good for, in seconds. Zero takes the service
+  // default; more than the service's maximum is refused.
+  int64 ttl_seconds = 2;
+  // Who the URLs are for, carried in the token and logged: lowercase
+  // letters, digits and dashes. Only a stream_playback caller may set it,
+  // to name its customer; everyone else gets the service's own audience.
+  string audience = 3;
+}
+
+message GetPlaybackURLsResponse {
+  // The playlist with picture and sound. Empty for an audio event.
+  string muxed_playlist_url = 1;
+  // The audio-only playlist, which every event has.
+  string audio_playlist_url = 2;
+  // The playback token. It is already in the playlist URLs; a player adds
+  // it to every other request as the query parameter token_parameter.
+  string token = 3;
+  string token_parameter = 4;
+  // The path prefixes the token is good for.
+  repeated string prefixes = 5;
+  // When the token expires, RFC 3339.
+  string expires = 6;
+}
+
+message GetDownloadURLsRequest {
+  string event_id = 1;
+  // Paths of files under the event, as the clip service and
+  // GetEventFiles name them: "clips/g{generation}/{start}-{end}.mp4",
+  // "full/g{generation}.mp4", "full/m-{upload}.mp4" (".m4a" for audio
+  // throughout), and the preview's "preview/g{generation}/sprite-{n}.jpg",
+  // "sprites.vtt" and "index.json". At most 100.
+  repeated string paths = 2;
+  // As in GetPlaybackURLsRequest.
+  int64 ttl_seconds = 3;
+  // As in GetPlaybackURLsRequest.
+  string audience = 4;
+}
+
+message SignedURL {
+  // The path under the event, as asked for.
+  string path = 1;
+  string url = 2;
+}
+
+message GetDownloadURLsResponse {
+  // One URL per path, in the order asked for.
+  repeated SignedURL urls = 1;
+  // When the URLs expire, RFC 3339.
+  string expires = 2;
+}
+
+// Thumbnail is a JPEG still of an event, taken on a keyframe every few
+// seconds while it is live.
+message Thumbnail {
+  // When the picture was taken, RFC 3339 with milliseconds, on the
+  // program-date-time timeline of the event's playlists.
+  string time = 1;
+  // The thumbnail on the CDN. Like the segment URIs in a playlist it
+  // carries no token: add the playback token from GetPlaybackURLs as its
+  // token_parameter.
+  string url = 2;
+  // The path under the event, "thumbnails/{connection}/{offset}.jpg".
+  string path = 3;
+  int32 width = 4;
+  int32 height = 5;
+  // The connection, by ordinal, that the thumbnail was taken from. A
+  // reconnect starts a new one.
+  int32 connection = 6;
+}
+
+message GetLatestThumbnailRequest {
+  string event_id = 1;
+}
+
+message GetLatestThumbnailResponse {
+  // Unset while the event has no thumbnail yet.
+  Thumbnail thumbnail = 1;
+}
+
+message ListThumbnailsRequest {
+  string event_id = 1;
+  // The times to list between, RFC 3339: from is included, to is not.
+  // Either may be empty for the start or the end of the event.
+  string from = 2;
+  string to = 3;
+  // How many to return, at most 1000; zero means 500.
+  int32 page_size = 4;
+  // The next_page_token of the previous page, to continue from it.
+  string page_token = 5;
+}
+
+message ListThumbnailsResponse {
+  repeated Thumbnail thumbnails = 1;
+  // Set when there may be more: pass it as page_token, with the same
+  // from and to, for the next page.
+  string next_page_token = 2;
+}
+
+message GetEventFilesRequest {
+  string event_id = 1;
+  // As in GetPlaybackURLsRequest, for the download URLs.
+  int64 ttl_seconds = 2;
+  // As in GetPlaybackURLsRequest.
+  string audience = 3;
+}
+
+message GetEventFilesResponse {
+  // The archive generation the files are of.
+  int32 archive_generation = 1;
+  // The full-length file: made from the phone's master when one that
+  // covers the archive is ready, from the archive otherwise. Unset until
+  // the first one is made.
+  FullLengthFile full_length = 2;
+  // The preview of a video event. Unset until it is made, and for an
+  // audio event, which has none.
+  Preview preview = 3;
+  // The jobs at this generation, newest first, with what they are doing.
+  repeated PostEventJob jobs = 4;
+  // When the URLs expire, RFC 3339. Empty when there are none.
+  string expires = 5;
+}
+
+message GetMasterURLsRequest {
+  string event_id = 1;
+}
+
+message GetMasterURLsResponse {
+  // Oldest first.
+  repeated MasterRecording masters = 1;
+  // When the URLs expire, RFC 3339. Empty when there are none.
+  string expires = 2;
+}
+
+// MasterRecording is a master the phone uploaded for an event.
+message MasterRecording {
+  string upload_id = 1;
+  // A presigned GET of the original file in the bucket.
+  string url = 2;
+  int64 size = 3;
+  string content_type = 4;
+  // The subject that uploaded it.
+  string uploaded_by = 5;
+  // RFC 3339.
+  string completed = 6;
+}
+
+// EventFile is a file of an event, with a URL signed for exactly it.
+message EventFile {
+  // The path under the event, as GetDownloadURLs takes it.
+  string path = 1;
+  string url = 2;
+  // The size in bytes, where known.
+  int64 size = 3;
+}
+
+message FullLengthFile {
+  EventFile file = 1;
+  // "master" for a remux of the phone's master, "archive" for
+  // the archive joined across reconnects, "aired" for the
+  // customers' file joined from the aired copies across every cut.
+  string source = 2;
+  // The upload ID of the master it was made from.
+  string master_upload_id = 3;
+  // How it was made: "remux" from a master; "copy", "copy_in_band" or
+  // "reencode" from the archive, as for clips.
+  string method = 4;
+  int64 duration_ms = 5;
+  // How many stretches of continuous recording an archive file joins.
+  int32 pieces = 6;
+  // Set when the newest master couldn't be used and the file was made from
+  // the archive instead, saying why.
+  string master_rejected = 7;
+}
+
+// Preview is a sprite of thumbnails for looking through an event, on the
+// archive's playlist timeline with the outages between connections left
+// out, which is duration_ms long.
+message Preview {
+  // A low-resolution proxy and its picture size, which nothing played.
+  reserved 1, 2, 3;
+  reserved "proxy", "width", "height";
+
+  int64 duration_ms = 4;
+  Sprite sprite = 5;
+}
+
+// Sprite is thumbnails tiled into sheets. Tile n shows the picture at n
+// times interval_ms into the preview's timeline, and lies in sheet
+// n / (columns * rows), at column n % columns and row
+// (n % (columns * rows)) / columns.
+message Sprite {
+  int64 interval_ms = 1;
+  int32 tile_width = 2;
+  int32 tile_height = 3;
+  int32 columns = 4;
+  int32 rows = 5;
+  // How many tiles there are; the last sheet is black past them.
+  int32 tiles = 6;
+  repeated EventFile sheets = 7;
+  // The same index as WebVTT, one cue per tile pointing into its sheet by
+  // name with "#xywh=x,y,w,h". The names are relative to the WebVTT file,
+  // so a player using it needs the playback token from GetPlaybackURLs,
+  // which covers the event's files, rather than these single-file URLs.
+  EventFile vtt = 8;
+}
+
+enum PostEventJobState {
+  POST_EVENT_JOB_STATE_UNSPECIFIED = 0;
+  // Queued, retrying after a failure, or waiting for the event to finish
+  // uploading.
+  POST_EVENT_JOB_STATE_PENDING = 1;
+  POST_EVENT_JOB_STATE_PROCESSING = 2;
+  POST_EVENT_JOB_STATE_DONE = 3;
+  // Failed for good; error says why.
+  POST_EVENT_JOB_STATE_FAILED = 4;
+  // A replacement superseded the generation before the job ran.
+  POST_EVENT_JOB_STATE_SUPERSEDED = 5;
+}
+
+message PostEventJob {
+  // "full_mp4", "preview", "backup_splice", "segment_recording", which
+  // cuts an uploaded recording into its event's audio track, or
+  // "aired_mp4", the customers' full-length file.
+  string kind = 1;
+  PostEventJobState state = 2;
+  // The upload ID of the master or the recording the job works from, if
+  // any.
+  string master_upload_id = 3;
+  int32 attempts = 4;
+  // The last failure, while retrying or once failed.
+  string error = 5;
+  // When the job was queued and last changed, RFC 3339.
+  string created = 6;
+  string updated = 7;
+}

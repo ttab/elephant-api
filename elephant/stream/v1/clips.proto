@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package elephant.stream.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/stream/v1;streamv1";
+
+// ClipService cuts clips out of an event's archive: a progressive MP4 (M4A
+// for an audio event) of a stretch of program-date-time, for customers who
+// trim in their own editors.
+//
+// A clip is cut on segment boundaries, which are keyframes, so that it can
+// be stream-copied: it starts up to one segment (about 2 s) before the
+// requested start and ends up to one segment after the requested end. A
+// stretch spanning a reconnect is still one file, with the outage between
+// the connections left out.
+//
+// Clips are made in the background. CreateClip returns at once with the
+// clip's state; a caller polls GetClip, or sends CreateClip again, until it
+// is ready. Asking for the same stretch again returns the same clip, and a
+// ready clip is reused until a replacement changes the archive.
+//
+// Allowed to the callers that may see the event with ControlService.GetEvent:
+// a token bound to its planning document (and to its assignment when the
+// token names one), its creator, stream_admin, and anyone the repository
+// lets read the planning document. Every download URL issued is logged with
+// the caller's subject and client.
+//
+// A customer-facing service with stream_playback alone can't create or
+// poll clips, which would make the service cut video on its behalf; it
+// signs the path of a clip that exists with
+// PlaybackService.GetDownloadURLs.
+service ClipService {
+  // CreateClip asks for a clip of the stretch from start to end, and
+  // returns it in whatever state it is in. A stretch that ends beyond what
+  // the live event has recorded so far waits for the segments to arrive.
+  rpc CreateClip(CreateClipRequest) returns (CreateClipResponse);
+
+  // GetClip returns a clip CreateClip made, with a fresh download URL once
+  // it is ready.
+  rpc GetClip(GetClipRequest) returns (GetClipResponse);
+}
+
+message CreateClipRequest {
+  string event_id = 1;
+  // The stretch to clip, RFC 3339 on the program-date-time timeline of the
+  // event's playlists. end must be after start, at most the service's
+  // maximum clip length later, and not in the future.
+  string start = 2;
+  string end = 3;
+  // How long the download URL of a ready clip is good for, in seconds.
+  // Zero takes the service default; more than the service's maximum is
+  // refused.
+  int64 ttl_seconds = 4;
+}
+
+message CreateClipResponse {
+  Clip clip = 1;
+}
+
+message GetClipRequest {
+  string event_id = 1;
+  string clip_id = 2;
+  // As in CreateClipRequest.
+  int64 ttl_seconds = 3;
+}
+
+message GetClipResponse {
+  Clip clip = 1;
+}
+
+enum ClipState {
+  CLIP_STATE_UNSPECIFIED = 0;
+  // Queued, or waiting for the live event to record the end of the
+  // stretch.
+  CLIP_STATE_PENDING = 1;
+  // Being cut.
+  CLIP_STATE_PROCESSING = 2;
+  // Ready to download from url.
+  CLIP_STATE_READY = 3;
+  // Cutting failed for good; error says why. Asking for the clip again
+  // tries again.
+  CLIP_STATE_FAILED = 4;
+}
+
+message Clip {
+  string id = 1;
+  string event_id = 2;
+  ClipState state = 3;
+  // The stretch asked for, RFC 3339 with microseconds.
+  string requested_start = 4;
+  string requested_end = 5;
+  // The archive generation the clip is cut from. A replacement moves the
+  // archive to a new generation, and a clip asked for after that is cut
+  // again.
+  int32 archive_generation = 6;
+  // Set while pending when the live event hasn't recorded the end of the
+  // stretch yet.
+  bool waiting_for_media = 7;
+  // The stretch the clip covers, snapped to segment boundaries, RFC 3339
+  // with microseconds. Set once ready.
+  string start = 8;
+  string end = 9;
+  // The clip's path under the event, as GetDownloadURLs takes it:
+  // "clips/g{generation}/{start}-{end}.mp4", or ".m4a" for an audio event.
+  // Set once ready.
+  string path = 10;
+  // A download URL signed for exactly this file, and when it expires,
+  // RFC 3339. Set once ready.
+  string url = 11;
+  string url_expires = 12;
+  // The size of the file in bytes. Set once ready.
+  int64 size = 13;
+  // How many stretches of continuous recording the clip joins: one, or more
+  // when it spans reconnects or lost segments. Set once ready.
+  int32 pieces = 14;
+  // Why cutting failed. Set when failed.
+  string error = 15;
+}

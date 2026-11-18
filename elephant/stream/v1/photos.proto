@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package elephant.stream.v1;
+
+import "elephant/stream/v1/uploads.proto";
+
+option go_package = "github.com/ttab/elephant-api/elephant/stream/v1;streamv1";
+
+// PhotoService is the photo outbox: every photo uploaded and completed
+// through UploadService, in the order the uploads completed. elephant-stream
+// doesn't decide where photos go; services that do, such as an integration
+// with the media manager or one that creates image documents, read the
+// outbox and act on what they find.
+//
+// The outbox is a commit-ordered log. Each entry has a position, which only
+// grows, and each consumer keeps its own cursor: it asks for the entries
+// after the last position it handled, so several consumers read the same
+// outbox independently. Positions are assigned in the order the uploads
+// commit, so an entry is never added behind a position a consumer has
+// already read past.
+//
+// Allowed to services with the stream_outbox_read scope. A token bound to a
+// planning document is refused, whatever its scopes.
+service PhotoService {
+  // PollPhotos returns the entries after a position, in order. With wait
+  // set and nothing there yet, it waits for a photo to arrive, so a
+  // consumer that polls in a loop learns of new photos within moments of
+  // their upload without polling often.
+  rpc PollPhotos(PollPhotosRequest) returns (PollPhotosResponse);
+
+  // GetPhoto returns one entry with a fresh download URL, for a consumer
+  // whose URL ran out before it fetched the photo.
+  rpc GetPhoto(GetPhotoRequest) returns (GetPhotoResponse);
+}
+
+message PollPhotosRequest {
+  // The position of the last entry the consumer handled; 0 from the start.
+  int64 after = 1;
+  // How long to wait for an entry when there is none yet, in seconds, at
+  // most 30. Zero answers at once.
+  int32 wait_seconds = 2;
+  // How many entries to return at most, up to 100. Zero means 100.
+  int32 limit = 3;
+}
+
+message PollPhotosResponse {
+  repeated Photo photos = 1;
+  // The cursor for the next poll: the position of the last entry returned,
+  // or after when there was none.
+  int64 last_position = 2;
+}
+
+message GetPhotoRequest {
+  // The photo's upload ID.
+  string id = 1;
+}
+
+message GetPhotoResponse {
+  Photo photo = 1;
+}
+
+message Photo {
+  // The entry's position in the outbox.
+  int64 position = 1;
+  // The upload ID the phone gave the photo.
+  string id = 2;
+  // Who took it: the subject of the token that uploaded it.
+  string photographer = 3;
+  // The application the photo was uploaded with.
+  string client_id = 4;
+  string planning_uuid = 5;
+  string assignment = 6;
+  CaptureMetadata capture = 7;
+  // The SHA-256 of the chunk hashes concatenated in order, as UploadService
+  // computes it.
+  bytes content_hash = 8;
+  int64 size = 9;
+  string content_type = 10;
+  // When the upload completed, RFC 3339.
+  string uploaded = 11;
+  // A presigned URL to the original in the bucket, and when it stops
+  // working, RFC 3339. GetPhoto issues a new one.
+  string url = 12;
+  string url_expires = 13;
+}
