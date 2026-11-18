@@ -68,7 +68,13 @@
 // already_exists. A restore is the exception: it puts back the state at
 // the point it restores to, keys included, so it may bring back a table
 // or column whose key a deleted one still reserves, and an undo of that
-// deletion is then a conflict.
+// deletion is then a conflict. SchemaService.EnsureSchema is the other
+// exception: the application that declares a namespace's schema owns its
+// keys, so a declaration may give a new table or column a key that only
+// a deletion reserves, never one a live table or column holds. That is
+// what lets an application declare a version again after the batch that
+// declared it was undone, since the undo deletes what the batch created.
+// An undo of the deletion is then a conflict, as after a restore.
 //
 // Addressing: wherever a request names a table or column of a namespace
 // by id, it may give its key instead. That is every table, column,
@@ -117,7 +123,10 @@
 // column that a unique constraint or index covers cannot be deleted, and
 // one a unique constraint covers cannot change type: delete the index
 // first. A type change of a required column is refused when a cell
-// would not convert, since it would become empty. An index changes no
+// would not convert, since it would become empty. A cell that is not
+// empty and would convert to an empty one, such as text of only spaces
+// converted to a number, or a JSON string "" converted to text, counts
+// as not converting, for every pair of types. An index changes no
 // results; it only makes filters, sorts and queries on its columns
 // faster.
 //
@@ -758,8 +767,12 @@ type SchemaServiceClient interface {
 	UpdateColumn(context.Context, *connect.Request[v1.UpdateColumnRequest]) (*connect.Response[v1.UpdateColumnResponse], error)
 	// ChangeColumnType converts a column to another type, rebuilding the
 	// table inside one transaction. Cells that do not convert become empty,
-	// with their old values kept in the batch. With dry_run set nothing is
-	// written, and the response reports which cells would fail.
+	// with their old values kept in the batch; a cell that is not empty and
+	// would convert to an empty value counts as one that does not convert.
+	// A required column with such a cell is refused with
+	// failed_precondition and a ConstraintViolations detail. With dry_run
+	// set nothing is written, and the response reports which cells would
+	// fail.
 	ChangeColumnType(context.Context, *connect.Request[v1.ChangeColumnTypeRequest]) (*connect.Response[v1.ChangeColumnTypeResponse], error)
 	// DeleteColumn removes a column. The batch keeps its values, so it
 	// undoes. A column a unique constraint or index covers is refused with
@@ -826,10 +839,18 @@ type SchemaServiceClient interface {
 	// a ConstraintViolations detail listing the offending rows of every
 	// such step, capped; with dry_run set nothing is written and the
 	// response lists them instead, with the planned steps. A malformed
-	// declaration is invalid_argument, a key a deleted table or column
-	// still reserves already_exists, and a limit resource_exhausted.
+	// declaration is invalid_argument, a key that another live table or
+	// column holds already_exists, and a limit
+	// resource_exhausted. A key that only a deleted table or column
+	// reserves may be declared; see Keys in the package comment.
 	//
-	// The batch is undoable as a whole, the version and digest included.
+	// The batch is undoable as a whole, the version and digest included,
+	// and only as a whole: when any of its changes cannot be reverted,
+	// because what it changed was changed again since, or the namespace's
+	// version moved on, DataService.Undo reverts none of it and reports
+	// the changes that conflict, so that the stored version and digest
+	// always describe the schema the namespace has. Once undone, the
+	// version it declared can be declared again.
 	// A whole-database Restore puts back each namespace's version and
 	// digest along with its tables. Changes made to the namespace's
 	// schema by other calls do not change the stored version: the next
@@ -1041,8 +1062,12 @@ type SchemaServiceHandler interface {
 	UpdateColumn(context.Context, *connect.Request[v1.UpdateColumnRequest]) (*connect.Response[v1.UpdateColumnResponse], error)
 	// ChangeColumnType converts a column to another type, rebuilding the
 	// table inside one transaction. Cells that do not convert become empty,
-	// with their old values kept in the batch. With dry_run set nothing is
-	// written, and the response reports which cells would fail.
+	// with their old values kept in the batch; a cell that is not empty and
+	// would convert to an empty value counts as one that does not convert.
+	// A required column with such a cell is refused with
+	// failed_precondition and a ConstraintViolations detail. With dry_run
+	// set nothing is written, and the response reports which cells would
+	// fail.
 	ChangeColumnType(context.Context, *connect.Request[v1.ChangeColumnTypeRequest]) (*connect.Response[v1.ChangeColumnTypeResponse], error)
 	// DeleteColumn removes a column. The batch keeps its values, so it
 	// undoes. A column a unique constraint or index covers is refused with
@@ -1109,10 +1134,18 @@ type SchemaServiceHandler interface {
 	// a ConstraintViolations detail listing the offending rows of every
 	// such step, capped; with dry_run set nothing is written and the
 	// response lists them instead, with the planned steps. A malformed
-	// declaration is invalid_argument, a key a deleted table or column
-	// still reserves already_exists, and a limit resource_exhausted.
+	// declaration is invalid_argument, a key that another live table or
+	// column holds already_exists, and a limit
+	// resource_exhausted. A key that only a deleted table or column
+	// reserves may be declared; see Keys in the package comment.
 	//
-	// The batch is undoable as a whole, the version and digest included.
+	// The batch is undoable as a whole, the version and digest included,
+	// and only as a whole: when any of its changes cannot be reverted,
+	// because what it changed was changed again since, or the namespace's
+	// version moved on, DataService.Undo reverts none of it and reports
+	// the changes that conflict, so that the stored version and digest
+	// always describe the schema the namespace has. Once undone, the
+	// version it declared can be declared again.
 	// A whole-database Restore puts back each namespace's version and
 	// digest along with its tables. Changes made to the namespace's
 	// schema by other calls do not change the stored version: the next
@@ -1320,6 +1353,12 @@ type DataServiceClient interface {
 	// not reverted, and is reported with a violation. Undo is offered only
 	// within the change log window.
 	//
+	// A batch of SchemaService.EnsureSchema, and the undo of one, is
+	// undone as a whole or not at all, as an atomic Mutate is: when any of
+	// its changes cannot be reverted, nothing is written, batch is empty,
+	// the changes that cannot be reverted carry their conflict, error or
+	// violation, and the others carry no result.
+	//
 	// Auth: doc_write on the owning document.
 	Undo(context.Context, *connect.Request[v1.UndoRequest]) (*connect.Response[v1.UndoResponse], error)
 	// Query runs read-only SQL against the views DescribeResponse lists,
@@ -1356,7 +1395,9 @@ type DataServiceClient interface {
 	// reasons, carried in the error metadata under "reason":
 	//
 	//   lease_moved (code unavailable): the database moved to another pod,
-	//   in a deploy or a drain. Reconnect with the last cursor received.
+	//   in a deploy or a drain. Reconnect with the last cursor received:
+	//   the later of the last change's cursor and the last heartbeat's
+	//   resume cursor.
 	//
 	//   cursor_invalid (code failed_precondition): the cursor cannot be
 	//   continued from. Either it is older than the oldest retained
@@ -1371,6 +1412,13 @@ type DataServiceClient interface {
 	//   token_expired (code unauthenticated): the caller's token expired.
 	//   Resume with a fresh token and the last cursor received, which runs
 	//   the access check again.
+	//
+	// Every heartbeat carries a resume cursor (Heartbeat.resume), which
+	// moves on past the changes the stream does not send: those of other
+	// namespaces, and of tables its filter leaves out. A client that keeps
+	// the later of it and its last change's cursor never resumes from a
+	// position the change log has pruned only because its own namespace
+	// was quiet.
 	//
 	// Auth: doc_read on the owning document.
 	Watch(context.Context, *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.WatchResponse], error)
@@ -1612,6 +1660,12 @@ type DataServiceHandler interface {
 	// not reverted, and is reported with a violation. Undo is offered only
 	// within the change log window.
 	//
+	// A batch of SchemaService.EnsureSchema, and the undo of one, is
+	// undone as a whole or not at all, as an atomic Mutate is: when any of
+	// its changes cannot be reverted, nothing is written, batch is empty,
+	// the changes that cannot be reverted carry their conflict, error or
+	// violation, and the others carry no result.
+	//
 	// Auth: doc_write on the owning document.
 	Undo(context.Context, *connect.Request[v1.UndoRequest]) (*connect.Response[v1.UndoResponse], error)
 	// Query runs read-only SQL against the views DescribeResponse lists,
@@ -1648,7 +1702,9 @@ type DataServiceHandler interface {
 	// reasons, carried in the error metadata under "reason":
 	//
 	//   lease_moved (code unavailable): the database moved to another pod,
-	//   in a deploy or a drain. Reconnect with the last cursor received.
+	//   in a deploy or a drain. Reconnect with the last cursor received:
+	//   the later of the last change's cursor and the last heartbeat's
+	//   resume cursor.
 	//
 	//   cursor_invalid (code failed_precondition): the cursor cannot be
 	//   continued from. Either it is older than the oldest retained
@@ -1663,6 +1719,13 @@ type DataServiceHandler interface {
 	//   token_expired (code unauthenticated): the caller's token expired.
 	//   Resume with a fresh token and the last cursor received, which runs
 	//   the access check again.
+	//
+	// Every heartbeat carries a resume cursor (Heartbeat.resume), which
+	// moves on past the changes the stream does not send: those of other
+	// namespaces, and of tables its filter leaves out. A client that keeps
+	// the later of it and its last change's cursor never resumes from a
+	// position the change log has pruned only because its own namespace
+	// was quiet.
 	//
 	// Auth: doc_read on the owning document.
 	Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.WatchResponse]) error
@@ -2323,7 +2386,11 @@ type EventsServiceClient interface {
 	// repository answers nothing for a deleted document. They are sent
 	// only when the caller's token was found to give read access to the
 	// document before it was deleted: earlier on the same stream, or in
-	// the service's short-lived cache of such answers. Otherwise they are
+	// the service's short-lived cache of such answers. A stream finds that
+	// out from the first event of the database it passes, of whichever
+	// namespace: an event of another namespace is not sent, but its
+	// database is checked once, so a stream whose own namespace was quiet
+	// still learns that a database it could read is gone. Otherwise they are
 	// withheld, so a client that needs to know that a database is gone
 	// should keep its stream open. undeleted is also sent when the
 	// restored document is readable with the caller's token.
@@ -2398,7 +2465,11 @@ type EventsServiceHandler interface {
 	// repository answers nothing for a deleted document. They are sent
 	// only when the caller's token was found to give read access to the
 	// document before it was deleted: earlier on the same stream, or in
-	// the service's short-lived cache of such answers. Otherwise they are
+	// the service's short-lived cache of such answers. A stream finds that
+	// out from the first event of the database it passes, of whichever
+	// namespace: an event of another namespace is not sent, but its
+	// database is checked once, so a stream whose own namespace was quiet
+	// still learns that a database it could read is gone. Otherwise they are
 	// withheld, so a client that needs to know that a database is gone
 	// should keep its stream open. undeleted is also sent when the
 	// restored document is readable with the caller's token.

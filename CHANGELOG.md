@@ -101,6 +101,27 @@ Changes:
   namespace also puts back each namespace's `schema_editable` flag.
 - `tables.v1.ImportJob.namespace` (10) is the namespace the import
   writes to, which its batch is in and an `Undo` of it names.
+- `tables.v1.Heartbeat.resume` (3) is the cursor a `Watch` stream may
+  be resumed from: every change of its namespace that its filter lets
+  through up to it has been sent. It moves past other namespaces'
+  changes, so a client of a quiet namespace keeps a cursor the change
+  log still holds. `WatchRequest.tables` documents that a key follows
+  the key: a table created under it while the stream runs matches from
+  its `table_create` on.
+- `SchemaService.EnsureSchema` and `DataService.Undo` document that a
+  declaration batch undoes as a whole or not at all, and that a
+  declaration may take a key only a deletion reserves, so a version can
+  be declared again after its batch was undone. `Namespace.schema_digest`
+  documents that the order of tables and of indexes does not change it.
+- `RestoreRequest.tables` documents that a key naming one table now and
+  another at the point is refused as ambiguous, and that a restored
+  table gets its SQL name back or is refused with `already_exists` when
+  a table outside the restore holds it.
+- `ChangeColumnType` and the constraints paragraph document that a cell
+  that would convert to an empty value counts as not converting.
+  `ImportCandidate.delete_missing` documents that missing rows are
+  deleted before the source is written. `WatchEvents` documents that a
+  stream checks a database from its first event of any namespace.
 - `tables.v1.Snapshot.expires` documents that restore points expire too,
   not only exports.
 - `tables.v1.Snapshot.txid` documents a replica position, in the cursor's
