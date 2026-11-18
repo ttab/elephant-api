@@ -8,17 +8,20 @@ pull requests hold the detail.
 
 **New service (tables):** `elephant.tables.v1` is the declaration for
 elephant-tables, which gives a document its own tabular data in one SQLite
-database per owning document. It is six services in one package:
+database per document generation. It is six services in one package:
 `DatabasesService` (create, describe, fork, restore in place, history,
-recovery from a lost replica, delete), `SchemaService` (tables and columns,
-type changes with a dry run), `DataService` (rows, mutations, undo,
-read-only SQL, column summaries, agent suggestions, presence, and the
-`Watch` change stream), `SnapshotsService` (export
-snapshots and publications), `ImportsService` (upload, analyze, apply) and
-`EventsService` (the tenant's coarse event log, over the `WatchEvents`
-stream). Nothing serves it yet. Go consumers import
+recovery from a lost replica, and a delete that is declared but not
+served), `SchemaService` (namespaces, tables, columns, constraints,
+indexes, type changes with a dry run and declared schemas), `DataService`
+(rows, mutations, undo, read-only SQL, column summaries, agent
+suggestions, presence, and the `Watch` change stream), `SnapshotsService`
+(export snapshots and publications), `ImportsService` (upload, analyze,
+apply) and `EventsService` (the tenant's coarse event log, over the
+`WatchEvents` stream). It is declared at
+`elephant/tables/v1/service.proto`; Go consumers import
 `github.com/ttab/elephant-api/elephant/tables/v1` and
-`github.com/ttab/elephant-api/elephant/tables/v1/tablesv1connect`.
+`github.com/ttab/elephant-api/elephant/tables/v1/tablesv1connect`, and the
+README's service table and Connect client section describe it.
 
 **Connect only, on connect-go's own interface:** like collab, tables is in
 the versioned layout and declares streams, so `tablesv1connect` holds only
@@ -28,210 +31,169 @@ streams and need no HTTP/2 transport.
 
 Changes:
 
-- Document generations in `tables.v1`: a database belongs to one
-  generation of its owning document, the repository's nonce, and
-  requests that name a database by the document's UUID are served from
-  the current generation's. New `DatabaseInfo.id` (10, the database's
-  own id), `DatabaseInfo.document_nonce` (11), `DatabaseInfo.parent_id`
-  (12), `Event.database_id` (9) and `Event.document_nonce` (10).
-  `database` and `parent_database` fields name owning documents.
-  `CreateDatabase` binds to the current generation, gives a document
-  created again under a deleted UUID a database of its own, and answers
-  `unavailable` while an earlier generation's database is not archived
-  yet, or `aborted` when the document's generation changes during the
-  call. `Event.document_nonce` is the generation the database belonged
-  to when the event happened. Every database-scoped call needs read
-  permission on the document.
-- Namespaces in `tables.v1`: every table belongs to a namespace, named
-  by the application that created it, and a change batch touches
-  exactly one. The new `Namespace` message (name and the advisory
-  `schema_editable` flag) and `SchemaService.UpdateNamespace`, which
-  sets the flag as a change batch. `Table.namespace` (7);
-  `DatabaseInfo.namespaces` (9) replaces `DatabaseInfo.tables` (7,
-  reserved); `DescribeResponse.namespace` (4). A required `namespace`
-  on `DescribeRequest` (2), `CreateTableRequest` (4),
-  `UpdateTableRequest` (5), `DeleteTableRequest` (3),
-  `AddColumnRequest` (4), `UpdateColumnRequest` (4),
-  `ChangeColumnTypeRequest` (7), `DeleteColumnRequest` (4),
-  `ListRequest` (8), `MutateRequest` (5), `UndoRequest` (3),
-  `ChangesRequest` (4), `WatchRequest` (5), `SummarizeRequest` (6),
-  `SuggestRequest` (5), `ResolveSuggestionRequest` (5),
-  `ListSuggestionsRequest` (3), `AnalyzeRequest` (5) and
+- Document generations: a database belongs to one generation of its
+  owning document, the repository's nonce. Requests name a database by
+  the document's UUID and are served from the current generation's, read
+  with the caller's token, so every database-scoped call needs read
+  permission on the document. `DatabaseInfo.id` (10) is the database's
+  own id, `DatabaseInfo.document_nonce` (11) its generation and
+  `DatabaseInfo.parent_id` (12) its parent's id; `Event.database_id` (9)
+  and `Event.document_nonce` (10) name the database and the generation it
+  was bound to when the event happened. `database` and `parent_database`
+  fields name owning documents. `CreateDatabase` binds to the current
+  generation, so a document created again under a deleted one's UUID gets
+  a database of its own while the deleted generation's stays archived
+  until its deletion is purged; it answers `already_exists` when the
+  generation has a database, `failed_precondition` for a generation the
+  service has seen deleted, `unavailable` while an earlier generation's
+  database is not archived yet, and `aborted` when the generation changes
+  during the call. A fork into the document whose pod died before it
+  opened does not keep the document from getting a database.
+- Namespaces: every table belongs to a namespace, named by the
+  application that created it, and a change batch touches exactly one.
+  The `Namespace` message (name, the advisory `schema_editable` flag, and
+  `schema_version` (3) and `schema_digest` (4)) and
+  `SchemaService.UpdateNamespace`, which sets the flag as a change batch.
+  `Table.namespace` (7), `DatabaseInfo.namespaces` (9) and
+  `DescribeResponse.namespace` (4). A required `namespace` on
+  `DescribeRequest` (2), `CreateTableRequest` (4), `UpdateTableRequest`
+  (5), `DeleteTableRequest` (3), `AddColumnRequest` (4),
+  `UpdateColumnRequest` (4), `ChangeColumnTypeRequest` (7),
+  `DeleteColumnRequest` (4), `ListRequest` (8), `MutateRequest` (5),
+  `UndoRequest` (3), `ChangesRequest` (4), `WatchRequest` (5),
+  `SummarizeRequest` (6), `SuggestRequest` (5), `ResolveSuggestionRequest`
+  (5), `ListSuggestionsRequest` (3), `AnalyzeRequest` (5) and
   `WatchEventsRequest` (2); `ImportPlan.namespace` (8),
   `Suggestion.namespace` (11), `Change.namespace` (15),
-  `Change.namespace_state` (16) and `Event.namespace` (8).
-  `ChangesResponse.cursor` (3) is how far a read reached, past the
-  other namespaces' changes. `RestoreResponse.batches` (9, the new
-  `NamespaceBatch`) replaces `RestoreResponse.batch` (1, reserved): a
-  restore writes one batch per namespace it changes. A table's view for
-  `Query` is named `<namespace>__<sql_name>`.
-- Stable keys in `tables.v1`: `Table.key` (8), unique within the
-  namespace, and `Column.key` (9), unique within the table, given at
-  creation or made by the service from the name, and never changed.
-  `CreateTableRequest.key` (5) and `ImportCandidate.table_key` (13) give
-  a new table's key, and a new column's comes from its `Column.key`.
-  Requests that take a namespace accept a key wherever they name a
-  table or column by id; ids now always start with a digit and keys
-  with a letter, so a reference is one or the other. A deleted table's
-  or column's key stays reserved for it while the change log holds the
-  deletion, and a key in use or reserved is refused with
-  `already_exists`. `UpdateColumnRequest.column` is matched on its key
-  when its id is empty.
-- Constraints in `tables.v1`: `Column.required` (10), and unique
-  constraints and indexes as the new `Index` message in `Table.indexes`
-  (9), at most 16 per table and 8 columns each. New
-  `SchemaService.SetRequired`, `AddIndex` and `DeleteIndex`, each a change
-  batch; the first two take a `dry_run` that lists the rows that would
-  refuse the constraint. A write that would leave a required column
-  empty or duplicate a unique constraint's values is refused per
-  operation with the new `ConstraintViolation`, in
-  `MutationResult.violation` (6); adding a constraint existing rows
-  break is `failed_precondition` with a `ConstraintViolations` detail.
-  `UpdateColumn` ignores `required`; a column an index covers cannot be
-  deleted, nor retyped when a unique constraint covers it.
-- Declared schemas in `tables.v1`: the new `SchemaService.EnsureSchema`
-  (`EnsureSchemaRequest`, `EnsureSchemaResponse`) declares the whole
-  schema of a namespace with a version, as the new `SchemaDeclaration`,
-  `DeclaredTable`, `DeclaredColumn` and `DeclaredIndex`, matched by
-  key, and applies the difference as one change batch, compared and set
-  against the namespace's stored version. A dry run returns the planned
-  `SchemaStep`s (new enum `SchemaStepKind`) and the rows that would
-  refuse them. An older version, or the stored one with another schema,
-  is `failed_precondition` with the new reason
-  `schema_version_conflict` and a `SchemaVersionConflict` detail.
-  `Namespace.schema_version` (3) and `Namespace.schema_digest` (4)
-  report the stored version and digest. `ConstraintViolation` also
-  reports a cell that does not convert to a declared type.
-- `tables.v1.QueryRequest.namespace` (5), optional, scopes a `Query`
-  statement to one namespace: it then sees that namespace's views under
-  their tables' `sql_name` alone and only that namespace's rows of
-  `_tables` and `_columns`. Without it a statement sees every namespace
-  under `<namespace>__<sql_name>`, as before.
-- `tables.v1.RestoreRequest.namespace` (5), optional, limits a restore
-  to one namespace: its tables, rows, schema, constraints, declared
-  schema version and `schema_editable` flag go back to the point as one
-  restore batch in that namespace, and with a namespace `tables` may
-  name tables by key. A restore of the whole database or of a whole
-  namespace also puts back each namespace's `schema_editable` flag.
-- `tables.v1.ImportJob.namespace` (10) is the namespace the import
-  writes to, which its batch is in and an `Undo` of it names.
-- `tables.v1.Heartbeat.resume` (3) is the cursor a `Watch` stream may
-  be resumed from: every change of its namespace that its filter lets
-  through up to it has been sent. It moves past other namespaces'
-  changes, so a client of a quiet namespace keeps a cursor the change
-  log still holds. `WatchRequest.tables` documents that a key follows
-  the key: a table created under it while the stream runs matches from
-  its `table_create` on.
-- `SchemaService.EnsureSchema` and `DataService.Undo` document that a
-  declaration batch undoes as a whole or not at all, and that a
-  declaration may take a key only a deletion reserves, so a version can
-  be declared again after its batch was undone. `Namespace.schema_digest`
-  documents that the order of tables and of indexes does not change it.
-- `RestoreRequest.tables` documents that a key naming one table now and
-  another at the point is refused as ambiguous, and that a restored
-  table gets its SQL name back or is refused with `already_exists` when
-  a table outside the restore holds it.
-- `ChangeColumnType` and the constraints paragraph document that a cell
+  `Change.namespace_state` (16), `ImportJob.namespace` (10) and
+  `Event.namespace` (8). `ChangesResponse.cursor` (3) is how far a read
+  reached, past the other namespaces' changes. `RestoreResponse.batches`
+  (9, `NamespaceBatch`) lists the batches of a restore, one per namespace
+  it changes. A table's view for `Query` is named
+  `<namespace>__<sql_name>`.
+- Stable keys: `Table.key` (8), unique within the namespace, and
+  `Column.key` (9), unique within the table, given at creation or made by
+  the service from the name, and never changed. `CreateTableRequest.key`
+  (5) and `ImportCandidate.table_key` (13) give a new table's key, and a
+  new column's comes from its `Column.key`. Requests that take a namespace
+  accept a key wherever they name a table or column by id; ids always
+  start with a digit and keys with a letter. A deleted table's or column's
+  key stays reserved while the change log holds the deletion, and a key in
+  use or reserved is refused with `already_exists`.
+  `UpdateColumnRequest.column` is matched on its key when its id is empty.
+- Constraints: `Column.required` (10), and unique constraints and indexes
+  as the `Index` message in `Table.indexes` (9), at most 16 per table and
+  8 columns each, set with `SchemaService.SetRequired`, `AddIndex` and
+  `DeleteIndex`, each a change batch; the first two take a `dry_run`. A
+  write that would leave a required column empty or duplicate a unique
+  constraint's values is refused per operation with a
+  `ConstraintViolation`, in `MutationResult.violation` (6); adding a
+  constraint existing rows break is `failed_precondition` with a
+  `ConstraintViolations` detail. `UpdateColumn` ignores `required`; a
+  column an index covers cannot be deleted, nor retyped when a unique
+  constraint covers it. In `ChangeColumnType` and the constraints, a cell
   that would convert to an empty value counts as not converting.
-  `ImportCandidate.delete_missing` documents that missing rows are
-  deleted before the source is written. `WatchEvents` documents that a
-  stream checks a database from its first event of any namespace.
-- `tables.v1.Snapshot.expires` documents that restore points expire too,
-  not only exports.
-- `tables.v1.Snapshot.txid` documents a replica position, in the cursor's
-  epoch, that holds the snapshot's state and possibly a few changes more,
-  instead of the transaction the snapshot was taken at, which a snapshot
-  has no TXID of. `CreateSnapshot` documents that every snapshot is synced
-  to the replica before it is recorded, and that taking one again at the
-  same cursor renews its expiry, unless it has expired.
-- `tables.v1.PointInTime.snapshot` documents that a publish snapshot is
-  refused with `invalid_argument`.
-- `DatabasesService.Fork` documents that the source is synced after the
-  state is copied, until its replica holds the fork point, and that a fork
-  whose pod died before it opened refuses opens with `unavailable` until
-  it is removed a few minutes later. `CreateDatabase` documents that such
-  a fork does not keep the document from getting a database.
-- `SnapshotsService.GetSnapshot` and `GetPublication` document that an id
-  that names nothing is answered exactly as one the caller may not read.
-- `tables.v1.ImportJob.error` (field 9) says why a job failed; a failed job
-  had no reason before.
-- `tables.v1.DocumentRef.unresolved` (field 4) marks a reference the
-  service did not look up because the response references more distinct
-  documents than one response resolves, or because the lookup failed
-  after the request's write had committed; its title is empty and
-  `no_access` is false. A write's response is never failed because of
-  its references, so that a client does not retry a write that took
-  effect; a read whose references cannot be looked up still fails.
-- `DatabasesService.CreateDatabase` and `Fork` document that a document
-  the service has seen deleted is refused with `failed_precondition`, and
-  that a database archived with its deleted document stays bound to that
-  deletion until it is purged, even when a new document is created under
-  the same UUID meanwhile.
-- `tables.v1.EventsService.WatchEvents` documents that a stream carries only
-  the events of documents the caller may read, so ids need not be
-  consecutive on one stream; that it opens with a heartbeat, a
-  `WatchEventsResponse` without an event, and sends one every 30 seconds
-  without events; and that it ends with `lease_moved` when the pod shuts
-  down and with `cursor_invalid` when resumed past the newest event or
-  past the retention.
-- `tables.v1.WatchEventsResponse.position` (field 2) is the id of the last
-  event a `WatchEvents` stream has passed, sent or withheld, on events and
-  heartbeats alike. Heartbeats go on while a stream passes over withheld
-  events, and a client resumes from the highest position it received, so
-  a caller whose events are all withheld no longer falls out of the
-  retention.
-- `tables.v1.Event.type` gains `undeleted`: a database live again, with its
-  data, once its deleted owning document is restored. `deleted` and
-  `undeleted` are sent only to a caller whose token was found to read the
-  document before it was deleted, on the same stream or in the service's
-  short-lived access cache; `undeleted` also when the restored document is
-  readable. A token with the `eventlog_read` scope gets every event
-  unfiltered, without `doc_read`.
-- `tables.v1.CreateUploadRequest.size` (field 4) is required: the file's
-  size in bytes. The presigned URL signs it as the PUT's Content-Length, so
-  the store refuses a body of any other size, and a size past the service's
-  file size limit is refused with `resource_exhausted`. `CreateUpload`
-  documents that a caller holds a limited number of uploads to a database
-  that no plan has been applied to, and is refused with
-  `resource_exhausted` past it.
-- `tables.v1.DataService.Suggest` documents that only the cell writes of a
-  `RowUpdate` need `expected`, not those of a `RowInsert`
-  (`CellWrite.expected` and `SuggestRequest.mutations` likewise); that a
-  suggested delete or move conflicts when its row changed after the
-  suggestion was made, reported as a `CellConflict` with an empty
-  `column`; that the open suggestions of a database are limited in
-  number, per agent and in bytes, refused with `resource_exhausted`
-  past a limit; and that document references in the operations are
-  stored with their UUID alone.
-- `tables.v1.WatchResponse.suggestion` documents that a suggestion too
-  large for the stream comes as a notice without its mutations or
-  rationale, read whole with `ListSuggestions`.
-- `tables.v1.ImportCandidate.header_row` documents that it counts from 1, as
-  a spreadsheet numbers its rows, and that 0 means no header row.
-- `elephant.tables.v1` is declared at `elephant/tables/v1/service.proto`, with
-  the messages generated into `elephant/tables/v1` and connect-go's clients
-  and handlers into `elephant/tables/v1/tablesv1connect`.
-- The README's service table and Connect client section describe it.
-- A database whose newest replica has nothing restorable refuses to open
-  with `failed_precondition` and the reason `recovery_needed`.
-  `GetDatabaseResponse.recovery` (`DatabaseRecovery`) reports the lost
-  epochs, when the lost version was last saved, the epoch and TXID offered
-  instead with the time of its newest restorable version, and the epoch
-  the offer cuts short when only the end of the newest replica is missing,
-  without opening the database. `DatabasesService.RecoverDatabase` accepts
-  the offer, with doc_write and the caller's token, and logs a `recovered`
-  event; cursors from the skipped epochs are invalid afterwards. The
-  request echoes the whole offer (lost epochs, offered epoch and TXID,
-  truncated epoch) and is refused with `failed_precondition` when any part
-  of it no longer matches, so an old warning cannot be accepted after the
-  situation has changed.
-- `DataService.Summarize` returns the distribution of one column for a table
-  widget at card size: a count per value for a choice or boolean column, a
-  histogram for an integer, number, decimal, date or datetime column (decimal
-  values treated as numbers), plus empty and
-  other counts. `Table.summary_column` names the column summarised by
-  default, and `UpdateTableRequest.summary_column` sets it; an empty
-  `UpdateTableRequest.name` now leaves the name unchanged.
+- Declared schemas: `SchemaService.EnsureSchema` (`EnsureSchemaRequest`,
+  `EnsureSchemaResponse`) declares the whole schema of a namespace with a
+  version, as `SchemaDeclaration`, `DeclaredTable`, `DeclaredColumn` and
+  `DeclaredIndex`, matched by key, and applies the difference as one
+  change batch. A dry run returns the planned `SchemaStep`s
+  (`SchemaStepKind`) and the rows that would refuse them. An older
+  version, or the stored one with another schema, is
+  `failed_precondition` with the reason `schema_version_conflict` and a
+  `SchemaVersionConflict` detail; the digest does not depend on the order
+  of tables and of indexes. A declaration batch undoes as a whole or not
+  at all, and a declaration may take a key only a deletion reserves.
+  `ConstraintViolation` also reports a cell that does not convert to a
+  declared type.
+- `QueryRequest.namespace` (5), optional, scopes a `Query` statement to
+  one namespace: it sees that namespace's views under their tables'
+  `sql_name` alone and only that namespace's rows of `_tables` and
+  `_columns`. Without it a statement sees every namespace under
+  `<namespace>__<sql_name>`.
+- `RestoreRequest.namespace` (5), optional, limits a restore to one
+  namespace: its tables, rows, schema, constraints, declared schema
+  version and `schema_editable` flag go back to the point as one restore
+  batch in that namespace, and `tables` may name tables by key, refusing
+  a key that named one table now and another at the point as ambiguous. A
+  restore of the whole database or of a whole namespace also puts back
+  each namespace's `schema_editable` flag. A restored table gets its SQL
+  name back, or the restore is refused with `already_exists` when a table
+  outside it holds the name. `PointInTime.snapshot` refuses a publish
+  snapshot with `invalid_argument`.
+- `Watch`: `Heartbeat.resume` (3) is the cursor a stream may be resumed
+  from; it moves past other namespaces' changes, so a client of a quiet
+  namespace keeps a cursor the change log still holds.
+  `WatchRequest.tables` follows a key: a table created under it while the
+  stream runs matches from its `table_create` on.
+  `WatchResponse.suggestion` brings a suggestion too large for the stream
+  as a notice without its mutations or rationale, read whole with
+  `ListSuggestions`.
+- Snapshots: `Snapshot.txid` is a replica position, in the cursor's
+  epoch, that holds the snapshot's state; every snapshot is synced to the
+  replica before it is recorded, and taking one again at the same cursor
+  renews its expiry, unless it has expired. `Snapshot.expires` applies to
+  restore points as well as exports. `GetSnapshot` and `GetPublication`
+  answer an id that names nothing exactly as one the caller may not read.
+- `DatabasesService.Fork` syncs the source after the state is copied,
+  until its replica holds the fork point; a fork whose pod died before it
+  opened refuses opens with `unavailable` until it is removed a few
+  minutes later.
+- Recovery: a database whose newest replica has nothing restorable
+  refuses to open with `failed_precondition` and the reason
+  `recovery_needed`. `GetDatabaseResponse.recovery` (`DatabaseRecovery`)
+  reports the lost epochs, when the lost version was last saved, the
+  epoch and TXID offered instead with the time of its newest restorable
+  version, and the epoch the offer cuts short when only the end of the
+  newest replica is missing, without opening the database.
+  `DatabasesService.RecoverDatabase` accepts the offer, with `doc_write`
+  and the caller's token, and logs a `recovered` event; cursors from the
+  skipped epochs are invalid afterwards. The request echoes the whole
+  offer and is refused with `failed_precondition` when any part of it no
+  longer matches.
+- `DataService.Summarize` returns the distribution of one column for a
+  table widget at card size: a count per value for a choice or boolean
+  column, a histogram for an integer, number, decimal, date or datetime
+  column (decimal values treated as numbers), plus empty and other
+  counts. `Table.summary_column` names the column summarised by default,
+  and `UpdateTableRequest.summary_column` sets it; an empty
+  `UpdateTableRequest.name` leaves the name unchanged.
+- `DataService.Suggest`: only the cell writes of a `RowUpdate` need
+  `expected`, not those of a `RowInsert`; a suggested delete or move
+  conflicts when its row changed after the suggestion was made, reported
+  as a `CellConflict` with an empty `column`; the open suggestions of a
+  database are limited in number, per agent and in bytes, refused with
+  `resource_exhausted` past a limit; and document references in the
+  operations are stored with their UUID alone.
+- `DocumentRef.unresolved` (4) marks a reference the service did not look
+  up, because the response references more distinct documents than one
+  response resolves, or because the lookup failed after the request's
+  write had committed; its title is empty and `no_access` is false. A
+  write's response is never failed because of its references.
+- Imports: `CreateUploadRequest.size` (4) is required, the file's size in
+  bytes, which the presigned URL signs as the PUT's Content-Length; a
+  size past the file size limit, or more pending uploads to a database
+  than a caller may hold, is refused with `resource_exhausted`.
+  `ImportJob.error` (9) says why a job failed. `ImportCandidate.header_row`
+  counts from 1, as a spreadsheet numbers its rows, and 0 means no header
+  row. `ImportCandidate.delete_missing` deletes the missing rows before
+  the source is written.
+- Events: `EventsService.WatchEvents` carries only the events of
+  documents the caller may read, so ids need not be consecutive on one
+  stream, and checks a database from its first event of any namespace. It
+  opens with a heartbeat, a `WatchEventsResponse` without an event, and
+  sends one every 30 seconds without events, also while it passes over
+  withheld events; it ends with `lease_moved` when the pod shuts down and
+  with `cursor_invalid` when resumed past the newest event or past the
+  retention. `WatchEventsResponse.position` (2) is the id of the last
+  event the stream has passed, sent or withheld, which a client resumes
+  from. `Event.type` includes `undeleted`, a database live again once its
+  deleted generation is restored. `deleted` and `undeleted` are sent only
+  to a caller whose token was found to read the document before it was
+  deleted, on the same stream or in the service's short-lived access
+  cache; `undeleted` also when the restored document is readable. A token
+  with the `eventlog_read` scope gets every event unfiltered, without
+  `doc_read`.
 
 ## [v0.29.4] - 2026-11-16
 
