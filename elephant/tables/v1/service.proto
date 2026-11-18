@@ -1,22 +1,41 @@
 syntax = "proto3";
 
 // elephant-tables gives Elephant documents their own tabular data. Each
-// owning document gets one SQLite database, identified by the document's
-// UUID, served by a single leased writer pod, replicated to S3 and
-// published as immutable snapshots.
+// owning document may have one SQLite database per generation, served by
+// a single leased writer pod, replicated to S3 and published as immutable
+// snapshots.
+//
+// Generations: the repository gives every document a nonce, which is new
+// whenever the document's UUID starts a new life: when it is created,
+// created again after a delete, or restored. A database belongs to one
+// generation. Every request names a database by its owning document's
+// UUID, and is served from the database of the document's current
+// generation, which the service learns from the repository with the
+// caller's own token; a database of an earlier generation of the same
+// UUID is never served for it, and the request is then not found.
+// Deleting the document archives its generation's database; a document
+// created again under the UUID is a new generation and may get a new
+// database at once, while the archived one waits for the repository to
+// purge the deletion. A database also has an id of its own, unique per
+// generation and never reused, which DatabaseInfo and Event carry for
+// operators; no request takes it.
 //
 // The API is six services in this one package, served with Connect only:
 // DatabasesService, SchemaService, DataService, SnapshotsService,
 // ImportsService and EventsService. Everything is unary except
 // DataService.Watch and EventsService.WatchEvents, which are server
-// streams. Every database-scoped call takes a database UUID and is
-// forwarded to the pod that owns the database, so a caller never needs to
-// know which pod that is.
+// streams. Every database-scoped call takes the owning document's UUID,
+// in a field named database, and is forwarded to the pod that owns the
+// database, so a caller never needs to know which pod that is.
 //
 // Access is the access the caller has to the owning document: reading
 // needs doc_read on it and any mutation needs doc_write, checked against
 // the repository with the caller's own token. A database has no ACL of its
-// own.
+// own. Every database-scoped call also reads the document's metadata
+// with the caller's token, to learn its current generation, so the
+// caller needs read permission on the document even for a write; a
+// caller who may write but not read it is refused with
+// permission_denied.
 //
 // Every change to a live table — edits, schema changes, imports, undo,
 // restores and applied suggestions — is a change batch: one transaction,
@@ -500,30 +519,36 @@ message Sort {
 // ---------- Databases ----------
 
 // DatabasesService creates, describes, forks, restores, recovers and
-// deletes databases. A document has at most one database, and the database's id
-// is the owning document's UUID.
+// deletes databases. A document generation has at most one database, and
+// a document at most one database that is not archived: the current
+// generation's. See Generations in the package comment.
 service DatabasesService {
-  // CreateDatabase creates the database of a document that has none. The
-  // document's UUID becomes the database id. Returns already_exists when
-  // the document has one, including one that was deleted: a document's
-  // database id is never freed for a new database. A fork into the
-  // document that never opened, because the pod making it died, is not
-  // a database: once it is a few minutes old it is removed, and the
-  // database is created in its place.
+  // CreateDatabase creates the database of the document's current
+  // generation, which the service reads from the repository with the
+  // caller's token. Returns already_exists when the generation has one. A
+  // fork into the document that never opened, because the pod making it
+  // died, is not a database: once it is a few minutes old it is removed,
+  // and the database is created in its place.
   //
-  // A database whose document was deleted stays archived, bound to that
-  // deletion, until the deletion is purged, even when a new document is
-  // created under the same UUID meanwhile: CreateDatabase for the new
-  // document returns already_exists. A document that the service has
-  // seen deleted is refused with failed_precondition, also when the
-  // caller's access was checked before the deletion.
+  // A document created again under the UUID of a deleted one is a new
+  // generation, and gets a new database; the deleted generation's stays
+  // archived until the deletion is purged. A generation that the service
+  // has seen deleted is refused with failed_precondition, also when the
+  // caller read it before the deletion. When the database of an earlier
+  // generation of the document is not archived yet, because the service
+  // has not yet applied that generation's deletion, the call is refused
+  // with unavailable, and succeeds once it has. The write permission is
+  // checked on the generation the database is bound to; when the
+  // document's generation changes during the call, it is refused with
+  // aborted, and the caller retries.
   //
-  // Auth: doc_write on the owning document.
+  // Auth: doc_write on the owning document, and read permission on it.
   rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
 
   // GetDatabase describes a database: its lineage, its head and durable
-  // cursors, and its namespaces. It is looked up by database id or by owning
-  // document, which are the same UUID.
+  // cursors, and its namespaces. database and owner_document both name
+  // the owning document's UUID, and the database described is the one of
+  // the document's current generation.
   //
   // A database that needs recovery is not opened: the response then sets
   // recovery, and info carries only what is recorded outside the
@@ -548,11 +573,12 @@ service DatabasesService {
   // A fork that fails before its database opens is removed again. One
   // whose pod died meanwhile refuses opens with unavailable until it is
   // removed, a few minutes later, by a sweep or by the next Fork or
-  // CreateDatabase into the same document. A new owning document that the
-  // service has seen deleted is refused with failed_precondition.
+  // CreateDatabase into the same document. The fork belongs to the new
+  // owning document's current generation, as for CreateDatabase, which
+  // also says when a fork is refused because of an earlier generation.
   //
-  // Auth: doc_read on the source's owning document, and doc_write on the
-  // new owning document.
+  // Auth: doc_read on the source's owning document, and doc_write and
+  // read permission on the new owning document.
   rpc Fork(ForkRequest) returns (ForkResponse);
 
   // Restore reverts a database in place to a point in its history. It is
@@ -619,7 +645,8 @@ service DatabasesService {
 
   // DeleteDatabase deletes a document's tables. The database is archived
   // rather than removed, as a deleted document is by the repository, and
-  // its id is never reused for a new database.
+  // its id is never reused for a new database. Not served: a database is
+  // archived with its document generation.
   //
   // Auth: doc_write on the owning document.
   rpc DeleteDatabase(DeleteDatabaseRequest) returns (DeleteDatabaseResponse);
@@ -627,12 +654,15 @@ service DatabasesService {
 
 // DatabaseInfo describes a database.
 message DatabaseInfo {
-  // Database id: the owning document's UUID.
+  // UUID of the owning document, by which every request names the
+  // database.
   string database = 1;
   // UUID of the owning document. Always equal to database; both are
   // carried so that each use names the role it means.
   string owner_document = 2;
-  // Database this one was forked from. Empty unless it is a fork.
+  // UUID of the owning document of the database this one was forked from.
+  // Empty unless it is a fork. That document may have moved on to another
+  // generation since; parent_id names the very database.
   string parent_database = 3;
   // The fork point in the parent. Unset unless it is a fork.
   Cursor parent_cursor = 4;
@@ -648,10 +678,24 @@ message DatabaseInfo {
   // The database's namespaces, by name. Their tables are read with
   // SchemaService.Describe.
   repeated Namespace namespaces = 9;
+  // The database's own id, unique per document generation and never
+  // reused. It names the database in the service's storage and logs, and
+  // tells two generations of one document apart; no request takes it. It
+  // is the nonce of the generation the database was created for, and
+  // stays when a document restore binds the database to a later
+  // generation.
+  string id = 10;
+  // The nonce of the document generation the database belongs to, as the
+  // repository reports it for the document.
+  string document_nonce = 11;
+  // The id of the database this one was forked from. Empty unless it is a
+  // fork.
+  string parent_id = 12;
 }
 
 message CreateDatabaseRequest {
-  // UUID of the owning document. It becomes the database id.
+  // UUID of the owning document. The database belongs to its current
+  // generation.
   string owner_document = 1;
 }
 
@@ -663,7 +707,7 @@ message CreateDatabaseResponse {
 message GetDatabaseRequest {
   // The database to describe, named either way. Required.
   oneof target {
-    // Database id.
+    // UUID of the owning document, as every request names a database.
     string database = 1;
     // UUID of the owning document.
     string owner_document = 2;
@@ -715,7 +759,8 @@ message ForkRequest {
   // current state.
   PointInTime at = 2;
   // UUID of the document that will own the fork. Required, different
-  // from the source's owner, and without a database of its own.
+  // from the source's owner, and its current generation without a
+  // database of its own.
   string owner_document = 3;
 }
 
@@ -2696,6 +2741,12 @@ service EventsService {
   // should keep its stream open. undeleted is also sent when the
   // restored document is readable with the caller's token.
   //
+  // Events are filtered by owning document, not by generation: between a
+  // document's re-creation under a deleted one's UUID and the service
+  // applying that deletion, a caller who may read the new document is
+  // sent events of the old generation's database too. database_id and
+  // document_nonce tell them apart.
+  //
   // A caller whose token carries the eventlog_read scope, the scope the
   // repository's own event log asks for, is an administrative reader:
   // it gets every event, unfiltered, and needs no doc_read.
@@ -2757,13 +2808,15 @@ message Event {
   // an earlier point, one event per namespace the restore changed.
   // recovered follows a RecoverDatabase, after which cursors from the
   // skipped epochs are invalid. deleted is a database archived with its
-  // deleted owning document, and undeleted the database live again,
-  // with its data, once that document is restored in the repository;
-  // neither has a cursor.
+  // deleted owning document generation, and undeleted the database
+  // live again, with its data, once a restore of the document is bound
+  // to that generation (which waits for the repository to report the
+  // generation a restore came from); neither has a cursor.
   string type = 2;
-  // The database it happened to.
+  // UUID of the owning document of the database it happened to, by which
+  // requests name the database.
   string database = 3;
-  // UUID of the owning document.
+  // UUID of the owning document. Always equal to database.
   string owner_document = 4;
   // Position in the database's change log the event reflects.
   Cursor cursor = 5;
@@ -2776,4 +2829,12 @@ message Event {
   // debounced and logged per namespace. Empty for an event that concerns
   // the whole database.
   string namespace = 8;
+  // The database's own id (DatabaseInfo.id), which tells the events of
+  // two generations of one document apart.
+  string database_id = 9;
+  // The nonce of the document generation the database belonged to when
+  // the event happened. A restore that later binds the database to the
+  // restored generation does not change it for events that happened
+  // before.
+  string document_nonce = 10;
 }

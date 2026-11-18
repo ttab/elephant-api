@@ -5,22 +5,41 @@
 // source: elephant/tables/v1/service.proto
 
 // elephant-tables gives Elephant documents their own tabular data. Each
-// owning document gets one SQLite database, identified by the document's
-// UUID, served by a single leased writer pod, replicated to S3 and
-// published as immutable snapshots.
+// owning document may have one SQLite database per generation, served by
+// a single leased writer pod, replicated to S3 and published as immutable
+// snapshots.
+//
+// Generations: the repository gives every document a nonce, which is new
+// whenever the document's UUID starts a new life: when it is created,
+// created again after a delete, or restored. A database belongs to one
+// generation. Every request names a database by its owning document's
+// UUID, and is served from the database of the document's current
+// generation, which the service learns from the repository with the
+// caller's own token; a database of an earlier generation of the same
+// UUID is never served for it, and the request is then not found.
+// Deleting the document archives its generation's database; a document
+// created again under the UUID is a new generation and may get a new
+// database at once, while the archived one waits for the repository to
+// purge the deletion. A database also has an id of its own, unique per
+// generation and never reused, which DatabaseInfo and Event carry for
+// operators; no request takes it.
 //
 // The API is six services in this one package, served with Connect only:
 // DatabasesService, SchemaService, DataService, SnapshotsService,
 // ImportsService and EventsService. Everything is unary except
 // DataService.Watch and EventsService.WatchEvents, which are server
-// streams. Every database-scoped call takes a database UUID and is
-// forwarded to the pod that owns the database, so a caller never needs to
-// know which pod that is.
+// streams. Every database-scoped call takes the owning document's UUID,
+// in a field named database, and is forwarded to the pod that owns the
+// database, so a caller never needs to know which pod that is.
 //
 // Access is the access the caller has to the owning document: reading
 // needs doc_read on it and any mutation needs doc_write, checked against
 // the repository with the caller's own token. A database has no ACL of its
-// own.
+// own. Every database-scoped call also reads the document's metadata
+// with the caller's token, to learn its current generation, so the
+// caller needs read permission on the document even for a write; a
+// caller who may write but not read it is refused with
+// permission_denied.
 //
 // Every change to a live table — edits, schema changes, imports, undo,
 // restores and applied suggestions — is a change batch: one transaction,
@@ -2191,12 +2210,15 @@ func (x *Sort) GetDescending() bool {
 // DatabaseInfo describes a database.
 type DatabaseInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Database id: the owning document's UUID.
+	// UUID of the owning document, by which every request names the
+	// database.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// UUID of the owning document. Always equal to database; both are
 	// carried so that each use names the role it means.
 	OwnerDocument string `protobuf:"bytes,2,opt,name=owner_document,json=ownerDocument,proto3" json:"owner_document,omitempty"`
-	// Database this one was forked from. Empty unless it is a fork.
+	// UUID of the owning document of the database this one was forked from.
+	// Empty unless it is a fork. That document may have moved on to another
+	// generation since; parent_id names the very database.
 	ParentDatabase string `protobuf:"bytes,3,opt,name=parent_database,json=parentDatabase,proto3" json:"parent_database,omitempty"`
 	// The fork point in the parent. Unset unless it is a fork.
 	ParentCursor *Cursor `protobuf:"bytes,4,opt,name=parent_cursor,json=parentCursor,proto3" json:"parent_cursor,omitempty"`
@@ -2209,7 +2231,20 @@ type DatabaseInfo struct {
 	Created *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created,proto3" json:"created,omitempty"`
 	// The database's namespaces, by name. Their tables are read with
 	// SchemaService.Describe.
-	Namespaces    []*Namespace `protobuf:"bytes,9,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
+	Namespaces []*Namespace `protobuf:"bytes,9,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
+	// The database's own id, unique per document generation and never
+	// reused. It names the database in the service's storage and logs, and
+	// tells two generations of one document apart; no request takes it. It
+	// is the nonce of the generation the database was created for, and
+	// stays when a document restore binds the database to a later
+	// generation.
+	Id string `protobuf:"bytes,10,opt,name=id,proto3" json:"id,omitempty"`
+	// The nonce of the document generation the database belongs to, as the
+	// repository reports it for the document.
+	DocumentNonce string `protobuf:"bytes,11,opt,name=document_nonce,json=documentNonce,proto3" json:"document_nonce,omitempty"`
+	// The id of the database this one was forked from. Empty unless it is a
+	// fork.
+	ParentId      string `protobuf:"bytes,12,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2300,9 +2335,31 @@ func (x *DatabaseInfo) GetNamespaces() []*Namespace {
 	return nil
 }
 
+func (x *DatabaseInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DatabaseInfo) GetDocumentNonce() string {
+	if x != nil {
+		return x.DocumentNonce
+	}
+	return ""
+}
+
+func (x *DatabaseInfo) GetParentId() string {
+	if x != nil {
+		return x.ParentId
+	}
+	return ""
+}
+
 type CreateDatabaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// UUID of the owning document. It becomes the database id.
+	// UUID of the owning document. The database belongs to its current
+	// generation.
 	OwnerDocument string `protobuf:"bytes,1,opt,name=owner_document,json=ownerDocument,proto3" json:"owner_document,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2463,7 +2520,7 @@ type isGetDatabaseRequest_Target interface {
 }
 
 type GetDatabaseRequest_Database struct {
-	// Database id.
+	// UUID of the owning document, as every request names a database.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3,oneof"`
 }
 
@@ -2644,7 +2701,8 @@ type ForkRequest struct {
 	// current state.
 	At *PointInTime `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
 	// UUID of the document that will own the fork. Required, different
-	// from the source's owner, and without a database of its own.
+	// from the source's owner, and its current generation without a
+	// database of its own.
 	OwnerDocument string `protobuf:"bytes,3,opt,name=owner_document,json=ownerDocument,proto3" json:"owner_document,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -10986,13 +11044,15 @@ type Event struct {
 	// an earlier point, one event per namespace the restore changed.
 	// recovered follows a RecoverDatabase, after which cursors from the
 	// skipped epochs are invalid. deleted is a database archived with its
-	// deleted owning document, and undeleted the database live again,
-	// with its data, once that document is restored in the repository;
-	// neither has a cursor.
+	// deleted owning document generation, and undeleted the database
+	// live again, with its data, once a restore of the document is bound
+	// to that generation (which waits for the repository to report the
+	// generation a restore came from); neither has a cursor.
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	// The database it happened to.
+	// UUID of the owning document of the database it happened to, by which
+	// requests name the database.
 	Database string `protobuf:"bytes,3,opt,name=database,proto3" json:"database,omitempty"`
-	// UUID of the owning document.
+	// UUID of the owning document. Always equal to database.
 	OwnerDocument string `protobuf:"bytes,4,opt,name=owner_document,json=ownerDocument,proto3" json:"owner_document,omitempty"`
 	// Position in the database's change log the event reflects.
 	Cursor *Cursor `protobuf:"bytes,5,opt,name=cursor,proto3" json:"cursor,omitempty"`
@@ -11004,7 +11064,15 @@ type Event struct {
 	// schema_changed, data_changed, imported and restored, which are
 	// debounced and logged per namespace. Empty for an event that concerns
 	// the whole database.
-	Namespace     string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Namespace string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// The database's own id (DatabaseInfo.id), which tells the events of
+	// two generations of one document apart.
+	DatabaseId string `protobuf:"bytes,9,opt,name=database_id,json=databaseId,proto3" json:"database_id,omitempty"`
+	// The nonce of the document generation the database belonged to when
+	// the event happened. A restore that later binds the database to the
+	// restored generation does not change it for events that happened
+	// before.
+	DocumentNonce string `protobuf:"bytes,10,opt,name=document_nonce,json=documentNonce,proto3" json:"document_nonce,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11091,6 +11159,20 @@ func (x *Event) GetCreated() *timestamppb.Timestamp {
 func (x *Event) GetNamespace() string {
 	if x != nil {
 		return x.Namespace
+	}
+	return ""
+}
+
+func (x *Event) GetDatabaseId() string {
+	if x != nil {
+		return x.DatabaseId
+	}
+	return ""
+}
+
+func (x *Event) GetDocumentNonce() string {
+	if x != nil {
+		return x.DocumentNonce
 	}
 	return ""
 }
@@ -11208,7 +11290,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06column\x18\x01 \x01(\tR\x06column\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xa4\x03\n" +
+	"descending\"\xf8\x03\n" +
 	"\fDatabaseInfo\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12%\n" +
 	"\x0eowner_document\x18\x02 \x01(\tR\rownerDocument\x12'\n" +
@@ -11219,7 +11301,11 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\acreated\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12=\n" +
 	"\n" +
 	"namespaces\x18\t \x03(\v2\x1d.elephant.tables.v1.NamespaceR\n" +
-	"namespacesJ\x04\b\a\x10\bR\x06tables\">\n" +
+	"namespaces\x12\x0e\n" +
+	"\x02id\x18\n" +
+	" \x01(\tR\x02id\x12%\n" +
+	"\x0edocument_nonce\x18\v \x01(\tR\rdocumentNonce\x12\x1b\n" +
+	"\tparent_id\x18\f \x01(\tR\bparentIdJ\x04\b\a\x10\bR\x06tables\">\n" +
 	"\x15CreateDatabaseRequest\x12%\n" +
 	"\x0eowner_document\x18\x01 \x01(\tR\rownerDocument\"N\n" +
 	"\x16CreateDatabaseResponse\x124\n" +
@@ -11834,7 +11920,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"b\n" +
 	"\x13WatchEventsResponse\x12/\n" +
 	"\x05event\x18\x01 \x01(\v2\x19.elephant.tables.v1.EventR\x05event\x12\x1a\n" +
-	"\bposition\x18\x02 \x01(\x03R\bposition\"\x92\x02\n" +
+	"\bposition\x18\x02 \x01(\x03R\bposition\"\xda\x02\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x1a\n" +
@@ -11843,7 +11929,11 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06cursor\x18\x05 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12\x1a\n" +
 	"\bsnapshot\x18\x06 \x01(\tR\bsnapshot\x124\n" +
 	"\acreated\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12\x1c\n" +
-	"\tnamespace\x18\b \x01(\tR\tnamespace*\xbc\x02\n" +
+	"\tnamespace\x18\b \x01(\tR\tnamespace\x12\x1f\n" +
+	"\vdatabase_id\x18\t \x01(\tR\n" +
+	"databaseId\x12%\n" +
+	"\x0edocument_nonce\x18\n" +
+	" \x01(\tR\rdocumentNonce*\xbc\x02\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
 	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +

@@ -28,6 +28,20 @@ streams and need no HTTP/2 transport.
 
 Changes:
 
+- Document generations in `tables.v1`: a database belongs to one
+  generation of its owning document, the repository's nonce, and
+  requests that name a database by the document's UUID are served from
+  the current generation's. New `DatabaseInfo.id` (10, the database's
+  own id), `DatabaseInfo.document_nonce` (11), `DatabaseInfo.parent_id`
+  (12), `Event.database_id` (9) and `Event.document_nonce` (10).
+  `database` and `parent_database` fields name owning documents.
+  `CreateDatabase` binds to the current generation, gives a document
+  created again under a deleted UUID a database of its own, and answers
+  `unavailable` while an earlier generation's database is not archived
+  yet, or `aborted` when the document's generation changes during the
+  call. `Event.document_nonce` is the generation the database belonged
+  to when the event happened. Every database-scoped call needs read
+  permission on the document.
 - Namespaces in `tables.v1`: every table belongs to a namespace, named
   by the application that created it, and a change batch touches
   exactly one. The new `Namespace` message (name and the advisory

@@ -3,22 +3,41 @@
 // Source: elephant/tables/v1/service.proto
 
 // elephant-tables gives Elephant documents their own tabular data. Each
-// owning document gets one SQLite database, identified by the document's
-// UUID, served by a single leased writer pod, replicated to S3 and
-// published as immutable snapshots.
+// owning document may have one SQLite database per generation, served by
+// a single leased writer pod, replicated to S3 and published as immutable
+// snapshots.
+//
+// Generations: the repository gives every document a nonce, which is new
+// whenever the document's UUID starts a new life: when it is created,
+// created again after a delete, or restored. A database belongs to one
+// generation. Every request names a database by its owning document's
+// UUID, and is served from the database of the document's current
+// generation, which the service learns from the repository with the
+// caller's own token; a database of an earlier generation of the same
+// UUID is never served for it, and the request is then not found.
+// Deleting the document archives its generation's database; a document
+// created again under the UUID is a new generation and may get a new
+// database at once, while the archived one waits for the repository to
+// purge the deletion. A database also has an id of its own, unique per
+// generation and never reused, which DatabaseInfo and Event carry for
+// operators; no request takes it.
 //
 // The API is six services in this one package, served with Connect only:
 // DatabasesService, SchemaService, DataService, SnapshotsService,
 // ImportsService and EventsService. Everything is unary except
 // DataService.Watch and EventsService.WatchEvents, which are server
-// streams. Every database-scoped call takes a database UUID and is
-// forwarded to the pod that owns the database, so a caller never needs to
-// know which pod that is.
+// streams. Every database-scoped call takes the owning document's UUID,
+// in a field named database, and is forwarded to the pod that owns the
+// database, so a caller never needs to know which pod that is.
 //
 // Access is the access the caller has to the owning document: reading
 // needs doc_read on it and any mutation needs doc_write, checked against
 // the repository with the caller's own token. A database has no ACL of its
-// own.
+// own. Every database-scoped call also reads the document's metadata
+// with the caller's token, to learn its current generation, so the
+// caller needs read permission on the document even for a write; a
+// caller who may write but not read it is refused with
+// permission_denied.
 //
 // Every change to a live table — edits, schema changes, imports, undo,
 // restores and applied suggestions — is a change batch: one transaction,
@@ -302,26 +321,31 @@ const (
 
 // DatabasesServiceClient is a client for the elephant.tables.v1.DatabasesService service.
 type DatabasesServiceClient interface {
-	// CreateDatabase creates the database of a document that has none. The
-	// document's UUID becomes the database id. Returns already_exists when
-	// the document has one, including one that was deleted: a document's
-	// database id is never freed for a new database. A fork into the
-	// document that never opened, because the pod making it died, is not
-	// a database: once it is a few minutes old it is removed, and the
-	// database is created in its place.
+	// CreateDatabase creates the database of the document's current
+	// generation, which the service reads from the repository with the
+	// caller's token. Returns already_exists when the generation has one. A
+	// fork into the document that never opened, because the pod making it
+	// died, is not a database: once it is a few minutes old it is removed,
+	// and the database is created in its place.
 	//
-	// A database whose document was deleted stays archived, bound to that
-	// deletion, until the deletion is purged, even when a new document is
-	// created under the same UUID meanwhile: CreateDatabase for the new
-	// document returns already_exists. A document that the service has
-	// seen deleted is refused with failed_precondition, also when the
-	// caller's access was checked before the deletion.
+	// A document created again under the UUID of a deleted one is a new
+	// generation, and gets a new database; the deleted generation's stays
+	// archived until the deletion is purged. A generation that the service
+	// has seen deleted is refused with failed_precondition, also when the
+	// caller read it before the deletion. When the database of an earlier
+	// generation of the document is not archived yet, because the service
+	// has not yet applied that generation's deletion, the call is refused
+	// with unavailable, and succeeds once it has. The write permission is
+	// checked on the generation the database is bound to; when the
+	// document's generation changes during the call, it is refused with
+	// aborted, and the caller retries.
 	//
-	// Auth: doc_write on the owning document.
+	// Auth: doc_write on the owning document, and read permission on it.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
 	// GetDatabase describes a database: its lineage, its head and durable
-	// cursors, and its namespaces. It is looked up by database id or by owning
-	// document, which are the same UUID.
+	// cursors, and its namespaces. database and owner_document both name
+	// the owning document's UUID, and the database described is the one of
+	// the document's current generation.
 	//
 	// A database that needs recovery is not opened: the response then sets
 	// recovery, and info carries only what is recorded outside the
@@ -345,11 +369,12 @@ type DatabasesServiceClient interface {
 	// A fork that fails before its database opens is removed again. One
 	// whose pod died meanwhile refuses opens with unavailable until it is
 	// removed, a few minutes later, by a sweep or by the next Fork or
-	// CreateDatabase into the same document. A new owning document that the
-	// service has seen deleted is refused with failed_precondition.
+	// CreateDatabase into the same document. The fork belongs to the new
+	// owning document's current generation, as for CreateDatabase, which
+	// also says when a fork is refused because of an earlier generation.
 	//
-	// Auth: doc_read on the source's owning document, and doc_write on the
-	// new owning document.
+	// Auth: doc_read on the source's owning document, and doc_write and
+	// read permission on the new owning document.
 	Fork(context.Context, *connect.Request[v1.ForkRequest]) (*connect.Response[v1.ForkResponse], error)
 	// Restore reverts a database in place to a point in its history. It is
 	// a deliberate full revert: every change after the point is discarded,
@@ -412,7 +437,8 @@ type DatabasesServiceClient interface {
 	RecoverDatabase(context.Context, *connect.Request[v1.RecoverDatabaseRequest]) (*connect.Response[v1.RecoverDatabaseResponse], error)
 	// DeleteDatabase deletes a document's tables. The database is archived
 	// rather than removed, as a deleted document is by the repository, and
-	// its id is never reused for a new database.
+	// its id is never reused for a new database. Not served: a database is
+	// archived with its document generation.
 	//
 	// Auth: doc_write on the owning document.
 	DeleteDatabase(context.Context, *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error)
@@ -522,26 +548,31 @@ func (c *databasesServiceClient) DeleteDatabase(ctx context.Context, req *connec
 
 // DatabasesServiceHandler is an implementation of the elephant.tables.v1.DatabasesService service.
 type DatabasesServiceHandler interface {
-	// CreateDatabase creates the database of a document that has none. The
-	// document's UUID becomes the database id. Returns already_exists when
-	// the document has one, including one that was deleted: a document's
-	// database id is never freed for a new database. A fork into the
-	// document that never opened, because the pod making it died, is not
-	// a database: once it is a few minutes old it is removed, and the
-	// database is created in its place.
+	// CreateDatabase creates the database of the document's current
+	// generation, which the service reads from the repository with the
+	// caller's token. Returns already_exists when the generation has one. A
+	// fork into the document that never opened, because the pod making it
+	// died, is not a database: once it is a few minutes old it is removed,
+	// and the database is created in its place.
 	//
-	// A database whose document was deleted stays archived, bound to that
-	// deletion, until the deletion is purged, even when a new document is
-	// created under the same UUID meanwhile: CreateDatabase for the new
-	// document returns already_exists. A document that the service has
-	// seen deleted is refused with failed_precondition, also when the
-	// caller's access was checked before the deletion.
+	// A document created again under the UUID of a deleted one is a new
+	// generation, and gets a new database; the deleted generation's stays
+	// archived until the deletion is purged. A generation that the service
+	// has seen deleted is refused with failed_precondition, also when the
+	// caller read it before the deletion. When the database of an earlier
+	// generation of the document is not archived yet, because the service
+	// has not yet applied that generation's deletion, the call is refused
+	// with unavailable, and succeeds once it has. The write permission is
+	// checked on the generation the database is bound to; when the
+	// document's generation changes during the call, it is refused with
+	// aborted, and the caller retries.
 	//
-	// Auth: doc_write on the owning document.
+	// Auth: doc_write on the owning document, and read permission on it.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
 	// GetDatabase describes a database: its lineage, its head and durable
-	// cursors, and its namespaces. It is looked up by database id or by owning
-	// document, which are the same UUID.
+	// cursors, and its namespaces. database and owner_document both name
+	// the owning document's UUID, and the database described is the one of
+	// the document's current generation.
 	//
 	// A database that needs recovery is not opened: the response then sets
 	// recovery, and info carries only what is recorded outside the
@@ -565,11 +596,12 @@ type DatabasesServiceHandler interface {
 	// A fork that fails before its database opens is removed again. One
 	// whose pod died meanwhile refuses opens with unavailable until it is
 	// removed, a few minutes later, by a sweep or by the next Fork or
-	// CreateDatabase into the same document. A new owning document that the
-	// service has seen deleted is refused with failed_precondition.
+	// CreateDatabase into the same document. The fork belongs to the new
+	// owning document's current generation, as for CreateDatabase, which
+	// also says when a fork is refused because of an earlier generation.
 	//
-	// Auth: doc_read on the source's owning document, and doc_write on the
-	// new owning document.
+	// Auth: doc_read on the source's owning document, and doc_write and
+	// read permission on the new owning document.
 	Fork(context.Context, *connect.Request[v1.ForkRequest]) (*connect.Response[v1.ForkResponse], error)
 	// Restore reverts a database in place to a point in its history. It is
 	// a deliberate full revert: every change after the point is discarded,
@@ -632,7 +664,8 @@ type DatabasesServiceHandler interface {
 	RecoverDatabase(context.Context, *connect.Request[v1.RecoverDatabaseRequest]) (*connect.Response[v1.RecoverDatabaseResponse], error)
 	// DeleteDatabase deletes a document's tables. The database is archived
 	// rather than removed, as a deleted document is by the repository, and
-	// its id is never reused for a new database.
+	// its id is never reused for a new database. Not served: a database is
+	// archived with its document generation.
 	//
 	// Auth: doc_write on the owning document.
 	DeleteDatabase(context.Context, *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error)
@@ -2395,6 +2428,12 @@ type EventsServiceClient interface {
 	// should keep its stream open. undeleted is also sent when the
 	// restored document is readable with the caller's token.
 	//
+	// Events are filtered by owning document, not by generation: between a
+	// document's re-creation under a deleted one's UUID and the service
+	// applying that deletion, a caller who may read the new document is
+	// sent events of the old generation's database too. database_id and
+	// document_nonce tell them apart.
+	//
 	// A caller whose token carries the eventlog_read scope, the scope the
 	// repository's own event log asks for, is an administrative reader:
 	// it gets every event, unfiltered, and needs no doc_read.
@@ -2473,6 +2512,12 @@ type EventsServiceHandler interface {
 	// withheld, so a client that needs to know that a database is gone
 	// should keep its stream open. undeleted is also sent when the
 	// restored document is readable with the caller's token.
+	//
+	// Events are filtered by owning document, not by generation: between a
+	// document's re-creation under a deleted one's UUID and the service
+	// applying that deletion, a caller who may read the new document is
+	// sent events of the old generation's database too. database_id and
+	// document_nonce tell them apart.
 	//
 	// A caller whose token carries the eventlog_read scope, the scope the
 	// repository's own event log asks for, is an administrative reader:
