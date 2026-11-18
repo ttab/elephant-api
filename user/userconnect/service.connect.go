@@ -111,9 +111,6 @@ const (
 	CommentsReopenThreadProcedure = "/elephant.user.Comments/ReopenThread"
 	// CommentsListMentionsProcedure is the fully-qualified name of the Comments's ListMentions RPC.
 	CommentsListMentionsProcedure = "/elephant.user.Comments/ListMentions"
-	// CommentsWaitForCommentsProcedure is the fully-qualified name of the Comments's WaitForComments
-	// RPC.
-	CommentsWaitForCommentsProcedure = "/elephant.user.Comments/WaitForComments"
 )
 
 // SettingsClient is a client for the elephant.user.Settings service.
@@ -926,13 +923,6 @@ type CommentsClient interface {
 	// references without payloads. Use GetThread to read them, which checks
 	// that the caller may read the document.
 	ListMentions(context.Context, *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error)
-	// Waits until any of the given documents has a comment change, or until
-	// max_wait_sec passes, and answers with the documents that changed. The
-	// caller re-lists their threads afterwards. This is an interim,
-	// cursor-less wakeup poll: a change between two calls is not reported,
-	// so list the threads before the first wait. It will be replaced by a
-	// comment stream.
-	WaitForComments(context.Context, *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error)
 }
 
 // NewCommentsClient constructs a client for the elephant.user.Comments service. By default, it uses
@@ -994,26 +984,19 @@ func NewCommentsClient(httpClient connect.HTTPClient, baseURL string, opts ...co
 			connect.WithSchema(commentsMethods.ByName("ListMentions")),
 			connect.WithClientOptions(opts...),
 		),
-		waitForComments: connect.NewClient[user.WaitForCommentsRequest, user.WaitForCommentsResponse](
-			httpClient,
-			baseURL+CommentsWaitForCommentsProcedure,
-			connect.WithSchema(commentsMethods.ByName("WaitForComments")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // commentsClient implements CommentsClient.
 type commentsClient struct {
-	createComment   *connect.Client[user.CreateCommentRequest, user.CreateCommentResponse]
-	updateComment   *connect.Client[user.UpdateCommentRequest, user.UpdateCommentResponse]
-	deleteComment   *connect.Client[user.DeleteCommentRequest, user.DeleteCommentResponse]
-	getThread       *connect.Client[user.GetThreadRequest, user.GetThreadResponse]
-	listThreads     *connect.Client[user.ListThreadsRequest, user.ListThreadsResponse]
-	resolveThread   *connect.Client[user.ResolveThreadRequest, user.ResolveThreadResponse]
-	reopenThread    *connect.Client[user.ReopenThreadRequest, user.ReopenThreadResponse]
-	listMentions    *connect.Client[user.ListMentionsRequest, user.ListMentionsResponse]
-	waitForComments *connect.Client[user.WaitForCommentsRequest, user.WaitForCommentsResponse]
+	createComment *connect.Client[user.CreateCommentRequest, user.CreateCommentResponse]
+	updateComment *connect.Client[user.UpdateCommentRequest, user.UpdateCommentResponse]
+	deleteComment *connect.Client[user.DeleteCommentRequest, user.DeleteCommentResponse]
+	getThread     *connect.Client[user.GetThreadRequest, user.GetThreadResponse]
+	listThreads   *connect.Client[user.ListThreadsRequest, user.ListThreadsResponse]
+	resolveThread *connect.Client[user.ResolveThreadRequest, user.ResolveThreadResponse]
+	reopenThread  *connect.Client[user.ReopenThreadRequest, user.ReopenThreadResponse]
+	listMentions  *connect.Client[user.ListMentionsRequest, user.ListMentionsResponse]
 }
 
 // CreateComment calls elephant.user.Comments.CreateComment.
@@ -1056,11 +1039,6 @@ func (c *commentsClient) ListMentions(ctx context.Context, req *connect.Request[
 	return c.listMentions.CallUnary(ctx, req)
 }
 
-// WaitForComments calls elephant.user.Comments.WaitForComments.
-func (c *commentsClient) WaitForComments(ctx context.Context, req *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error) {
-	return c.waitForComments.CallUnary(ctx, req)
-}
-
 // CommentsHandler is an implementation of the elephant.user.Comments service.
 type CommentsHandler interface {
 	// Creates a comment. A thread_uuid that does not exist yet creates the
@@ -1091,13 +1069,6 @@ type CommentsHandler interface {
 	// references without payloads. Use GetThread to read them, which checks
 	// that the caller may read the document.
 	ListMentions(context.Context, *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error)
-	// Waits until any of the given documents has a comment change, or until
-	// max_wait_sec passes, and answers with the documents that changed. The
-	// caller re-lists their threads afterwards. This is an interim,
-	// cursor-less wakeup poll: a change between two calls is not reported,
-	// so list the threads before the first wait. It will be replaced by a
-	// comment stream.
-	WaitForComments(context.Context, *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error)
 }
 
 // NewCommentsHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -1155,12 +1126,6 @@ func NewCommentsHandler(svc CommentsHandler, opts ...connect.HandlerOption) (str
 		connect.WithSchema(commentsMethods.ByName("ListMentions")),
 		connect.WithHandlerOptions(opts...),
 	)
-	commentsWaitForCommentsHandler := connect.NewUnaryHandler(
-		CommentsWaitForCommentsProcedure,
-		svc.WaitForComments,
-		connect.WithSchema(commentsMethods.ByName("WaitForComments")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/elephant.user.Comments/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CommentsCreateCommentProcedure:
@@ -1179,8 +1144,6 @@ func NewCommentsHandler(svc CommentsHandler, opts ...connect.HandlerOption) (str
 			commentsReopenThreadHandler.ServeHTTP(w, r)
 		case CommentsListMentionsProcedure:
 			commentsListMentionsHandler.ServeHTTP(w, r)
-		case CommentsWaitForCommentsProcedure:
-			commentsWaitForCommentsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1220,8 +1183,4 @@ func (UnimplementedCommentsHandler) ReopenThread(context.Context, *connect.Reque
 
 func (UnimplementedCommentsHandler) ListMentions(context.Context, *connect.Request[user.ListMentionsRequest]) (*connect.Response[user.ListMentionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.ListMentions is not implemented"))
-}
-
-func (UnimplementedCommentsHandler) WaitForComments(context.Context, *connect.Request[user.WaitForCommentsRequest]) (*connect.Response[user.WaitForCommentsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.user.Comments.WaitForComments is not implemented"))
 }

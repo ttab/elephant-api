@@ -3399,7 +3399,7 @@ type CommentThread struct {
 	// "se.ecms.user.comments.factcheck". Set when the thread is created; may
 	// be empty. A non-empty kind is lowercase ASCII labels that start with a
 	// letter and may contain digits and hyphens, at least three of them
-	// joined by single dots, at most 128 bytes:
+	// joined by single dots:
 	// ^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$
 	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Created timestamp is the RFC3339 timestamp for when the thread was
@@ -3684,7 +3684,7 @@ type CreateCommentRequest struct {
 	// "se.ecms.user.comments.factcheck"; may be empty. Used when the thread is
 	// new, ignored otherwise. A non-empty kind must be lowercase ASCII labels
 	// that start with a letter and may contain digits and hyphens, at least
-	// three of them joined by single dots, at most 128 bytes:
+	// three of them joined by single dots:
 	// ^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$
 	// Anything else is refused with invalid_argument, also when the thread
 	// exists.
@@ -4568,108 +4568,6 @@ func (x *ListMentionsResponse) GetMentions() []*Mention {
 	return nil
 }
 
-type WaitForCommentsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// UUIDs of the repository documents to wait for. At most 100; more is
-	// refused with invalid_argument.
-	DocumentUuids []string `protobuf:"bytes,1,rep,name=document_uuids,json=documentUuids,proto3" json:"document_uuids,omitempty"`
-	// Maximum number of seconds to wait. Defaults to 10 when unset; a value
-	// over 30 is treated as 30.
-	MaxWaitSec    int64 `protobuf:"varint,2,opt,name=max_wait_sec,json=maxWaitSec,proto3" json:"max_wait_sec,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WaitForCommentsRequest) Reset() {
-	*x = WaitForCommentsRequest{}
-	mi := &file_user_service_proto_msgTypes[73]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WaitForCommentsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WaitForCommentsRequest) ProtoMessage() {}
-
-func (x *WaitForCommentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_service_proto_msgTypes[73]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WaitForCommentsRequest.ProtoReflect.Descriptor instead.
-func (*WaitForCommentsRequest) Descriptor() ([]byte, []int) {
-	return file_user_service_proto_rawDescGZIP(), []int{73}
-}
-
-func (x *WaitForCommentsRequest) GetDocumentUuids() []string {
-	if x != nil {
-		return x.DocumentUuids
-	}
-	return nil
-}
-
-func (x *WaitForCommentsRequest) GetMaxWaitSec() int64 {
-	if x != nil {
-		return x.MaxWaitSec
-	}
-	return 0
-}
-
-type WaitForCommentsResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// UUIDs of the requested documents that had a comment change during the
-	// wait. Empty when the wait timed out.
-	DocumentUuids []string `protobuf:"bytes,1,rep,name=document_uuids,json=documentUuids,proto3" json:"document_uuids,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WaitForCommentsResponse) Reset() {
-	*x = WaitForCommentsResponse{}
-	mi := &file_user_service_proto_msgTypes[74]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WaitForCommentsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WaitForCommentsResponse) ProtoMessage() {}
-
-func (x *WaitForCommentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_service_proto_msgTypes[74]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WaitForCommentsResponse.ProtoReflect.Descriptor instead.
-func (*WaitForCommentsResponse) Descriptor() ([]byte, []int) {
-	return file_user_service_proto_rawDescGZIP(), []int{74}
-}
-
-func (x *WaitForCommentsResponse) GetDocumentUuids() []string {
-	if x != nil {
-		return x.DocumentUuids
-	}
-	return nil
-}
-
 var File_user_service_proto protoreflect.FileDescriptor
 
 const file_user_service_proto_rawDesc = "" +
@@ -4963,13 +4861,7 @@ const file_user_service_proto_rawDesc = "" +
 	"\x06before\x18\x01 \x01(\tR\x06before\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x03R\x04size\"J\n" +
 	"\x14ListMentionsResponse\x122\n" +
-	"\bmentions\x18\x01 \x03(\v2\x16.elephant.user.MentionR\bmentions\"a\n" +
-	"\x16WaitForCommentsRequest\x12%\n" +
-	"\x0edocument_uuids\x18\x01 \x03(\tR\rdocumentUuids\x12 \n" +
-	"\fmax_wait_sec\x18\x02 \x01(\x03R\n" +
-	"maxWaitSec\"@\n" +
-	"\x17WaitForCommentsResponse\x12%\n" +
-	"\x0edocument_uuids\x18\x01 \x03(\tR\rdocumentUuids*l\n" +
+	"\bmentions\x18\x01 \x03(\v2\x16.elephant.user.MentionR\bmentions*l\n" +
 	"\x11EventLogEntryType\x12\x1f\n" +
 	"\x1bEVENT_LOG_ENTRY_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16EVENT_LOG_ENTRY_UPDATE\x10\x01\x12\x1a\n" +
@@ -5009,7 +4901,7 @@ const file_user_service_proto_rawDesc = "" +
 	"\x15ListConfigGenerations\x12+.elephant.user.ListConfigGenerationsRequest\x1a,.elephant.user.ListConfigGenerationsResponse\x12N\n" +
 	"\tGetSchema\x12\x1f.elephant.user.GetSchemaRequest\x1a .elephant.user.GetSchemaResponse\x12`\n" +
 	"\x0fGetDeprecations\x12%.elephant.user.GetDeprecationsRequest\x1a&.elephant.user.GetDeprecationsResponse\x12f\n" +
-	"\x11UpdateDeprecation\x12'.elephant.user.UpdateDeprecationRequest\x1a(.elephant.user.UpdateDeprecationResponse2\xb4\x06\n" +
+	"\x11UpdateDeprecation\x12'.elephant.user.UpdateDeprecationRequest\x1a(.elephant.user.UpdateDeprecationResponse2\xd2\x05\n" +
 	"\bComments\x12Z\n" +
 	"\rCreateComment\x12#.elephant.user.CreateCommentRequest\x1a$.elephant.user.CreateCommentResponse\x12Z\n" +
 	"\rUpdateComment\x12#.elephant.user.UpdateCommentRequest\x1a$.elephant.user.UpdateCommentResponse\x12Z\n" +
@@ -5018,8 +4910,7 @@ const file_user_service_proto_rawDesc = "" +
 	"\vListThreads\x12!.elephant.user.ListThreadsRequest\x1a\".elephant.user.ListThreadsResponse\x12Z\n" +
 	"\rResolveThread\x12#.elephant.user.ResolveThreadRequest\x1a$.elephant.user.ResolveThreadResponse\x12W\n" +
 	"\fReopenThread\x12\".elephant.user.ReopenThreadRequest\x1a#.elephant.user.ReopenThreadResponse\x12W\n" +
-	"\fListMentions\x12\".elephant.user.ListMentionsRequest\x1a#.elephant.user.ListMentionsResponse\x12`\n" +
-	"\x0fWaitForComments\x12%.elephant.user.WaitForCommentsRequest\x1a&.elephant.user.WaitForCommentsResponseB#Z!github.com/ttab/elephant-api/userb\x06proto3"
+	"\fListMentions\x12\".elephant.user.ListMentionsRequest\x1a#.elephant.user.ListMentionsResponseB#Z!github.com/ttab/elephant-api/userb\x06proto3"
 
 var (
 	file_user_service_proto_rawDescOnce sync.Once
@@ -5034,7 +4925,7 @@ func file_user_service_proto_rawDescGZIP() []byte {
 }
 
 var file_user_service_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 77)
+var file_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_user_service_proto_goTypes = []any{
 	(EventLogEntryType)(0),                    // 0: elephant.user.EventLogEntryType
 	(ResourceKind)(0),                         // 1: elephant.user.ResourceKind
@@ -5112,29 +5003,27 @@ var file_user_service_proto_goTypes = []any{
 	(*Mention)(nil),                           // 73: elephant.user.Mention
 	(*ListMentionsRequest)(nil),               // 74: elephant.user.ListMentionsRequest
 	(*ListMentionsResponse)(nil),              // 75: elephant.user.ListMentionsResponse
-	(*WaitForCommentsRequest)(nil),            // 76: elephant.user.WaitForCommentsRequest
-	(*WaitForCommentsResponse)(nil),           // 77: elephant.user.WaitForCommentsResponse
-	nil,                                       // 78: elephant.user.PushMessageRequest.PayloadEntry
-	nil,                                       // 79: elephant.user.Message.PayloadEntry
-	(*newsdoc.Document)(nil),                  // 80: newsdoc.Document
+	nil,                                       // 76: elephant.user.PushMessageRequest.PayloadEntry
+	nil,                                       // 77: elephant.user.Message.PayloadEntry
+	(*newsdoc.Document)(nil),                  // 78: newsdoc.Document
 }
 var file_user_service_proto_depIdxs = []int32{
 	5,  // 0: elephant.user.GetDocumentResponse.document:type_name -> elephant.user.Document
-	80, // 1: elephant.user.Document.payload:type_name -> newsdoc.Document
+	78, // 1: elephant.user.Document.payload:type_name -> newsdoc.Document
 	5,  // 2: elephant.user.ListDocumentsResponse.documents:type_name -> elephant.user.Document
-	80, // 3: elephant.user.UpdateDocumentRequest.payload:type_name -> newsdoc.Document
+	78, // 3: elephant.user.UpdateDocumentRequest.payload:type_name -> newsdoc.Document
 	12, // 4: elephant.user.GetPropertiesResponse.properties:type_name -> elephant.user.Property
 	15, // 5: elephant.user.SetPropertiesRequest.properties:type_name -> elephant.user.PropertyUpdate
 	18, // 6: elephant.user.DeletePropertiesRequest.properties:type_name -> elephant.user.PropertyDelete
 	23, // 7: elephant.user.PollEventLogResponse.entries:type_name -> elephant.user.EventLogEntry
 	0,  // 8: elephant.user.EventLogEntry.type:type_name -> elephant.user.EventLogEntryType
 	1,  // 9: elephant.user.EventLogEntry.kind:type_name -> elephant.user.ResourceKind
-	78, // 10: elephant.user.PushMessageRequest.payload:type_name -> elephant.user.PushMessageRequest.PayloadEntry
-	80, // 11: elephant.user.PushInboxMessageRequest.payload:type_name -> newsdoc.Document
+	76, // 10: elephant.user.PushMessageRequest.payload:type_name -> elephant.user.PushMessageRequest.PayloadEntry
+	78, // 11: elephant.user.PushInboxMessageRequest.payload:type_name -> newsdoc.Document
 	30, // 12: elephant.user.PollMessagesResponse.messages:type_name -> elephant.user.Message
-	79, // 13: elephant.user.Message.payload:type_name -> elephant.user.Message.PayloadEntry
+	77, // 13: elephant.user.Message.payload:type_name -> elephant.user.Message.PayloadEntry
 	33, // 14: elephant.user.PollInboxMessagesResponse.messages:type_name -> elephant.user.InboxMessage
-	80, // 15: elephant.user.InboxMessage.payload:type_name -> newsdoc.Document
+	78, // 15: elephant.user.InboxMessage.payload:type_name -> newsdoc.Document
 	33, // 16: elephant.user.ListInboxMessagesResponse.messages:type_name -> elephant.user.InboxMessage
 	2,  // 17: elephant.user.ConfigGenerationSchema.usage:type_name -> elephant.user.SchemaUsage
 	40, // 18: elephant.user.ConfigGeneration.schemas:type_name -> elephant.user.ConfigGenerationSchema
@@ -5147,11 +5036,11 @@ var file_user_service_proto_depIdxs = []int32{
 	52, // 25: elephant.user.GetDeprecationsResponse.deprecations:type_name -> elephant.user.Deprecation
 	52, // 26: elephant.user.UpdateDeprecationRequest.deprecation:type_name -> elephant.user.Deprecation
 	58, // 27: elephant.user.CommentThread.comments:type_name -> elephant.user.Comment
-	80, // 28: elephant.user.Comment.payload:type_name -> newsdoc.Document
-	80, // 29: elephant.user.CreateCommentRequest.payload:type_name -> newsdoc.Document
+	78, // 28: elephant.user.Comment.payload:type_name -> newsdoc.Document
+	78, // 29: elephant.user.CreateCommentRequest.payload:type_name -> newsdoc.Document
 	58, // 30: elephant.user.CreateCommentResponse.comment:type_name -> elephant.user.Comment
 	57, // 31: elephant.user.CreateCommentResponse.thread:type_name -> elephant.user.CommentThread
-	80, // 32: elephant.user.UpdateCommentRequest.payload:type_name -> newsdoc.Document
+	78, // 32: elephant.user.UpdateCommentRequest.payload:type_name -> newsdoc.Document
 	58, // 33: elephant.user.UpdateCommentResponse.comment:type_name -> elephant.user.Comment
 	57, // 34: elephant.user.GetThreadResponse.thread:type_name -> elephant.user.CommentThread
 	57, // 35: elephant.user.ListThreadsResponse.threads:type_name -> elephant.user.CommentThread
@@ -5188,40 +5077,38 @@ var file_user_service_proto_depIdxs = []int32{
 	69, // 66: elephant.user.Comments.ResolveThread:input_type -> elephant.user.ResolveThreadRequest
 	71, // 67: elephant.user.Comments.ReopenThread:input_type -> elephant.user.ReopenThreadRequest
 	74, // 68: elephant.user.Comments.ListMentions:input_type -> elephant.user.ListMentionsRequest
-	76, // 69: elephant.user.Comments.WaitForComments:input_type -> elephant.user.WaitForCommentsRequest
-	4,  // 70: elephant.user.Settings.GetDocument:output_type -> elephant.user.GetDocumentResponse
-	7,  // 71: elephant.user.Settings.ListDocuments:output_type -> elephant.user.ListDocumentsResponse
-	9,  // 72: elephant.user.Settings.UpdateDocument:output_type -> elephant.user.UpdateDocumentResponse
-	11, // 73: elephant.user.Settings.DeleteDocument:output_type -> elephant.user.DeleteDocumentResponse
-	14, // 74: elephant.user.Settings.GetProperties:output_type -> elephant.user.GetPropertiesResponse
-	17, // 75: elephant.user.Settings.SetProperties:output_type -> elephant.user.SetPropertiesResponse
-	20, // 76: elephant.user.Settings.DeleteProperties:output_type -> elephant.user.DeletePropertiesResponse
-	22, // 77: elephant.user.Settings.PollEventLog:output_type -> elephant.user.PollEventLogResponse
-	25, // 78: elephant.user.Messages.PushMessage:output_type -> elephant.user.PushMessageResponse
-	27, // 79: elephant.user.Messages.PushInboxMessage:output_type -> elephant.user.PushInboxMessageResponse
-	29, // 80: elephant.user.Messages.PollMessages:output_type -> elephant.user.PollMessagesResponse
-	32, // 81: elephant.user.Messages.PollInboxMessages:output_type -> elephant.user.PollInboxMessagesResponse
-	35, // 82: elephant.user.Messages.ListInboxMessages:output_type -> elephant.user.ListInboxMessagesResponse
-	37, // 83: elephant.user.Messages.UpdateInboxMessage:output_type -> elephant.user.UpdateInboxMessageResponse
-	39, // 84: elephant.user.Messages.DeleteInboxMessage:output_type -> elephant.user.DeleteInboxMessageResponse
-	43, // 85: elephant.user.Configuration.RegisterConfigGeneration:output_type -> elephant.user.RegisterConfigGenerationResponse
-	45, // 86: elephant.user.Configuration.ActivateConfigGeneration:output_type -> elephant.user.ActivateConfigGenerationResponse
-	47, // 87: elephant.user.Configuration.GetActiveConfigGeneration:output_type -> elephant.user.GetActiveConfigGenerationResponse
-	49, // 88: elephant.user.Configuration.ListConfigGenerations:output_type -> elephant.user.ListConfigGenerationsResponse
-	51, // 89: elephant.user.Configuration.GetSchema:output_type -> elephant.user.GetSchemaResponse
-	54, // 90: elephant.user.Configuration.GetDeprecations:output_type -> elephant.user.GetDeprecationsResponse
-	56, // 91: elephant.user.Configuration.UpdateDeprecation:output_type -> elephant.user.UpdateDeprecationResponse
-	60, // 92: elephant.user.Comments.CreateComment:output_type -> elephant.user.CreateCommentResponse
-	62, // 93: elephant.user.Comments.UpdateComment:output_type -> elephant.user.UpdateCommentResponse
-	64, // 94: elephant.user.Comments.DeleteComment:output_type -> elephant.user.DeleteCommentResponse
-	66, // 95: elephant.user.Comments.GetThread:output_type -> elephant.user.GetThreadResponse
-	68, // 96: elephant.user.Comments.ListThreads:output_type -> elephant.user.ListThreadsResponse
-	70, // 97: elephant.user.Comments.ResolveThread:output_type -> elephant.user.ResolveThreadResponse
-	72, // 98: elephant.user.Comments.ReopenThread:output_type -> elephant.user.ReopenThreadResponse
-	75, // 99: elephant.user.Comments.ListMentions:output_type -> elephant.user.ListMentionsResponse
-	77, // 100: elephant.user.Comments.WaitForComments:output_type -> elephant.user.WaitForCommentsResponse
-	70, // [70:101] is the sub-list for method output_type
-	39, // [39:70] is the sub-list for method input_type
+	4,  // 69: elephant.user.Settings.GetDocument:output_type -> elephant.user.GetDocumentResponse
+	7,  // 70: elephant.user.Settings.ListDocuments:output_type -> elephant.user.ListDocumentsResponse
+	9,  // 71: elephant.user.Settings.UpdateDocument:output_type -> elephant.user.UpdateDocumentResponse
+	11, // 72: elephant.user.Settings.DeleteDocument:output_type -> elephant.user.DeleteDocumentResponse
+	14, // 73: elephant.user.Settings.GetProperties:output_type -> elephant.user.GetPropertiesResponse
+	17, // 74: elephant.user.Settings.SetProperties:output_type -> elephant.user.SetPropertiesResponse
+	20, // 75: elephant.user.Settings.DeleteProperties:output_type -> elephant.user.DeletePropertiesResponse
+	22, // 76: elephant.user.Settings.PollEventLog:output_type -> elephant.user.PollEventLogResponse
+	25, // 77: elephant.user.Messages.PushMessage:output_type -> elephant.user.PushMessageResponse
+	27, // 78: elephant.user.Messages.PushInboxMessage:output_type -> elephant.user.PushInboxMessageResponse
+	29, // 79: elephant.user.Messages.PollMessages:output_type -> elephant.user.PollMessagesResponse
+	32, // 80: elephant.user.Messages.PollInboxMessages:output_type -> elephant.user.PollInboxMessagesResponse
+	35, // 81: elephant.user.Messages.ListInboxMessages:output_type -> elephant.user.ListInboxMessagesResponse
+	37, // 82: elephant.user.Messages.UpdateInboxMessage:output_type -> elephant.user.UpdateInboxMessageResponse
+	39, // 83: elephant.user.Messages.DeleteInboxMessage:output_type -> elephant.user.DeleteInboxMessageResponse
+	43, // 84: elephant.user.Configuration.RegisterConfigGeneration:output_type -> elephant.user.RegisterConfigGenerationResponse
+	45, // 85: elephant.user.Configuration.ActivateConfigGeneration:output_type -> elephant.user.ActivateConfigGenerationResponse
+	47, // 86: elephant.user.Configuration.GetActiveConfigGeneration:output_type -> elephant.user.GetActiveConfigGenerationResponse
+	49, // 87: elephant.user.Configuration.ListConfigGenerations:output_type -> elephant.user.ListConfigGenerationsResponse
+	51, // 88: elephant.user.Configuration.GetSchema:output_type -> elephant.user.GetSchemaResponse
+	54, // 89: elephant.user.Configuration.GetDeprecations:output_type -> elephant.user.GetDeprecationsResponse
+	56, // 90: elephant.user.Configuration.UpdateDeprecation:output_type -> elephant.user.UpdateDeprecationResponse
+	60, // 91: elephant.user.Comments.CreateComment:output_type -> elephant.user.CreateCommentResponse
+	62, // 92: elephant.user.Comments.UpdateComment:output_type -> elephant.user.UpdateCommentResponse
+	64, // 93: elephant.user.Comments.DeleteComment:output_type -> elephant.user.DeleteCommentResponse
+	66, // 94: elephant.user.Comments.GetThread:output_type -> elephant.user.GetThreadResponse
+	68, // 95: elephant.user.Comments.ListThreads:output_type -> elephant.user.ListThreadsResponse
+	70, // 96: elephant.user.Comments.ResolveThread:output_type -> elephant.user.ResolveThreadResponse
+	72, // 97: elephant.user.Comments.ReopenThread:output_type -> elephant.user.ReopenThreadResponse
+	75, // 98: elephant.user.Comments.ListMentions:output_type -> elephant.user.ListMentionsResponse
+	69, // [69:99] is the sub-list for method output_type
+	39, // [39:69] is the sub-list for method input_type
 	39, // [39:39] is the sub-list for extension type_name
 	39, // [39:39] is the sub-list for extension extendee
 	0,  // [0:39] is the sub-list for field type_name
@@ -5238,7 +5125,7 @@ func file_user_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_service_proto_rawDesc), len(file_user_service_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   77,
+			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

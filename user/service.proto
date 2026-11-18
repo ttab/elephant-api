@@ -606,10 +606,10 @@ message UpdateDeprecationResponse {}
 //
 // Every method requires the `user` scope. Access otherwise follows the
 // document the thread is on, as the repository answers for the caller's
-// token: GetThread, ListThreads and WaitForComments require read permission
-// on the document; CreateComment, UpdateComment, DeleteComment,
-// ResolveThread and ReopenThread require write permission on it. Deleting
-// another author's comment also requires the `doc_admin` scope.
+// token: GetThread and ListThreads require read permission on the
+// document; CreateComment, UpdateComment, DeleteComment, ResolveThread and
+// ReopenThread require write permission on it. Deleting another author's
+// comment also requires the `doc_admin` scope.
 // ListMentions checks no document, since it returns references without
 // payloads.
 //
@@ -645,13 +645,6 @@ service Comments {
   // references without payloads. Use GetThread to read them, which checks
   // that the caller may read the document.
   rpc ListMentions(ListMentionsRequest) returns (ListMentionsResponse);
-  // Waits until any of the given documents has a comment change, or until
-  // max_wait_sec passes, and answers with the documents that changed. The
-  // caller re-lists their threads afterwards. This is an interim,
-  // cursor-less wakeup poll: a change between two calls is not reported,
-  // so list the threads before the first wait. It will be replaced by a
-  // comment stream.
-  rpc WaitForComments(WaitForCommentsRequest) returns (WaitForCommentsResponse);
 }
 
 // CommentThread is a thread of comments on a document.
@@ -665,7 +658,7 @@ message CommentThread {
   // "se.ecms.user.comments.factcheck". Set when the thread is created; may
   // be empty. A non-empty kind is lowercase ASCII labels that start with a
   // letter and may contain digits and hyphens, at least three of them
-  // joined by single dots, at most 128 bytes:
+  // joined by single dots:
   // ^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$
   string kind = 3;
   // Created timestamp is the RFC3339 timestamp for when the thread was
@@ -744,7 +737,7 @@ message CreateCommentRequest {
   // "se.ecms.user.comments.factcheck"; may be empty. Used when the thread is
   // new, ignored otherwise. A non-empty kind must be lowercase ASCII labels
   // that start with a letter and may contain digits and hyphens, at least
-  // three of them joined by single dots, at most 128 bytes:
+  // three of them joined by single dots:
   // ^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$
   // Anything else is refused with invalid_argument, also when the thread
   // exists.
@@ -862,19 +855,4 @@ message ListMentionsRequest {
 message ListMentionsResponse {
   // Mentions sorted by their created timestamp, newest first.
   repeated Mention mentions = 1;
-}
-
-message WaitForCommentsRequest {
-  // UUIDs of the repository documents to wait for. At most 100; more is
-  // refused with invalid_argument.
-  repeated string document_uuids = 1;
-  // Maximum number of seconds to wait. Defaults to 10 when unset; a value
-  // over 30 is treated as 30.
-  int64 max_wait_sec = 2;
-}
-
-message WaitForCommentsResponse {
-  // UUIDs of the requested documents that had a comment change during the
-  // wait. Empty when the wait timed out.
-  repeated string document_uuids = 1;
 }

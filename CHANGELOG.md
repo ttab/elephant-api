@@ -4,6 +4,29 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.30.0] - Unreleased
+
+**Breaking (Comments):** `Comments.WaitForComments`, the interim wakeup poll
+for comment changes, is removed together with `WaitForCommentsRequest` and
+`WaitForCommentsResponse`. Nothing called it. The `Stream` of the new
+`NotificationsService` replaces it.
+
+Changes:
+
+- New service `elephant.user.v1.NotificationsService`, the notification feed:
+  `Stream` is a server stream of the caller's rows, replayed and then live,
+  `ListNotifications` lists them, `Subscribe`, `Unsubscribe` and
+  `ListSubscriptions` manage which documents a user hears about, and `Ingest`
+  is where producers record an event about a document. `Ingest` needs the
+  new `user_notify` scope, every other RPC the `user` scope.
+- The service is Connect only, in the versioned layout like collab: messages
+  in `github.com/ttab/elephant-api/elephant/user/v1` and connect-go's
+  `NewNotificationsServiceClient` and `NewNotificationsServiceHandler` in
+  `userv1connect`. There is no Twirp path.
+- The `kind` comments on `CommentThread` and `CreateCommentRequest` no longer
+  state a 128 byte limit, since the service no longer enforces one. The
+  pattern is unchanged.
+
 ## [v0.29.5] - 2026-11-18
 
 Changes:

@@ -57,3 +57,10 @@ breaking:
   # against the package.
   use:
     - FILE
+  # Covers the removal of Comments.WaitForComments and its request and
+  # response from user/service.proto. Removed in the next change.
+  ignore_only:
+    MESSAGE_NO_DELETE:
+      - user/service.proto
+    RPC_NO_DELETE:
+      - user/service.proto
