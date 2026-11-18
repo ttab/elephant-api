@@ -1480,6 +1480,7 @@ type EventlogItem struct {
 	// when objects (files) were detached in a document update.
 	DetachedObjects []string `protobuf:"bytes,19,rep,name=detached_objects,json=detachedObjects,proto3" json:"detached_objects,omitempty"`
 	// DeleteRecordId is the ID of the delete record if this was a delete event.
+	// A restore sets restored_from_delete_record_id instead.
 	DeleteRecordId int64 `protobuf:"varint,20,opt,name=delete_record_id,json=deleteRecordId,proto3" json:"delete_record_id,omitempty"`
 	// DocumentNonce is the unique nonce for this document. If the document is
 	// deleted and recreated with the same ID it will still have a unique nonce.
@@ -1492,8 +1493,17 @@ type EventlogItem struct {
 	// SchemaGeneration is the ID of the schema generation that was used to
 	// validate the document.
 	SchemaGeneration int64 `protobuf:"varint,24,opt,name=schema_generation,json=schemaGeneration,proto3" json:"schema_generation,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// RestoredFromNonce is the nonce of the deleted generation that a restore
+	// brought back. It is set on every event a restore emits, restore_finished
+	// included, and is empty on all other events. document_nonce is the nonce
+	// of the new generation the restore created.
+	RestoredFromNonce string `protobuf:"bytes,25,opt,name=restored_from_nonce,json=restoredFromNonce,proto3" json:"restored_from_nonce,omitempty"`
+	// RestoredFromDeleteRecordId is the ID of the delete record a restore
+	// restored the document from. Set on the same events as
+	// restored_from_nonce.
+	RestoredFromDeleteRecordId int64 `protobuf:"varint,26,opt,name=restored_from_delete_record_id,json=restoredFromDeleteRecordId,proto3" json:"restored_from_delete_record_id,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *EventlogItem) Reset() {
@@ -1690,6 +1700,20 @@ func (x *EventlogItem) GetLabels() []string {
 func (x *EventlogItem) GetSchemaGeneration() int64 {
 	if x != nil {
 		return x.SchemaGeneration
+	}
+	return 0
+}
+
+func (x *EventlogItem) GetRestoredFromNonce() string {
+	if x != nil {
+		return x.RestoredFromNonce
+	}
+	return ""
+}
+
+func (x *EventlogItem) GetRestoredFromDeleteRecordId() int64 {
+	if x != nil {
+		return x.RestoredFromDeleteRecordId
 	}
 	return 0
 }
@@ -5073,9 +5097,16 @@ type DocumentMeta struct {
 	// recreated with the same ID it will still have a unique nonce.
 	Nonce string `protobuf:"bytes,14,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	// Type is the type of the document.
-	Type          string `protobuf:"bytes,15,opt,name=type,proto3" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Type string `protobuf:"bytes,15,opt,name=type,proto3" json:"type,omitempty"`
+	// RestoredFromNonce is the nonce of the deleted generation that this
+	// generation was restored from. Empty if the document wasn't created by a
+	// restore, and for restores made before the repository recorded it.
+	RestoredFromNonce string `protobuf:"bytes,16,opt,name=restored_from_nonce,json=restoredFromNonce,proto3" json:"restored_from_nonce,omitempty"`
+	// RestoredFromDeleteRecordId is the ID of the delete record that this
+	// generation was restored from. Zero when restored_from_nonce is empty.
+	RestoredFromDeleteRecordId int64 `protobuf:"varint,17,opt,name=restored_from_delete_record_id,json=restoredFromDeleteRecordId,proto3" json:"restored_from_delete_record_id,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *DocumentMeta) Reset() {
@@ -5211,6 +5242,20 @@ func (x *DocumentMeta) GetType() string {
 		return x.Type
 	}
 	return ""
+}
+
+func (x *DocumentMeta) GetRestoredFromNonce() string {
+	if x != nil {
+		return x.RestoredFromNonce
+	}
+	return ""
+}
+
+func (x *DocumentMeta) GetRestoredFromDeleteRecordId() int64 {
+	if x != nil {
+		return x.RestoredFromDeleteRecordId
+	}
+	return 0
 }
 
 type AttachmentRef struct {
@@ -10153,7 +10198,7 @@ const file_repository_service_proto_rawDesc = "" +
 	"\x06offset\x18\x05 \x01(\x05R\x06offset\x12\x12\n" +
 	"\x04type\x18\x06 \x01(\tR\x04type\"W\n" +
 	"\x1cGetCompactedEventlogResponse\x127\n" +
-	"\x05items\x18\x01 \x03(\v2!.elephant.repository.EventlogItemR\x05items\"\xd1\x06\n" +
+	"\x05items\x18\x01 \x03(\v2!.elephant.repository.EventlogItemR\x05items\"\xc5\a\n" +
 	"\fEventlogItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05event\x18\x02 \x01(\tR\x05event\x12\x12\n" +
@@ -10180,7 +10225,9 @@ const file_repository_service_proto_rawDesc = "" +
 	"\x0edocument_nonce\x18\x15 \x01(\tR\rdocumentNonce\x12;\n" +
 	"\ttimespans\x18\x16 \x03(\v2\x1d.elephant.repository.TimespanR\ttimespans\x12\x16\n" +
 	"\x06labels\x18\x17 \x03(\tR\x06labels\x12+\n" +
-	"\x11schema_generation\x18\x18 \x01(\x03R\x10schemaGeneration\".\n" +
+	"\x11schema_generation\x18\x18 \x01(\x03R\x10schemaGeneration\x12.\n" +
+	"\x13restored_from_nonce\x18\x19 \x01(\tR\x11restoredFromNonce\x12B\n" +
+	"\x1erestored_from_delete_record_id\x18\x1a \x01(\x03R\x1arestoredFromDeleteRecordId\".\n" +
 	"\bTimespan\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x02 \x01(\tR\x02to\"\x17\n" +
@@ -10415,7 +10462,7 @@ const file_repository_service_proto_rawDesc = "" +
 	"\x0eGetMetaRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"H\n" +
 	"\x0fGetMetaResponse\x125\n" +
-	"\x04meta\x18\x01 \x01(\v2!.elephant.repository.DocumentMetaR\x04meta\"\xc1\x05\n" +
+	"\x04meta\x18\x01 \x01(\v2!.elephant.repository.DocumentMetaR\x04meta\"\xb5\x06\n" +
 	"\fDocumentMeta\x12\x18\n" +
 	"\acreated\x18\x01 \x01(\tR\acreated\x12\x1a\n" +
 	"\bmodified\x18\x02 \x01(\tR\bmodified\x12'\n" +
@@ -10434,7 +10481,9 @@ const file_repository_service_proto_rawDesc = "" +
 	"updaterUri\x12D\n" +
 	"\vattachments\x18\r \x03(\v2\".elephant.repository.AttachmentRefR\vattachments\x12\x14\n" +
 	"\x05nonce\x18\x0e \x01(\tR\x05nonce\x12\x12\n" +
-	"\x04type\x18\x0f \x01(\tR\x04type\x1aU\n" +
+	"\x04type\x18\x0f \x01(\tR\x04type\x12.\n" +
+	"\x13restored_from_nonce\x18\x10 \x01(\tR\x11restoredFromNonce\x12B\n" +
+	"\x1erestored_from_delete_record_id\x18\x11 \x01(\x03R\x1arestoredFromDeleteRecordId\x1aU\n" +
 	"\n" +
 	"HeadsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
