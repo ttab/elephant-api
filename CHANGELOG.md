@@ -7,12 +7,12 @@ pull requests hold the detail.
 ## [v0.30.0] - Unreleased
 
 **New service (tables):** `elephant.tables.v1` is the declaration for
-elephant-tables, which gives a document its own tabular data in one SQLite
-database per document generation. It is six services in one package:
-`DatabasesService` (create, describe, fork, restore in place, history,
-recovery from a lost replica, and a delete that is declared but not
-served), `SchemaService` (namespaces, tables, columns, constraints,
-indexes, type changes with a dry run and declared schemas), `DataService`
+elephant-tables, which gives a document its own tabular data in a SQLite
+database of the document's current generation. It is six services in one
+package: `DatabasesService` (create, describe, fork, restore in place,
+history, recovery from a lost replica, and delete), `SchemaService`
+(namespaces, tables, columns, constraints, indexes, type changes with a
+dry run and declared schemas), `DataService`
 (rows, mutations, undo, read-only SQL, column summaries, agent
 suggestions, presence, and the `Watch` change stream), `SnapshotsService`
 (export snapshots and publications), `ImportsService` (upload, analyze,
@@ -49,6 +49,29 @@ Changes:
   database is not archived yet, and `aborted` when the generation changes
   during the call. A fork into the document whose pod died before it
   opened does not keep the document from getting a database.
+- `DataService.Suggest` needs the `doc_suggest` scope together with
+  `doc_read`, and read permission on the document; any caller holding the
+  scope may suggest, an agent or a person. `Suggestion.agent` is the token
+  subject of whoever made the suggestion.
+- Database size: `DatabaseInfo.data_size` (13) is the database's size in
+  bytes without its change log and free pages, measured by the serving pod
+  and up to 30 seconds old; it is unset when the response does not open
+  the database. `DatabaseInfo.soft_size_cap` (14) is the size past which a
+  client should warn; it is reported and never enforced.
+- `DatabasesService.DeleteDatabase` is served: it archives the database
+  of the document's current generation while the document lives on, logs
+  a `deleted` event and ends the database's `Watch` streams; a second
+  call is `not_found`. The service keeps the archived database for a
+  retention window before deleting it, and a document restore never
+  brings it back; an operator can within the window, which logs
+  `undeleted`. Its pending imports do not run while it is deleted.
+  `CreateDatabase` and `Fork` then give the generation a
+  new, empty database, numbered on within the generation in
+  `DatabaseInfo.generation` (15), with an id of its own: a generation's
+  first database has the nonce as its id, a later one an id derived from
+  the nonce and the number. A `Fork` is refused with `aborted`, for a
+  retry, when another database of the generation was created or deleted
+  while it made its copy.
 - Namespaces: every table belongs to a namespace, named by the
   application that created it, and a change batch touches exactly one.
   The `Namespace` message (name, the advisory `schema_editable` flag, and
@@ -176,7 +199,7 @@ Changes:
   `expected`, not those of a `RowInsert`; a suggested delete or move
   conflicts when its row changed after the suggestion was made, reported
   as a `CellConflict` with an empty `column`; the open suggestions of a
-  database are limited in number, per agent and in bytes, refused with
+  database are limited in number, per token subject and in bytes, refused with
   `resource_exhausted` past a limit; and document references in the
   operations are stored with their UUID alone.
 - `DocumentRef.unresolved` (4) marks a reference the service did not look
@@ -202,10 +225,12 @@ Changes:
   retention. `WatchEventsResponse.position` (2) is the id of the last
   event the stream has passed, sent or withheld, which a client resumes
   from. `Event.type` includes `undeleted`, a database live again once its
-  deleted generation is restored. `deleted` and `undeleted` are sent only
-  to a caller whose token was found to read the document before it was
-  deleted, on the same stream or in the service's short-lived access
-  cache; `undeleted` also when the restored document is readable. A token
+  deleted generation is restored. `deleted` and `undeleted` are sent to a
+  caller whose token was found to read the document before it was
+  deleted, on the same stream since the document's ACL last changed or
+  in the service's short-lived access cache, and otherwise when the
+  document exists and is readable: after `DeleteDatabase`, or once
+  restored. A token
   with the `eventlog_read` scope gets every event unfiltered, without
   `doc_read`.
 

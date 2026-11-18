@@ -13,16 +13,20 @@
 // whenever the document's UUID starts a new life: when it is created,
 // created again after a delete, or restored. A database belongs to one
 // generation. Every request names a database by its owning document's
-// UUID, and is served from the database of the document's current
+// UUID, and is served from the live database of the document's current
 // generation, which the service learns from the repository with the
 // caller's own token; a database of an earlier generation of the same
 // UUID is never served for it, and the request is then not found.
 // Deleting the document archives its generation's database; a document
 // created again under the UUID is a new generation and may get a new
 // database at once, while the archived one waits for the repository to
-// purge the deletion. A database also has an id of its own, unique per
-// generation and never reused, which DatabaseInfo and Event carry for
-// operators; no request takes it.
+// purge the deletion. A caller may also delete a document's database
+// with DatabasesService.DeleteDatabase while the document lives on, and
+// create another for the same generation: the databases of one
+// generation are numbered from 1 (DatabaseInfo.generation), and at most
+// one of them is live. A database also has an id of its own, never
+// reused, which DatabaseInfo and Event carry for operators; no request
+// takes it.
 //
 // The API is six services in this one package, served with Connect only:
 // DatabasesService, SchemaService, DataService, SnapshotsService,
@@ -2233,19 +2237,44 @@ type DatabaseInfo struct {
 	// The database's namespaces, by name. Their tables are read with
 	// SchemaService.Describe.
 	Namespaces []*Namespace `protobuf:"bytes,9,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
-	// The database's own id, unique per document generation and never
-	// reused. It names the database in the service's storage and logs, and
-	// tells two generations of one document apart; no request takes it. It
-	// is the nonce of the generation the database was created for, and
-	// stays when a document restore binds the database to a later
-	// generation.
+	// The database's own id, never reused. It names the database in the
+	// service's storage and logs, and tells two databases of one document
+	// apart; no request takes it. For the first database of a generation
+	// it is the nonce of the generation the database was created for; a
+	// later one, created after a DeleteDatabase, derives its id from that
+	// nonce and its generation number. It stays when a document restore
+	// binds the database to a later generation.
 	Id string `protobuf:"bytes,10,opt,name=id,proto3" json:"id,omitempty"`
 	// The nonce of the document generation the database belongs to, as the
 	// repository reports it for the document.
 	DocumentNonce string `protobuf:"bytes,11,opt,name=document_nonce,json=documentNonce,proto3" json:"document_nonce,omitempty"`
 	// The id of the database this one was forked from. Empty unless it is a
 	// fork.
-	ParentId      string `protobuf:"bytes,12,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	ParentId string `protobuf:"bytes,12,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	// The database's size in bytes, without its change log: the pages in
+	// use by its tables, indexes, catalog and suggestions. The change log
+	// and its indexes are left out, since pruning shrinks them and nothing
+	// a user does keeps them small, and so are free pages, which SQLite
+	// reuses before it grows the file. The file can therefore be larger
+	// than this by the change log and the free pages; the hard cap that
+	// refuses writes applies to the whole file and is not reported here.
+	//
+	// It is measured by the pod serving the database, and reused while
+	// nothing has been written to the database since, or for up to 30
+	// seconds while writes continue: it can trail the head by that long.
+	// Unset when the response does not open the database: in
+	// CreateDatabaseResponse, and with a recovery in GetDatabaseResponse.
+	DataSize *int64 `protobuf:"varint,13,opt,name=data_size,json=dataSize,proto3,oneof" json:"data_size,omitempty"`
+	// The soft size cap in bytes: the data_size past which a client should
+	// warn that the database is large. It is reported, never enforced;
+	// nothing is refused past it.
+	SoftSizeCap int64 `protobuf:"varint,14,opt,name=soft_size_cap,json=softSizeCap,proto3" json:"soft_size_cap,omitempty"`
+	// The database's number among the databases of its document
+	// generation, from 1: one past the generation's earlier databases,
+	// which callers deleted with DeleteDatabase. A database a document
+	// restore binds to the restored generation takes that generation's
+	// next number, 1 unless it had databases of its own.
+	Generation    int32 `protobuf:"varint,15,opt,name=generation,proto3" json:"generation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2355,6 +2384,27 @@ func (x *DatabaseInfo) GetParentId() string {
 		return x.ParentId
 	}
 	return ""
+}
+
+func (x *DatabaseInfo) GetDataSize() int64 {
+	if x != nil && x.DataSize != nil {
+		return *x.DataSize
+	}
+	return 0
+}
+
+func (x *DatabaseInfo) GetSoftSizeCap() int64 {
+	if x != nil {
+		return x.SoftSizeCap
+	}
+	return 0
+}
+
+func (x *DatabaseInfo) GetGeneration() int32 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
 }
 
 type CreateDatabaseRequest struct {
@@ -3373,7 +3423,9 @@ func (x *RecoverDatabaseResponse) GetInfo() *DatabaseInfo {
 
 type DeleteDatabaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Database to delete.
+	// UUID of the owning document, as every request names a database. The
+	// database deleted is the live one of the document's current
+	// generation. Required.
 	Database      string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7183,8 +7235,8 @@ type Change struct {
 	RowState *Row `protobuf:"bytes,11,opt,name=row_state,json=rowState,proto3" json:"row_state,omitempty"`
 	// The full table after the change, for schema operations.
 	TableState *Table `protobuf:"bytes,12,opt,name=table_state,json=tableState,proto3" json:"table_state,omitempty"`
-	// The agent whose suggestion was applied, when the change came from
-	// one.
+	// Subject that made the suggestion that was applied (Suggestion.agent),
+	// when the change came from one.
 	Via string `protobuf:"bytes,13,opt,name=via,proto3" json:"via,omitempty"`
 	// True for the summary of a large batch, which is sent instead of a
 	// change per cell: re-read the table.
@@ -8494,7 +8546,7 @@ func (x *SuggestResponse) GetSuggestion() *Suggestion {
 	return nil
 }
 
-// Suggestion is an edit an agent proposed.
+// Suggestion is an edit a caller with the doc_suggest scope proposed.
 type Suggestion struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Suggestion id.
@@ -8503,11 +8555,14 @@ type Suggestion struct {
 	Database string `protobuf:"bytes,2,opt,name=database,proto3" json:"database,omitempty"`
 	// Id of the table the suggestion changes.
 	Table string `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
-	// Subject of the agent that made the suggestion.
+	// Token subject of the caller that made the suggestion: an agent or a
+	// person, since nothing in a token marks an agent. The field is named
+	// for the usual case. The per-subject limit on open suggestions counts
+	// by it.
 	Agent string `protobuf:"bytes,4,opt,name=agent,proto3" json:"agent,omitempty"`
 	// The proposed operations.
 	Mutations []*Mutation `protobuf:"bytes,5,rep,name=mutations,proto3" json:"mutations,omitempty"`
-	// The agent's rationale.
+	// The rationale given with the suggestion.
 	Rationale string `protobuf:"bytes,6,opt,name=rationale,proto3" json:"rationale,omitempty"`
 	// Where the suggestion is in its life.
 	State SuggestionState `protobuf:"varint,7,opt,name=state,proto3,enum=elephant.tables.v1.SuggestionState" json:"state,omitempty"`
@@ -11065,10 +11120,13 @@ type Event struct {
 	// an earlier point, one event per namespace the restore changed.
 	// recovered follows a RecoverDatabase, after which cursors from the
 	// skipped epochs are invalid. deleted is a database archived with its
-	// deleted owning document generation, and undeleted the database
-	// live again, with its data, once a restore of the document is bound
-	// to that generation (which waits for the repository to report the
-	// generation a restore came from); neither has a cursor.
+	// deleted owning document generation, or deleted by a caller with
+	// DeleteDatabase, and undeleted the database live again, with its
+	// data: once a restore of the document is bound to that generation
+	// (which waits for the repository to report the generation a restore
+	// came from), or once an operator brought back a database a caller
+	// deleted, within its retention. A restore never brings back a
+	// database a caller deleted. Neither has a cursor.
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// UUID of the owning document of the database it happened to, by which
 	// requests name the database.
@@ -11087,7 +11145,8 @@ type Event struct {
 	// the whole database.
 	Namespace string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// The database's own id (DatabaseInfo.id), which tells the events of
-	// two generations of one document apart.
+	// two databases of one document apart: of two generations, or a
+	// database a caller deleted and the one created after it.
 	DatabaseId string `protobuf:"bytes,9,opt,name=database_id,json=databaseId,proto3" json:"database_id,omitempty"`
 	// The nonce of the document generation the database belonged to when
 	// the event happened. A restore that later binds the database to the
@@ -11309,7 +11368,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06column\x18\x01 \x01(\tR\x06column\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xf8\x03\n" +
+	"descending\"\xec\x04\n" +
 	"\fDatabaseInfo\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12%\n" +
 	"\x0eowner_document\x18\x02 \x01(\tR\rownerDocument\x12'\n" +
@@ -11324,7 +11383,14 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x02id\x18\n" +
 	" \x01(\tR\x02id\x12%\n" +
 	"\x0edocument_nonce\x18\v \x01(\tR\rdocumentNonce\x12\x1b\n" +
-	"\tparent_id\x18\f \x01(\tR\bparentIdJ\x04\b\a\x10\bR\x06tables\">\n" +
+	"\tparent_id\x18\f \x01(\tR\bparentId\x12 \n" +
+	"\tdata_size\x18\r \x01(\x03H\x00R\bdataSize\x88\x01\x01\x12\"\n" +
+	"\rsoft_size_cap\x18\x0e \x01(\x03R\vsoftSizeCap\x12\x1e\n" +
+	"\n" +
+	"generation\x18\x0f \x01(\x05R\n" +
+	"generationB\f\n" +
+	"\n" +
+	"_data_sizeJ\x04\b\a\x10\bR\x06tables\">\n" +
 	"\x15CreateDatabaseRequest\x12%\n" +
 	"\x0eowner_document\x18\x01 \x01(\tR\rownerDocument\"N\n" +
 	"\x16CreateDatabaseResponse\x124\n" +
@@ -12527,6 +12593,7 @@ func file_elephant_tables_v1_service_proto_init() {
 		(*PointInTime_Time)(nil),
 		(*PointInTime_Snapshot)(nil),
 	}
+	file_elephant_tables_v1_service_proto_msgTypes[16].OneofWrappers = []any{}
 	file_elephant_tables_v1_service_proto_msgTypes[19].OneofWrappers = []any{
 		(*GetDatabaseRequest_Database)(nil),
 		(*GetDatabaseRequest_OwnerDocument)(nil),

@@ -9,16 +9,20 @@ syntax = "proto3";
 // whenever the document's UUID starts a new life: when it is created,
 // created again after a delete, or restored. A database belongs to one
 // generation. Every request names a database by its owning document's
-// UUID, and is served from the database of the document's current
+// UUID, and is served from the live database of the document's current
 // generation, which the service learns from the repository with the
 // caller's own token; a database of an earlier generation of the same
 // UUID is never served for it, and the request is then not found.
 // Deleting the document archives its generation's database; a document
 // created again under the UUID is a new generation and may get a new
 // database at once, while the archived one waits for the repository to
-// purge the deletion. A database also has an id of its own, unique per
-// generation and never reused, which DatabaseInfo and Event carry for
-// operators; no request takes it.
+// purge the deletion. A caller may also delete a document's database
+// with DatabasesService.DeleteDatabase while the document lives on, and
+// create another for the same generation: the databases of one
+// generation are numbered from 1 (DatabaseInfo.generation), and at most
+// one of them is live. A database also has an id of its own, never
+// reused, which DatabaseInfo and Event carry for operators; no request
+// takes it.
 //
 // The API is six services in this one package, served with Connect only:
 // DatabasesService, SchemaService, DataService, SnapshotsService,
@@ -538,16 +542,22 @@ message Sort {
 // ---------- Databases ----------
 
 // DatabasesService creates, describes, forks, restores, recovers and
-// deletes databases. A document generation has at most one database, and
-// a document at most one database that is not archived: the current
-// generation's. See Generations in the package comment.
+// deletes databases. A document has at most one database that is not
+// archived: the current generation's. A generation has more than one
+// database only when callers deleted the earlier ones. See Generations
+// in the package comment.
 service DatabasesService {
   // CreateDatabase creates the database of the document's current
   // generation, which the service reads from the repository with the
-  // caller's token. Returns already_exists when the generation has one. A
-  // fork into the document that never opened, because the pod making it
-  // died, is not a database: once it is a few minutes old it is removed,
-  // and the database is created in its place.
+  // caller's token. Returns already_exists when the generation has a
+  // live one. A fork into the document that never opened, because the
+  // pod making it died, is not a database: once it is a few minutes old
+  // it is removed, and the database is created in its place.
+  //
+  // After DeleteDatabase the generation gets a new, empty database: it
+  // is numbered one past the generation's earlier databases
+  // (DatabaseInfo.generation) and has an id of its own, and nothing of
+  // the deleted database is visible in it.
   //
   // A document created again under the UUID of a deleted one is a new
   // generation, and gets a new database; the deleted generation's stays
@@ -595,6 +605,9 @@ service DatabasesService {
   // CreateDatabase into the same document. The fork belongs to the new
   // owning document's current generation, as for CreateDatabase, which
   // also says when a fork is refused because of an earlier generation.
+  // A fork is also refused with aborted, and the caller retries, when
+  // another database of the generation was created or deleted while it
+  // made its copy, since the number it was to take is no longer next.
   //
   // Auth: doc_read on the source's owning document, and doc_write and
   // read permission on the new owning document.
@@ -619,7 +632,7 @@ service DatabasesService {
   // record as it was at the point; a namespace the point does not hold
   // is kept, with its flag cleared and no declared version, since a
   // namespace is never removed. A restore of some tables leaves the
-  // namespace records alone. Open agent suggestions are left as they
+  // namespace records alone. Open suggestions are left as they
   // are, and their writes then fail per operation where they no longer
   // apply.
   //
@@ -662,12 +675,26 @@ service DatabasesService {
   // token.
   rpc RecoverDatabase(RecoverDatabaseRequest) returns (RecoverDatabaseResponse);
 
-  // DeleteDatabase deletes a document's tables. The database is archived
-  // rather than removed, as a deleted document is by the repository, and
-  // its id is never reused for a new database. Not served: a database is
-  // archived with its document generation.
+  // DeleteDatabase deletes a document's tables while the document lives
+  // on. The database of the document's current generation is archived
+  // rather than removed: it is no longer served, every request naming
+  // the document is not found as for a document without a database, the
+  // pod serving it keeps its last changes, and its Watch streams end
+  // with lease_moved. A deleted event is logged. Its snapshots,
+  // publications, uploads and pending imports go with it, and the
+  // imports do not run while it is deleted; its forks,
+  // which belong to other documents, are not touched. The service keeps
+  // the archived database for a retention window, 30 days by default,
+  // and then deletes it for good; within the window an operator can
+  // bring it back, but no call can. A document restore never brings it
+  // back either.
   //
-  // Auth: doc_write on the owning document.
+  // The document may get a new database afterwards with CreateDatabase
+  // or Fork, numbered on within the generation, with an id of its own.
+  // A second DeleteDatabase, once the document has no database, is not
+  // found.
+  //
+  // Auth: doc_write on the owning document, and read permission on it.
   rpc DeleteDatabase(DeleteDatabaseRequest) returns (DeleteDatabaseResponse);
 }
 
@@ -697,12 +724,13 @@ message DatabaseInfo {
   // The database's namespaces, by name. Their tables are read with
   // SchemaService.Describe.
   repeated Namespace namespaces = 9;
-  // The database's own id, unique per document generation and never
-  // reused. It names the database in the service's storage and logs, and
-  // tells two generations of one document apart; no request takes it. It
-  // is the nonce of the generation the database was created for, and
-  // stays when a document restore binds the database to a later
-  // generation.
+  // The database's own id, never reused. It names the database in the
+  // service's storage and logs, and tells two databases of one document
+  // apart; no request takes it. For the first database of a generation
+  // it is the nonce of the generation the database was created for; a
+  // later one, created after a DeleteDatabase, derives its id from that
+  // nonce and its generation number. It stays when a document restore
+  // binds the database to a later generation.
   string id = 10;
   // The nonce of the document generation the database belongs to, as the
   // repository reports it for the document.
@@ -710,6 +738,30 @@ message DatabaseInfo {
   // The id of the database this one was forked from. Empty unless it is a
   // fork.
   string parent_id = 12;
+  // The database's size in bytes, without its change log: the pages in
+  // use by its tables, indexes, catalog and suggestions. The change log
+  // and its indexes are left out, since pruning shrinks them and nothing
+  // a user does keeps them small, and so are free pages, which SQLite
+  // reuses before it grows the file. The file can therefore be larger
+  // than this by the change log and the free pages; the hard cap that
+  // refuses writes applies to the whole file and is not reported here.
+  //
+  // It is measured by the pod serving the database, and reused while
+  // nothing has been written to the database since, or for up to 30
+  // seconds while writes continue: it can trail the head by that long.
+  // Unset when the response does not open the database: in
+  // CreateDatabaseResponse, and with a recovery in GetDatabaseResponse.
+  optional int64 data_size = 13;
+  // The soft size cap in bytes: the data_size past which a client should
+  // warn that the database is large. It is reported, never enforced;
+  // nothing is refused past it.
+  int64 soft_size_cap = 14;
+  // The database's number among the databases of its document
+  // generation, from 1: one past the generation's earlier databases,
+  // which callers deleted with DeleteDatabase. A database a document
+  // restore binds to the restored generation takes that generation's
+  // next number, 1 unless it had databases of its own.
+  int32 generation = 15;
 }
 
 message CreateDatabaseRequest {
@@ -897,7 +949,9 @@ message RecoverDatabaseResponse {
 }
 
 message DeleteDatabaseRequest {
-  // Database to delete.
+  // UUID of the owning document, as every request names a database. The
+  // database deleted is the live one of the document's current
+  // generation. Required.
   string database = 1;
 }
 
@@ -1510,7 +1564,7 @@ message DeleteIndexResponse {
 // ---------- Data ----------
 
 // DataService reads and edits rows, runs read-only SQL, streams changes,
-// and carries agent suggestions and presence. Every call but Query and
+// and carries suggestions and presence. Every call but Query and
 // UpdatePresence names the namespace it works in; a table, batch or
 // suggestion of another namespace is not found.
 service DataService {
@@ -1617,8 +1671,9 @@ service DataService {
   // Auth: doc_read on the owning document.
   rpc Watch(WatchRequest) returns (stream WatchResponse);
 
-  // Suggest proposes edits instead of making them, for agents, which
-  // have no write scopes. It takes the same operations as Mutate. Every
+  // Suggest proposes edits instead of making them. Any caller with the
+  // doc_suggest scope may suggest, an agent or a person, and needs no
+  // write scope. It takes the same operations as Mutate. Every
   // cell write of a RowUpdate must carry the value it expects to
   // replace, so that a suggestion made stale by later edits conflicts
   // per cell when applied rather than overwriting them; the cell writes
@@ -1629,17 +1684,19 @@ service DataService {
   // if nobody resolves it.
   //
   // The open suggestions of a database are limited in number, in number
-  // per agent and in bytes, and one suggestion in bytes; past a limit
+  // per token subject (Suggestion.agent) and in bytes, and one suggestion
+  // in bytes; past a limit
   // Suggest is refused with resource_exhausted, and one too large with
   // invalid_argument. Document references in the operations are stored
   // with their UUID alone.
   //
-  // Auth: the agent scope and doc_read on the owning document.
+  // Auth: doc_suggest and doc_read on the owning document; no write
+  // scope is needed.
   rpc Suggest(SuggestRequest) returns (SuggestResponse);
 
   // ResolveSuggestion applies or dismisses a suggestion. Applying runs it
   // as the caller's own Mutate, attributed to the caller with via set to
-  // the agent that made it.
+  // the subject that made it.
   //
   // Auth: doc_write on the owning document.
   rpc ResolveSuggestion(ResolveSuggestionRequest) returns (ResolveSuggestionResponse);
@@ -1928,8 +1985,8 @@ message Change {
   Row row_state = 11;
   // The full table after the change, for schema operations.
   Table table_state = 12;
-  // The agent whose suggestion was applied, when the change came from
-  // one.
+  // Subject that made the suggestion that was applied (Suggestion.agent),
+  // when the change came from one.
   string via = 13;
   // True for the summary of a large batch, which is sent instead of a
   // change per cell: re-read the table.
@@ -2162,7 +2219,7 @@ enum SuggestionState {
   SUGGESTION_STATE_EXPIRED = 4;
 }
 
-// Suggestion is an edit an agent proposed.
+// Suggestion is an edit a caller with the doc_suggest scope proposed.
 message Suggestion {
   // Suggestion id.
   string id = 1;
@@ -2170,11 +2227,14 @@ message Suggestion {
   string database = 2;
   // Id of the table the suggestion changes.
   string table = 3;
-  // Subject of the agent that made the suggestion.
+  // Token subject of the caller that made the suggestion: an agent or a
+  // person, since nothing in a token marks an agent. The field is named
+  // for the usual case. The per-subject limit on open suggestions counts
+  // by it.
   string agent = 4;
   // The proposed operations.
   repeated Mutation mutations = 5;
-  // The agent's rationale.
+  // The rationale given with the suggestion.
   string rationale = 6;
   // Where the suggestion is in its life.
   SuggestionState state = 7;
@@ -2777,8 +2837,12 @@ service EventsService {
   // database is checked once, so a stream whose own namespace was quiet
   // still learns that a database it could read is gone. Otherwise they are
   // withheld, so a client that needs to know that a database is gone
-  // should keep its stream open. undeleted is also sent when the
-  // restored document is readable with the caller's token.
+  // should keep its stream open. A change of the document's ACL makes
+  // the stream forget that the caller could read it. When the document
+  // exists, as it does after a caller deleted its database with
+  // DeleteDatabase or once it is restored, deleted and undeleted are
+  // also sent when the document is readable with the caller's token, and
+  // withheld when it is not.
   //
   // Events are filtered by owning document, not by generation: between a
   // document's re-creation under a deleted one's UUID and the service
@@ -2847,10 +2911,13 @@ message Event {
   // an earlier point, one event per namespace the restore changed.
   // recovered follows a RecoverDatabase, after which cursors from the
   // skipped epochs are invalid. deleted is a database archived with its
-  // deleted owning document generation, and undeleted the database
-  // live again, with its data, once a restore of the document is bound
-  // to that generation (which waits for the repository to report the
-  // generation a restore came from); neither has a cursor.
+  // deleted owning document generation, or deleted by a caller with
+  // DeleteDatabase, and undeleted the database live again, with its
+  // data: once a restore of the document is bound to that generation
+  // (which waits for the repository to report the generation a restore
+  // came from), or once an operator brought back a database a caller
+  // deleted, within its retention. A restore never brings back a
+  // database a caller deleted. Neither has a cursor.
   string type = 2;
   // UUID of the owning document of the database it happened to, by which
   // requests name the database.
@@ -2869,7 +2936,8 @@ message Event {
   // the whole database.
   string namespace = 8;
   // The database's own id (DatabaseInfo.id), which tells the events of
-  // two generations of one document apart.
+  // two databases of one document apart: of two generations, or a
+  // database a caller deleted and the one created after it.
   string database_id = 9;
   // The nonce of the document generation the database belonged to when
   // the event happened. A restore that later binds the database to the

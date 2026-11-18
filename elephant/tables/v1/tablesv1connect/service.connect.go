@@ -11,16 +11,20 @@
 // whenever the document's UUID starts a new life: when it is created,
 // created again after a delete, or restored. A database belongs to one
 // generation. Every request names a database by its owning document's
-// UUID, and is served from the database of the document's current
+// UUID, and is served from the live database of the document's current
 // generation, which the service learns from the repository with the
 // caller's own token; a database of an earlier generation of the same
 // UUID is never served for it, and the request is then not found.
 // Deleting the document archives its generation's database; a document
 // created again under the UUID is a new generation and may get a new
 // database at once, while the archived one waits for the repository to
-// purge the deletion. A database also has an id of its own, unique per
-// generation and never reused, which DatabaseInfo and Event carry for
-// operators; no request takes it.
+// purge the deletion. A caller may also delete a document's database
+// with DatabasesService.DeleteDatabase while the document lives on, and
+// create another for the same generation: the databases of one
+// generation are numbered from 1 (DatabaseInfo.generation), and at most
+// one of them is live. A database also has an id of its own, never
+// reused, which DatabaseInfo and Event carry for operators; no request
+// takes it.
 //
 // The API is six services in this one package, served with Connect only:
 // DatabasesService, SchemaService, DataService, SnapshotsService,
@@ -342,10 +346,15 @@ const (
 type DatabasesServiceClient interface {
 	// CreateDatabase creates the database of the document's current
 	// generation, which the service reads from the repository with the
-	// caller's token. Returns already_exists when the generation has one. A
-	// fork into the document that never opened, because the pod making it
-	// died, is not a database: once it is a few minutes old it is removed,
-	// and the database is created in its place.
+	// caller's token. Returns already_exists when the generation has a
+	// live one. A fork into the document that never opened, because the
+	// pod making it died, is not a database: once it is a few minutes old
+	// it is removed, and the database is created in its place.
+	//
+	// After DeleteDatabase the generation gets a new, empty database: it
+	// is numbered one past the generation's earlier databases
+	// (DatabaseInfo.generation) and has an id of its own, and nothing of
+	// the deleted database is visible in it.
 	//
 	// A document created again under the UUID of a deleted one is a new
 	// generation, and gets a new database; the deleted generation's stays
@@ -391,6 +400,9 @@ type DatabasesServiceClient interface {
 	// CreateDatabase into the same document. The fork belongs to the new
 	// owning document's current generation, as for CreateDatabase, which
 	// also says when a fork is refused because of an earlier generation.
+	// A fork is also refused with aborted, and the caller retries, when
+	// another database of the generation was created or deleted while it
+	// made its copy, since the number it was to take is no longer next.
 	//
 	// Auth: doc_read on the source's owning document, and doc_write and
 	// read permission on the new owning document.
@@ -414,7 +426,7 @@ type DatabasesServiceClient interface {
 	// record as it was at the point; a namespace the point does not hold
 	// is kept, with its flag cleared and no declared version, since a
 	// namespace is never removed. A restore of some tables leaves the
-	// namespace records alone. Open agent suggestions are left as they
+	// namespace records alone. Open suggestions are left as they
 	// are, and their writes then fail per operation where they no longer
 	// apply.
 	//
@@ -454,12 +466,26 @@ type DatabasesServiceClient interface {
 	// Auth: doc_write on the owning document, checked with the caller's own
 	// token.
 	RecoverDatabase(context.Context, *connect.Request[v1.RecoverDatabaseRequest]) (*connect.Response[v1.RecoverDatabaseResponse], error)
-	// DeleteDatabase deletes a document's tables. The database is archived
-	// rather than removed, as a deleted document is by the repository, and
-	// its id is never reused for a new database. Not served: a database is
-	// archived with its document generation.
+	// DeleteDatabase deletes a document's tables while the document lives
+	// on. The database of the document's current generation is archived
+	// rather than removed: it is no longer served, every request naming
+	// the document is not found as for a document without a database, the
+	// pod serving it keeps its last changes, and its Watch streams end
+	// with lease_moved. A deleted event is logged. Its snapshots,
+	// publications, uploads and pending imports go with it, and the
+	// imports do not run while it is deleted; its forks,
+	// which belong to other documents, are not touched. The service keeps
+	// the archived database for a retention window, 30 days by default,
+	// and then deletes it for good; within the window an operator can
+	// bring it back, but no call can. A document restore never brings it
+	// back either.
 	//
-	// Auth: doc_write on the owning document.
+	// The document may get a new database afterwards with CreateDatabase
+	// or Fork, numbered on within the generation, with an id of its own.
+	// A second DeleteDatabase, once the document has no database, is not
+	// found.
+	//
+	// Auth: doc_write on the owning document, and read permission on it.
 	DeleteDatabase(context.Context, *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error)
 }
 
@@ -569,10 +595,15 @@ func (c *databasesServiceClient) DeleteDatabase(ctx context.Context, req *connec
 type DatabasesServiceHandler interface {
 	// CreateDatabase creates the database of the document's current
 	// generation, which the service reads from the repository with the
-	// caller's token. Returns already_exists when the generation has one. A
-	// fork into the document that never opened, because the pod making it
-	// died, is not a database: once it is a few minutes old it is removed,
-	// and the database is created in its place.
+	// caller's token. Returns already_exists when the generation has a
+	// live one. A fork into the document that never opened, because the
+	// pod making it died, is not a database: once it is a few minutes old
+	// it is removed, and the database is created in its place.
+	//
+	// After DeleteDatabase the generation gets a new, empty database: it
+	// is numbered one past the generation's earlier databases
+	// (DatabaseInfo.generation) and has an id of its own, and nothing of
+	// the deleted database is visible in it.
 	//
 	// A document created again under the UUID of a deleted one is a new
 	// generation, and gets a new database; the deleted generation's stays
@@ -618,6 +649,9 @@ type DatabasesServiceHandler interface {
 	// CreateDatabase into the same document. The fork belongs to the new
 	// owning document's current generation, as for CreateDatabase, which
 	// also says when a fork is refused because of an earlier generation.
+	// A fork is also refused with aborted, and the caller retries, when
+	// another database of the generation was created or deleted while it
+	// made its copy, since the number it was to take is no longer next.
 	//
 	// Auth: doc_read on the source's owning document, and doc_write and
 	// read permission on the new owning document.
@@ -641,7 +675,7 @@ type DatabasesServiceHandler interface {
 	// record as it was at the point; a namespace the point does not hold
 	// is kept, with its flag cleared and no declared version, since a
 	// namespace is never removed. A restore of some tables leaves the
-	// namespace records alone. Open agent suggestions are left as they
+	// namespace records alone. Open suggestions are left as they
 	// are, and their writes then fail per operation where they no longer
 	// apply.
 	//
@@ -681,12 +715,26 @@ type DatabasesServiceHandler interface {
 	// Auth: doc_write on the owning document, checked with the caller's own
 	// token.
 	RecoverDatabase(context.Context, *connect.Request[v1.RecoverDatabaseRequest]) (*connect.Response[v1.RecoverDatabaseResponse], error)
-	// DeleteDatabase deletes a document's tables. The database is archived
-	// rather than removed, as a deleted document is by the repository, and
-	// its id is never reused for a new database. Not served: a database is
-	// archived with its document generation.
+	// DeleteDatabase deletes a document's tables while the document lives
+	// on. The database of the document's current generation is archived
+	// rather than removed: it is no longer served, every request naming
+	// the document is not found as for a document without a database, the
+	// pod serving it keeps its last changes, and its Watch streams end
+	// with lease_moved. A deleted event is logged. Its snapshots,
+	// publications, uploads and pending imports go with it, and the
+	// imports do not run while it is deleted; its forks,
+	// which belong to other documents, are not touched. The service keeps
+	// the archived database for a retention window, 30 days by default,
+	// and then deletes it for good; within the window an operator can
+	// bring it back, but no call can. A document restore never brings it
+	// back either.
 	//
-	// Auth: doc_write on the owning document.
+	// The document may get a new database afterwards with CreateDatabase
+	// or Fork, numbered on within the generation, with an id of its own.
+	// A second DeleteDatabase, once the document has no database, is not
+	// found.
+	//
+	// Auth: doc_write on the owning document, and read permission on it.
 	DeleteDatabase(context.Context, *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error)
 }
 
@@ -1481,8 +1529,9 @@ type DataServiceClient interface {
 	//
 	// Auth: doc_read on the owning document.
 	Watch(context.Context, *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.WatchResponse], error)
-	// Suggest proposes edits instead of making them, for agents, which
-	// have no write scopes. It takes the same operations as Mutate. Every
+	// Suggest proposes edits instead of making them. Any caller with the
+	// doc_suggest scope may suggest, an agent or a person, and needs no
+	// write scope. It takes the same operations as Mutate. Every
 	// cell write of a RowUpdate must carry the value it expects to
 	// replace, so that a suggestion made stale by later edits conflicts
 	// per cell when applied rather than overwriting them; the cell writes
@@ -1493,16 +1542,18 @@ type DataServiceClient interface {
 	// if nobody resolves it.
 	//
 	// The open suggestions of a database are limited in number, in number
-	// per agent and in bytes, and one suggestion in bytes; past a limit
+	// per token subject (Suggestion.agent) and in bytes, and one suggestion
+	// in bytes; past a limit
 	// Suggest is refused with resource_exhausted, and one too large with
 	// invalid_argument. Document references in the operations are stored
 	// with their UUID alone.
 	//
-	// Auth: the agent scope and doc_read on the owning document.
+	// Auth: doc_suggest and doc_read on the owning document; no write
+	// scope is needed.
 	Suggest(context.Context, *connect.Request[v1.SuggestRequest]) (*connect.Response[v1.SuggestResponse], error)
 	// ResolveSuggestion applies or dismisses a suggestion. Applying runs it
 	// as the caller's own Mutate, attributed to the caller with via set to
-	// the agent that made it.
+	// the subject that made it.
 	//
 	// Auth: doc_write on the owning document.
 	ResolveSuggestion(context.Context, *connect.Request[v1.ResolveSuggestionRequest]) (*connect.Response[v1.ResolveSuggestionResponse], error)
@@ -1795,8 +1846,9 @@ type DataServiceHandler interface {
 	//
 	// Auth: doc_read on the owning document.
 	Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.WatchResponse]) error
-	// Suggest proposes edits instead of making them, for agents, which
-	// have no write scopes. It takes the same operations as Mutate. Every
+	// Suggest proposes edits instead of making them. Any caller with the
+	// doc_suggest scope may suggest, an agent or a person, and needs no
+	// write scope. It takes the same operations as Mutate. Every
 	// cell write of a RowUpdate must carry the value it expects to
 	// replace, so that a suggestion made stale by later edits conflicts
 	// per cell when applied rather than overwriting them; the cell writes
@@ -1807,16 +1859,18 @@ type DataServiceHandler interface {
 	// if nobody resolves it.
 	//
 	// The open suggestions of a database are limited in number, in number
-	// per agent and in bytes, and one suggestion in bytes; past a limit
+	// per token subject (Suggestion.agent) and in bytes, and one suggestion
+	// in bytes; past a limit
 	// Suggest is refused with resource_exhausted, and one too large with
 	// invalid_argument. Document references in the operations are stored
 	// with their UUID alone.
 	//
-	// Auth: the agent scope and doc_read on the owning document.
+	// Auth: doc_suggest and doc_read on the owning document; no write
+	// scope is needed.
 	Suggest(context.Context, *connect.Request[v1.SuggestRequest]) (*connect.Response[v1.SuggestResponse], error)
 	// ResolveSuggestion applies or dismisses a suggestion. Applying runs it
 	// as the caller's own Mutate, attributed to the caller with via set to
-	// the agent that made it.
+	// the subject that made it.
 	//
 	// Auth: doc_write on the owning document.
 	ResolveSuggestion(context.Context, *connect.Request[v1.ResolveSuggestionRequest]) (*connect.Response[v1.ResolveSuggestionResponse], error)
@@ -2458,8 +2512,12 @@ type EventsServiceClient interface {
 	// database is checked once, so a stream whose own namespace was quiet
 	// still learns that a database it could read is gone. Otherwise they are
 	// withheld, so a client that needs to know that a database is gone
-	// should keep its stream open. undeleted is also sent when the
-	// restored document is readable with the caller's token.
+	// should keep its stream open. A change of the document's ACL makes
+	// the stream forget that the caller could read it. When the document
+	// exists, as it does after a caller deleted its database with
+	// DeleteDatabase or once it is restored, deleted and undeleted are
+	// also sent when the document is readable with the caller's token, and
+	// withheld when it is not.
 	//
 	// Events are filtered by owning document, not by generation: between a
 	// document's re-creation under a deleted one's UUID and the service
@@ -2543,8 +2601,12 @@ type EventsServiceHandler interface {
 	// database is checked once, so a stream whose own namespace was quiet
 	// still learns that a database it could read is gone. Otherwise they are
 	// withheld, so a client that needs to know that a database is gone
-	// should keep its stream open. undeleted is also sent when the
-	// restored document is readable with the caller's token.
+	// should keep its stream open. A change of the document's ACL makes
+	// the stream forget that the caller could read it. When the document
+	// exists, as it does after a caller deleted its database with
+	// DeleteDatabase or once it is restored, deleted and undeleted are
+	// also sent when the document is readable with the caller's token, and
+	// withheld when it is not.
 	//
 	// Events are filtered by owning document, not by generation: between a
 	// document's re-creation under a deleted one's UUID and the service
