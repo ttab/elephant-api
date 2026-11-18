@@ -214,7 +214,13 @@ Changes:
   `ImportJob.error` (9) says why a job failed. `ImportCandidate.header_row`
   counts from 1, as a spreadsheet numbers its rows, and 0 means no header
   row. `ImportCandidate.delete_missing` deletes the missing rows before
-  the source is written.
+  the source is written. An import the service does not do yet, from
+  another database or as a round trip, is refused with `unimplemented`
+  by `Analyze` and `Apply` alike. `Analyze` refuses an uploaded SQLite
+  database with `unimplemented` too, while `Apply`, which does not read
+  the file, accepts its plan and the job fails with that message; a file
+  it does not accept, such as a legacy `.xls` workbook, is
+  `invalid_argument`.
 - Events: `EventsService.WatchEvents` carries only the events of
   documents the caller may read, so ids need not be consecutive on one
   stream, and checks a database from its first event of any namespace. It

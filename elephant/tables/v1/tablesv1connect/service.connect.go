@@ -2321,6 +2321,14 @@ type ImportsServiceClient interface {
 	// ranges, inferred column types with how many cells fit, warnings, and
 	// for each candidate that targets an existing table a preview diff
 	// computed at a recorded base cursor.
+	//
+	// A file the service does not accept, such as a legacy .xls or
+	// password-protected workbook, is refused with invalid_argument: the
+	// caller saves it in another form. An import the service does not do
+	// yet, from source_database or of an uploaded SQLite database, is
+	// refused with unimplemented. Apply refuses a plan without an upload
+	// the same way; the job of a plan pointed at an uploaded SQLite
+	// database fails with this message.
 	Analyze(context.Context, *connect.Request[v1.AnalyzeRequest]) (*connect.Response[v1.AnalyzeResponse], error)
 	// Apply starts an import job for a plan. The job recomputes the diff
 	// against the current state inside one write transaction. A cell
@@ -2328,6 +2336,12 @@ type ImportsServiceClient interface {
 	// keeps their value and is reported, unless the plan opts into
 	// overwriting conflicts. IMPORT_MODE_REPLACE_ROWS cannot see conflicts
 	// at cell level, so a plan that uses it must set confirm_replace.
+	//
+	// A plan for an import the service does not do yet, one without an
+	// upload (from another database) or with a round trip, is refused with
+	// unimplemented and the message Analyze refuses it with. A plan pointed
+	// at a file Analyze would refuse is accepted, since Apply does not read
+	// the file; its job fails with Analyze's message.
 	Apply(context.Context, *connect.Request[v1.ApplyRequest]) (*connect.Response[v1.ApplyResponse], error)
 	// GetJob returns the state of an import job.
 	GetJob(context.Context, *connect.Request[v1.GetJobRequest]) (*connect.Response[v1.GetJobResponse], error)
@@ -2412,6 +2426,14 @@ type ImportsServiceHandler interface {
 	// ranges, inferred column types with how many cells fit, warnings, and
 	// for each candidate that targets an existing table a preview diff
 	// computed at a recorded base cursor.
+	//
+	// A file the service does not accept, such as a legacy .xls or
+	// password-protected workbook, is refused with invalid_argument: the
+	// caller saves it in another form. An import the service does not do
+	// yet, from source_database or of an uploaded SQLite database, is
+	// refused with unimplemented. Apply refuses a plan without an upload
+	// the same way; the job of a plan pointed at an uploaded SQLite
+	// database fails with this message.
 	Analyze(context.Context, *connect.Request[v1.AnalyzeRequest]) (*connect.Response[v1.AnalyzeResponse], error)
 	// Apply starts an import job for a plan. The job recomputes the diff
 	// against the current state inside one write transaction. A cell
@@ -2419,6 +2441,12 @@ type ImportsServiceHandler interface {
 	// keeps their value and is reported, unless the plan opts into
 	// overwriting conflicts. IMPORT_MODE_REPLACE_ROWS cannot see conflicts
 	// at cell level, so a plan that uses it must set confirm_replace.
+	//
+	// A plan for an import the service does not do yet, one without an
+	// upload (from another database) or with a round trip, is refused with
+	// unimplemented and the message Analyze refuses it with. A plan pointed
+	// at a file Analyze would refuse is accepted, since Apply does not read
+	// the file; its job fails with Analyze's message.
 	Apply(context.Context, *connect.Request[v1.ApplyRequest]) (*connect.Response[v1.ApplyResponse], error)
 	// GetJob returns the state of an import job.
 	GetJob(context.Context, *connect.Request[v1.GetJobRequest]) (*connect.Response[v1.GetJobResponse], error)
