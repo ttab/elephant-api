@@ -71,12 +71,31 @@
 // key, unique within its table. A key is an identifier: a lower-case
 // ASCII letter, then lower-case letters and digits in runs joined by
 // single underscores, at most 64 bytes, such as "people" or
-// "start_date"; a malformed one is refused with invalid_argument. It is
-// given when the table or column is created, or made by the service from
-// the display name when none is given, as the table widget's are, and
-// it never changes: a rename leaves it, and so do undo, restore, import
-// and every other change. Undo, restore, forks and snapshots carry it
-// with the table or column.
+// "start_date". It is given when the table or column is created, or made
+// by the service from the display name when none is given, as the table
+// widget's are, and it never changes: a rename leaves it, and so do
+// undo, restore, import and every other change. Undo, restore, forks and
+// snapshots carry it with the table or column.
+//
+// Keys are what SQL reads by: DataService.Query names a table's view by
+// the table's key and each column of the view by the column's key, so a
+// statement keeps working whatever the display names become. A table
+// or column key therefore also does not start with "sqlite" or
+// "pragma", nor with "t_" or "c_" followed by an id, the service's own
+// physical names. A table key is also not the name of one of SQLite's
+// table-valued functions or virtual tables (json_each, json_tree,
+// jsonb_each, jsonb_tree, dbstat, generate_series, carray, bytecode,
+// tables_used, completion), and a column key is not "id", every view's
+// row id column. SQL keywords such as "order" or "group" are allowed:
+// a statement puts such a key in double quotes, as in
+// SELECT "order" FROM "group". A key given in a request that is not
+// an identifier or breaks any of this is refused with invalid_argument
+// saying why; a key the
+// service makes from a display name is steered clear of it, with a
+// prefix ("t_" for a table, "c_" for a column) for one that would start
+// with a digit or a refused prefix, and a numbered suffix ("id_2") for
+// one that would be refused whole. An index key is an identifier and
+// nothing more, since it names nothing in SQL.
 //
 // A key is not reused while history that names it can be undone: once a
 // table or column is deleted, its key stays reserved for it, within the
@@ -1395,19 +1414,26 @@ type DataServiceClient interface {
 	// Auth: doc_write on the owning document.
 	Undo(context.Context, *connect.Request[v1.UndoRequest]) (*connect.Response[v1.UndoResponse], error)
 	// Query runs read-only SQL against the views DescribeResponse lists,
-	// which are named after the tables and columns rather than their ids.
-	// Without a namespace it sees the views of every namespace, each named
-	// by its namespace, two underscores and the table's SQL name. With a
-	// namespace it sees only that namespace's views, named by the table's
-	// SQL name alone, and only that namespace's catalog rows; the service
-	// enforces this, so other namespaces cannot be reached by any SQL.
+	// which are named by the keys of the tables and columns, so a rename
+	// changes nothing a statement names. Without a namespace it sees the
+	// views of every namespace, each named by its namespace, two
+	// underscores and the table's key. With a namespace it sees only that
+	// namespace's views, named by the table's key alone, and only that
+	// namespace's catalog rows; the service enforces this, so other
+	// namespaces cannot be reached by any SQL. The catalog tables _tables
+	// and _columns map display names to keys (columns key and name). A key
+	// that is an SQL keyword is put in double quotes.
 	// It runs on a read-only connection that can read the views and the
 	// catalog and nothing else, under a deadline, a row cap and a response
 	// size cap, and is rate limited per subject. Results carry the catalog
-	// types, so a client renders them like table rows.
+	// types, so a client renders them like table rows. A statement takes
+	// its values as positional parameters (? and ?NNN) or as named ones
+	// (:name, @name, $name), never both.
 	//
 	// Returns invalid_argument for SQL that does not parse or reaches past
-	// the views, and resource_exhausted on the rate limit or the deadline.
+	// the views, for a parameter without a value and for a value no
+	// parameter uses, positional or named, and resource_exhausted on the rate limit or the
+	// deadline.
 	//
 	// Auth: doc_read on the owning document.
 	Query(context.Context, *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error)
@@ -1702,19 +1728,26 @@ type DataServiceHandler interface {
 	// Auth: doc_write on the owning document.
 	Undo(context.Context, *connect.Request[v1.UndoRequest]) (*connect.Response[v1.UndoResponse], error)
 	// Query runs read-only SQL against the views DescribeResponse lists,
-	// which are named after the tables and columns rather than their ids.
-	// Without a namespace it sees the views of every namespace, each named
-	// by its namespace, two underscores and the table's SQL name. With a
-	// namespace it sees only that namespace's views, named by the table's
-	// SQL name alone, and only that namespace's catalog rows; the service
-	// enforces this, so other namespaces cannot be reached by any SQL.
+	// which are named by the keys of the tables and columns, so a rename
+	// changes nothing a statement names. Without a namespace it sees the
+	// views of every namespace, each named by its namespace, two
+	// underscores and the table's key. With a namespace it sees only that
+	// namespace's views, named by the table's key alone, and only that
+	// namespace's catalog rows; the service enforces this, so other
+	// namespaces cannot be reached by any SQL. The catalog tables _tables
+	// and _columns map display names to keys (columns key and name). A key
+	// that is an SQL keyword is put in double quotes.
 	// It runs on a read-only connection that can read the views and the
 	// catalog and nothing else, under a deadline, a row cap and a response
 	// size cap, and is rate limited per subject. Results carry the catalog
-	// types, so a client renders them like table rows.
+	// types, so a client renders them like table rows. A statement takes
+	// its values as positional parameters (? and ?NNN) or as named ones
+	// (:name, @name, $name), never both.
 	//
 	// Returns invalid_argument for SQL that does not parse or reaches past
-	// the views, and resource_exhausted on the rate limit or the deadline.
+	// the views, for a parameter without a value and for a value no
+	// parameter uses, positional or named, and resource_exhausted on the rate limit or the
+	// deadline.
 	//
 	// Auth: doc_read on the owning document.
 	Query(context.Context, *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error)

@@ -70,7 +70,7 @@ Changes:
   reached, past the other namespaces' changes. `RestoreResponse.batches`
   (9, `NamespaceBatch`) lists the batches of a restore, one per namespace
   it changes. A table's view for `Query` is named
-  `<namespace>__<sql_name>`.
+  `<namespace>__<key>`.
 - Stable keys: `Table.key` (8), unique within the namespace, and
   `Column.key` (9), unique within the table, given at creation or made by
   the service from the name, and never changed. `CreateTableRequest.key`
@@ -79,7 +79,14 @@ Changes:
   accept a key wherever they name a table or column by id; ids always
   start with a digit and keys with a letter. A deleted table's or column's
   key stays reserved while the change log holds the deletion, and a key in
-  use or reserved is refused with `already_exists`.
+  use or reserved is refused with `already_exists`. Keys name the views
+  `Query` reads and their columns, so a rename changes nothing a
+  statement names; a table or column key may not start with `sqlite`,
+  `pragma`, or `t_`/`c_` and an id, a table key may not be an SQLite
+  table-valued function's name and a column key may not be `id`, each
+  refused with `invalid_argument`. SQL keywords are allowed as keys and
+  are quoted in SQL. The display name of a table or column is free
+  text.
   `UpdateColumnRequest.column` is matched on its key when its id is empty.
 - Constraints: `Column.required` (10), and unique constraints and indexes
   as the `Index` message in `Table.indexes` (9), at most 16 per table and
@@ -107,19 +114,26 @@ Changes:
   `ConstraintViolation` also reports a cell that does not convert to a
   declared type.
 - `QueryRequest.namespace` (5), optional, scopes a `Query` statement to
-  one namespace: it sees that namespace's views under their tables'
-  `sql_name` alone and only that namespace's rows of `_tables` and
-  `_columns`. Without it a statement sees every namespace under
-  `<namespace>__<sql_name>`.
+  one namespace: it sees that namespace's views under their tables' keys
+  alone and only that namespace's rows of `_tables` and `_columns`.
+  Without it a statement sees every namespace under `<namespace>__<key>`.
+- `QueryRequest.named_params` (6), a map of values keyed by parameter
+  name without its prefix, binds a statement's named parameters:
+  `:name`, `@name` and `$name` all bind the entry for `name`. A statement
+  takes `params` or `named_params`, not both. A name is
+  `[A-Za-z_][A-Za-z0-9_]*`; the TCL forms `$name(...)` and `::` names,
+  and `#name`, are refused. A parameter without a value, and a value no
+  parameter uses, positional or named, are `invalid_argument`. Both kinds count
+  together against the parameter cap.
 - `RestoreRequest.namespace` (5), optional, limits a restore to one
   namespace: its tables, rows, schema, constraints, declared schema
   version and `schema_editable` flag go back to the point as one restore
   batch in that namespace, and `tables` may name tables by key, refusing
   a key that named one table now and another at the point as ambiguous. A
   restore of the whole database or of a whole namespace also puts back
-  each namespace's `schema_editable` flag. A restored table gets its SQL
-  name back, or the restore is refused with `already_exists` when a table
-  outside it holds the name. `PointInTime.snapshot` refuses a publish
+  each namespace's `schema_editable` flag. A restored table whose key a
+  table outside the restore holds is refused with `already_exists`.
+  `PointInTime.snapshot` refuses a publish
   snapshot with `invalid_argument`.
 - `Watch`: `Heartbeat.resume` (3) is the cursor a stream may be resumed
   from; it moves past other namespaces' changes, so a client of a quiet

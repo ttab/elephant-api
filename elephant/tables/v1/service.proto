@@ -69,12 +69,31 @@ syntax = "proto3";
 // key, unique within its table. A key is an identifier: a lower-case
 // ASCII letter, then lower-case letters and digits in runs joined by
 // single underscores, at most 64 bytes, such as "people" or
-// "start_date"; a malformed one is refused with invalid_argument. It is
-// given when the table or column is created, or made by the service from
-// the display name when none is given, as the table widget's are, and
-// it never changes: a rename leaves it, and so do undo, restore, import
-// and every other change. Undo, restore, forks and snapshots carry it
-// with the table or column.
+// "start_date". It is given when the table or column is created, or made
+// by the service from the display name when none is given, as the table
+// widget's are, and it never changes: a rename leaves it, and so do
+// undo, restore, import and every other change. Undo, restore, forks and
+// snapshots carry it with the table or column.
+//
+// Keys are what SQL reads by: DataService.Query names a table's view by
+// the table's key and each column of the view by the column's key, so a
+// statement keeps working whatever the display names become. A table
+// or column key therefore also does not start with "sqlite" or
+// "pragma", nor with "t_" or "c_" followed by an id, the service's own
+// physical names. A table key is also not the name of one of SQLite's
+// table-valued functions or virtual tables (json_each, json_tree,
+// jsonb_each, jsonb_tree, dbstat, generate_series, carray, bytecode,
+// tables_used, completion), and a column key is not "id", every view's
+// row id column. SQL keywords such as "order" or "group" are allowed:
+// a statement puts such a key in double quotes, as in
+// SELECT "order" FROM "group". A key given in a request that is not
+// an identifier or breaks any of this is refused with invalid_argument
+// saying why; a key the
+// service makes from a display name is steered clear of it, with a
+// prefix ("t_" for a table, "c_" for a column) for one that would start
+// with a digit or a refused prefix, and a numbered suffix ("id_2") for
+// one that would be refused whole. An index key is an identifier and
+// nothing more, since it names nothing in SQL.
 //
 // A key is not reused while history that names it can be undone: once a
 // table or column is deleted, its key stays reserved for it, within the
@@ -311,12 +330,11 @@ message Column {
   // Column id, assigned by the server: twelve characters, the first a
   // digit. Stable across renames.
   string id = 1;
-  // Display name.
+  // Display name. Free text: renaming a column changes nothing a
+  // statement names.
   string name = 2;
-  // The column's name in the read-only views Query runs against: a slug
-  // of the display name, regenerated on every schema change. Assigned by
-  // the server.
-  string sql_name = 3;
+  reserved 3;
+  reserved "sql_name";
   // Type of the column.
   ColumnType type = 4;
   // Display hint, such as "0.0 %". Not interpreted by the service.
@@ -334,7 +352,8 @@ message Column {
   bool hidden = 8;
   // The column's key, unique within its table: given when the column is
   // created, or made by the service from its name, and never changed.
-  // See Keys in the package comment.
+  // It is the column's name in its table's view for Query. See Keys in
+  // the package comment.
   string key = 9;
   // True when the column refuses empty cells. Honoured when a column is
   // created (CreateTable, AddColumn, a new column of an import), where
@@ -396,14 +415,11 @@ message Table {
   // Table id, assigned by the server: twelve characters, the first a
   // digit. Stable across renames.
   string id = 1;
-  // Display name.
+  // Display name. Free text: renaming a table changes nothing a
+  // statement names.
   string name = 2;
-  // The table's SQL name: a slug of the display name, unique within its
-  // namespace, made again when the table is renamed. Assigned by the
-  // server. The table's view for Query is named by the namespace, two
-  // underscores and the SQL name, such as "widget__people", which no two
-  // tables of a database share.
-  string sql_name = 3;
+  reserved 3;
+  reserved "sql_name";
   // The table's columns, in position order.
   repeated Column columns = 4;
   // Number of rows in the table.
@@ -420,7 +436,10 @@ message Table {
   string namespace = 7;
   // The table's key, unique within its namespace: given when the table is
   // created, or made by the service from its name, and never changed.
-  // See Keys in the package comment.
+  // The table's view for Query is named by it: the namespace, two
+  // underscores and the key, such as "widget__people", which no two
+  // tables of a database share, or the key alone for a Query scoped to
+  // the namespace. See Keys in the package comment.
   string key = 8;
   // The table's unique constraints and indexes, in the order they were
   // added.
@@ -784,9 +803,7 @@ message RestoreRequest {
   // refused with invalid_argument naming both table ids, and the caller
   // names the table it means by id. A table the restore would bring back
   // whose key a live table outside the restored set holds is refused
-  // with already_exists, and so is one whose SQL name at the point such
-  // a table holds: every restored table gets its SQL name at the point
-  // back, also when the restore swaps names between restored tables.
+  // with already_exists.
   repeated string tables = 3;
   // Report what would be discarded without writing anything.
   bool dry_run = 4;
@@ -1213,7 +1230,10 @@ message DescribeResponse {
   // The namespace's tables.
   repeated Table tables = 1;
   // The CREATE VIEW statements of the views of the namespace's tables
-  // that Query runs against, for agents writing SQL.
+  // that Query runs against, for agents writing SQL: each view is named
+  // <namespace>__<table key> and its columns by the column keys. A Query
+  // scoped to the namespace reads the same view under the table key
+  // alone.
   string query_schema = 2;
   // The state the catalog was read at.
   Cursor cursor = 3;
@@ -1245,9 +1265,9 @@ message CreateTableRequest {
   string database = 1;
   // Display name of the new table.
   string name = 2;
-  // The table's initial columns. Ids and SQL names are assigned by the
-  // server, so id and sql_name are ignored. A column's key is used when
-  // it is set, and made from its name otherwise.
+  // The table's initial columns. Ids are assigned by the server, so id
+  // is ignored. A column's key is used when it is set, and made from its
+  // name otherwise.
   repeated Column columns = 3;
   // Namespace to create the table in. Required.
   string namespace = 4;
@@ -1311,7 +1331,7 @@ message AddColumnRequest {
   string database = 1;
   // Id or key of the table to add the column to.
   string table = 2;
-  // The new column. Its id and sql_name are assigned by the server. Its
+  // The new column. Its id is assigned by the server. Its
   // key is used when it is set, and made from its name otherwise;
   // refused with already_exists when another column of the table holds
   // or reserves it.
@@ -1335,7 +1355,7 @@ message UpdateColumnRequest {
   // Id or key of the table the column is in.
   string table = 2;
   // The column as it should be, matched on its id, or on its key when id
-  // is empty. type, sql_name and required are ignored, and so is key
+  // is empty. type and required are ignored, and so is key
   // when id is set: a key never changes. SetRequired changes required.
   Column column = 3;
   // Namespace the table is in. Required.
@@ -1527,19 +1547,26 @@ service DataService {
   rpc Undo(UndoRequest) returns (UndoResponse);
 
   // Query runs read-only SQL against the views DescribeResponse lists,
-  // which are named after the tables and columns rather than their ids.
-  // Without a namespace it sees the views of every namespace, each named
-  // by its namespace, two underscores and the table's SQL name. With a
-  // namespace it sees only that namespace's views, named by the table's
-  // SQL name alone, and only that namespace's catalog rows; the service
-  // enforces this, so other namespaces cannot be reached by any SQL.
+  // which are named by the keys of the tables and columns, so a rename
+  // changes nothing a statement names. Without a namespace it sees the
+  // views of every namespace, each named by its namespace, two
+  // underscores and the table's key. With a namespace it sees only that
+  // namespace's views, named by the table's key alone, and only that
+  // namespace's catalog rows; the service enforces this, so other
+  // namespaces cannot be reached by any SQL. The catalog tables _tables
+  // and _columns map display names to keys (columns key and name). A key
+  // that is an SQL keyword is put in double quotes.
   // It runs on a read-only connection that can read the views and the
   // catalog and nothing else, under a deadline, a row cap and a response
   // size cap, and is rate limited per subject. Results carry the catalog
-  // types, so a client renders them like table rows.
+  // types, so a client renders them like table rows. A statement takes
+  // its values as positional parameters (? and ?NNN) or as named ones
+  // (:name, @name, $name), never both.
   //
   // Returns invalid_argument for SQL that does not parse or reaches past
-  // the views, and resource_exhausted on the rate limit or the deadline.
+  // the views, for a parameter without a value and for a value no
+  // parameter uses, positional or named, and resource_exhausted on the rate limit or the
+  // deadline.
   //
   // Auth: doc_read on the owning document.
   rpc Query(QueryRequest) returns (QueryResponse);
@@ -1820,20 +1847,32 @@ message QueryRequest {
   string database = 1;
   // A read-only SQL statement against the views.
   string sql = 2;
-  // Values for the statement's positional parameters, in order.
+  // Values for the statement's positional parameters (? and ?NNN), in
+  // order. Every parameter needs a value, and a value past the
+  // statement's highest parameter number is refused. A statement takes
+  // positional parameters or named ones, so params and named_params are
+  // not both given.
   repeated Value params = 3;
   // Maximum rows to return; clamped to the server's row cap. 0 is the
   // server default.
   int32 limit = 4;
   // Namespace to scope the statement to, optional. With one, the
   // statement sees only that namespace's views, each named by its
-  // table's sql_name alone, and only that namespace's rows of the
-  // catalog tables _tables and _columns. The prefixed view names and
-  // other namespaces' rows are out of its reach. A namespace that does
-  // not exist yet has no views. Without one, the statement sees every
-  // namespace's views under <namespace>__<sql_name> and the whole
-  // catalog, and can join across namespaces.
+  // table's key alone, and only that namespace's rows of the catalog
+  // tables _tables and _columns. The prefixed view names and other
+  // namespaces' rows are out of its reach. A namespace that does not
+  // exist yet has no views. Without one, the statement sees every
+  // namespace's views under <namespace>__<key> and the whole catalog,
+  // and can join across namespaces.
   string namespace = 5;
+  // Values for the statement's named parameters, keyed by the name
+  // without its prefix: the entry "status" binds :status, @status and
+  // $status alike. A name is [A-Za-z_][A-Za-z0-9_]*. The TCL forms
+  // $name(...) and names holding "::" are refused, as is #name. Every
+  // named parameter of the statement needs a value, and a value the
+  // statement does not use is refused too. params and named_params count
+  // together against the server's parameter cap.
+  map<string, Value> named_params = 6;
 }
 
 // QueryColumn is a column of a query result.

@@ -73,12 +73,31 @@
 // key, unique within its table. A key is an identifier: a lower-case
 // ASCII letter, then lower-case letters and digits in runs joined by
 // single underscores, at most 64 bytes, such as "people" or
-// "start_date"; a malformed one is refused with invalid_argument. It is
-// given when the table or column is created, or made by the service from
-// the display name when none is given, as the table widget's are, and
-// it never changes: a rename leaves it, and so do undo, restore, import
-// and every other change. Undo, restore, forks and snapshots carry it
-// with the table or column.
+// "start_date". It is given when the table or column is created, or made
+// by the service from the display name when none is given, as the table
+// widget's are, and it never changes: a rename leaves it, and so do
+// undo, restore, import and every other change. Undo, restore, forks and
+// snapshots carry it with the table or column.
+//
+// Keys are what SQL reads by: DataService.Query names a table's view by
+// the table's key and each column of the view by the column's key, so a
+// statement keeps working whatever the display names become. A table
+// or column key therefore also does not start with "sqlite" or
+// "pragma", nor with "t_" or "c_" followed by an id, the service's own
+// physical names. A table key is also not the name of one of SQLite's
+// table-valued functions or virtual tables (json_each, json_tree,
+// jsonb_each, jsonb_tree, dbstat, generate_series, carray, bytecode,
+// tables_used, completion), and a column key is not "id", every view's
+// row id column. SQL keywords such as "order" or "group" are allowed:
+// a statement puts such a key in double quotes, as in
+// SELECT "order" FROM "group". A key given in a request that is not
+// an identifier or breaks any of this is refused with invalid_argument
+// saying why; a key the
+// service makes from a display name is steered clear of it, with a
+// prefix ("t_" for a table, "c_" for a column) for one that would start
+// with a digit or a refused prefix, and a numbered suffix ("id_2") for
+// one that would be refused whole. An index key is an identifier and
+// nothing more, since it names nothing in SQL.
 //
 // A key is not reused while history that names it can be undone: once a
 // table or column is deleted, its key stays reserved for it, within the
@@ -1233,12 +1252,9 @@ type Column struct {
 	// Column id, assigned by the server: twelve characters, the first a
 	// digit. Stable across renames.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Display name.
+	// Display name. Free text: renaming a column changes nothing a
+	// statement names.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The column's name in the read-only views Query runs against: a slug
-	// of the display name, regenerated on every schema change. Assigned by
-	// the server.
-	SqlName string `protobuf:"bytes,3,opt,name=sql_name,json=sqlName,proto3" json:"sql_name,omitempty"`
 	// Type of the column.
 	Type ColumnType `protobuf:"varint,4,opt,name=type,proto3,enum=elephant.tables.v1.ColumnType" json:"type,omitempty"`
 	// Display hint, such as "0.0 %". Not interpreted by the service.
@@ -1256,7 +1272,8 @@ type Column struct {
 	Hidden bool `protobuf:"varint,8,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	// The column's key, unique within its table: given when the column is
 	// created, or made by the service from its name, and never changed.
-	// See Keys in the package comment.
+	// It is the column's name in its table's view for Query. See Keys in
+	// the package comment.
 	Key string `protobuf:"bytes,9,opt,name=key,proto3" json:"key,omitempty"`
 	// True when the column refuses empty cells. Honoured when a column is
 	// created (CreateTable, AddColumn, a new column of an import), where
@@ -1308,13 +1325,6 @@ func (x *Column) GetId() string {
 func (x *Column) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *Column) GetSqlName() string {
-	if x != nil {
-		return x.SqlName
 	}
 	return ""
 }
@@ -1604,14 +1614,9 @@ type Table struct {
 	// Table id, assigned by the server: twelve characters, the first a
 	// digit. Stable across renames.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Display name.
+	// Display name. Free text: renaming a table changes nothing a
+	// statement names.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The table's SQL name: a slug of the display name, unique within its
-	// namespace, made again when the table is renamed. Assigned by the
-	// server. The table's view for Query is named by the namespace, two
-	// underscores and the SQL name, such as "widget__people", which no two
-	// tables of a database share.
-	SqlName string `protobuf:"bytes,3,opt,name=sql_name,json=sqlName,proto3" json:"sql_name,omitempty"`
 	// The table's columns, in position order.
 	Columns []*Column `protobuf:"bytes,4,rep,name=columns,proto3" json:"columns,omitempty"`
 	// Number of rows in the table.
@@ -1628,7 +1633,10 @@ type Table struct {
 	Namespace string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// The table's key, unique within its namespace: given when the table is
 	// created, or made by the service from its name, and never changed.
-	// See Keys in the package comment.
+	// The table's view for Query is named by it: the namespace, two
+	// underscores and the key, such as "widget__people", which no two
+	// tables of a database share, or the key alone for a Query scoped to
+	// the namespace. See Keys in the package comment.
 	Key string `protobuf:"bytes,8,opt,name=key,proto3" json:"key,omitempty"`
 	// The table's unique constraints and indexes, in the order they were
 	// added.
@@ -1677,13 +1685,6 @@ func (x *Table) GetId() string {
 func (x *Table) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *Table) GetSqlName() string {
-	if x != nil {
-		return x.SqlName
 	}
 	return ""
 }
@@ -2820,9 +2821,7 @@ type RestoreRequest struct {
 	// refused with invalid_argument naming both table ids, and the caller
 	// names the table it means by id. A table the restore would bring back
 	// whose key a live table outside the restored set holds is refused
-	// with already_exists, and so is one whose SQL name at the point such
-	// a table holds: every restored table gets its SQL name at the point
-	// back, also when the restore swaps names between restored tables.
+	// with already_exists.
 	Tables []string `protobuf:"bytes,3,rep,name=tables,proto3" json:"tables,omitempty"`
 	// Report what would be discarded without writing anything.
 	DryRun bool `protobuf:"varint,4,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
@@ -4239,7 +4238,10 @@ type DescribeResponse struct {
 	// The namespace's tables.
 	Tables []*Table `protobuf:"bytes,1,rep,name=tables,proto3" json:"tables,omitempty"`
 	// The CREATE VIEW statements of the views of the namespace's tables
-	// that Query runs against, for agents writing SQL.
+	// that Query runs against, for agents writing SQL: each view is named
+	// <namespace>__<table key> and its columns by the column keys. A Query
+	// scoped to the namespace reads the same view under the table key
+	// alone.
 	QuerySchema string `protobuf:"bytes,2,opt,name=query_schema,json=querySchema,proto3" json:"query_schema,omitempty"`
 	// The state the catalog was read at.
 	Cursor *Cursor `protobuf:"bytes,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
@@ -4440,9 +4442,9 @@ type CreateTableRequest struct {
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// Display name of the new table.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The table's initial columns. Ids and SQL names are assigned by the
-	// server, so id and sql_name are ignored. A column's key is used when
-	// it is set, and made from its name otherwise.
+	// The table's initial columns. Ids are assigned by the server, so id
+	// is ignored. A column's key is used when it is set, and made from its
+	// name otherwise.
 	Columns []*Column `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
 	// Namespace to create the table in. Required.
 	Namespace string `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
@@ -4851,7 +4853,7 @@ type AddColumnRequest struct {
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// Id or key of the table to add the column to.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
-	// The new column. Its id and sql_name are assigned by the server. Its
+	// The new column. Its id is assigned by the server. Its
 	// key is used when it is set, and made from its name otherwise;
 	// refused with already_exists when another column of the table holds
 	// or reserves it.
@@ -4990,7 +4992,7 @@ type UpdateColumnRequest struct {
 	// Id or key of the table the column is in.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
 	// The column as it should be, matched on its id, or on its key when id
-	// is empty. type, sql_name and required are ignored, and so is key
+	// is empty. type and required are ignored, and so is key
 	// when id is set: a key never changes. SetRequired changes required.
 	Column *Column `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
 	// Namespace the table is in. Required.
@@ -6877,20 +6879,32 @@ type QueryRequest struct {
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// A read-only SQL statement against the views.
 	Sql string `protobuf:"bytes,2,opt,name=sql,proto3" json:"sql,omitempty"`
-	// Values for the statement's positional parameters, in order.
+	// Values for the statement's positional parameters (? and ?NNN), in
+	// order. Every parameter needs a value, and a value past the
+	// statement's highest parameter number is refused. A statement takes
+	// positional parameters or named ones, so params and named_params are
+	// not both given.
 	Params []*Value `protobuf:"bytes,3,rep,name=params,proto3" json:"params,omitempty"`
 	// Maximum rows to return; clamped to the server's row cap. 0 is the
 	// server default.
 	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
 	// Namespace to scope the statement to, optional. With one, the
 	// statement sees only that namespace's views, each named by its
-	// table's sql_name alone, and only that namespace's rows of the
-	// catalog tables _tables and _columns. The prefixed view names and
-	// other namespaces' rows are out of its reach. A namespace that does
-	// not exist yet has no views. Without one, the statement sees every
-	// namespace's views under <namespace>__<sql_name> and the whole
-	// catalog, and can join across namespaces.
-	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// table's key alone, and only that namespace's rows of the catalog
+	// tables _tables and _columns. The prefixed view names and other
+	// namespaces' rows are out of its reach. A namespace that does not
+	// exist yet has no views. Without one, the statement sees every
+	// namespace's views under <namespace>__<key> and the whole catalog,
+	// and can join across namespaces.
+	Namespace string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Values for the statement's named parameters, keyed by the name
+	// without its prefix: the entry "status" binds :status, @status and
+	// $status alike. A name is [A-Za-z_][A-Za-z0-9_]*. The TCL forms
+	// $name(...) and names holding "::" are refused, as is #name. Every
+	// named parameter of the statement needs a value, and a value the
+	// statement does not use is refused too. params and named_params count
+	// together against the server's parameter cap.
+	NamedParams   map[string]*Value `protobuf:"bytes,6,rep,name=named_params,json=namedParams,proto3" json:"named_params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6958,6 +6972,13 @@ func (x *QueryRequest) GetNamespace() string {
 		return x.Namespace
 	}
 	return ""
+}
+
+func (x *QueryRequest) GetNamedParams() map[string]*Value {
+	if x != nil {
+		return x.NamedParams
+	}
+	return nil
 }
 
 // QueryColumn is a column of a query result.
@@ -11214,11 +11235,10 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
 	"\x0fschema_editable\x18\x02 \x01(\bR\x0eschemaEditable\x12%\n" +
 	"\x0eschema_version\x18\x03 \x01(\x03R\rschemaVersion\x12#\n" +
-	"\rschema_digest\x18\x04 \x01(\tR\fschemaDigest\"\x8f\x02\n" +
+	"\rschema_digest\x18\x04 \x01(\tR\fschemaDigest\"\x84\x02\n" +
 	"\x06Column\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
-	"\bsql_name\x18\x03 \x01(\tR\asqlName\x122\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x122\n" +
 	"\x04type\x18\x04 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\x12\x16\n" +
 	"\x06format\x18\x05 \x01(\tR\x06format\x12\x18\n" +
 	"\aoptions\x18\x06 \x03(\tR\aoptions\x12\x1a\n" +
@@ -11226,7 +11246,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06hidden\x18\b \x01(\bR\x06hidden\x12\x10\n" +
 	"\x03key\x18\t \x01(\tR\x03key\x12\x1a\n" +
 	"\brequired\x18\n" +
-	" \x01(\bR\brequired\"[\n" +
+	" \x01(\bR\brequiredJ\x04\b\x03\x10\x04R\bsql_name\"[\n" +
 	"\x05Index\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x18\n" +
@@ -11243,17 +11263,16 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"violations\x18\x01 \x03(\v2'.elephant.tables.v1.ConstraintViolationR\n" +
 	"violations\x12\x14\n" +
-	"\x05count\x18\x02 \x01(\x03R\x05count\"\xa5\x02\n" +
+	"\x05count\x18\x02 \x01(\x03R\x05count\"\x9a\x02\n" +
 	"\x05Table\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
-	"\bsql_name\x18\x03 \x01(\tR\asqlName\x124\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\acolumns\x18\x04 \x03(\v2\x1a.elephant.tables.v1.ColumnR\acolumns\x12\x1b\n" +
 	"\trow_count\x18\x05 \x01(\x03R\browCount\x12%\n" +
 	"\x0esummary_column\x18\x06 \x01(\tR\rsummaryColumn\x12\x1c\n" +
 	"\tnamespace\x18\a \x01(\tR\tnamespace\x12\x10\n" +
 	"\x03key\x18\b \x01(\tR\x03key\x123\n" +
-	"\aindexes\x18\t \x03(\v2\x19.elephant.tables.v1.IndexR\aindexes\"\xb6\x01\n" +
+	"\aindexes\x18\t \x03(\v2\x19.elephant.tables.v1.IndexR\aindexesJ\x04\b\x03\x10\x04R\bsql_name\"\xb6\x01\n" +
 	"\x03Row\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x10\n" +
 	"\x03ord\x18\x02 \x01(\tR\x03ord\x128\n" +
@@ -11615,13 +11634,17 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\fUndoResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12<\n" +
-	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"\xa3\x01\n" +
+	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"\xd4\x02\n" +
 	"\fQueryRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x10\n" +
 	"\x03sql\x18\x02 \x01(\tR\x03sql\x121\n" +
 	"\x06params\x18\x03 \x03(\v2\x19.elephant.tables.v1.ValueR\x06params\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x1c\n" +
-	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"U\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\x12T\n" +
+	"\fnamed_params\x18\x06 \x03(\v21.elephant.tables.v1.QueryRequest.NamedParamsEntryR\vnamedParams\x1aY\n" +
+	"\x10NamedParamsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12/\n" +
+	"\x05value\x18\x02 \x01(\v2\x19.elephant.tables.v1.ValueR\x05value:\x028\x01\"U\n" +
 	"\vQueryColumn\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\"=\n" +
@@ -12058,7 +12081,7 @@ func file_elephant_tables_v1_service_proto_rawDescGZIP() []byte {
 }
 
 var file_elephant_tables_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_elephant_tables_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 136)
+var file_elephant_tables_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 137)
 var file_elephant_tables_v1_service_proto_goTypes = []any{
 	(ColumnType)(0),                   // 0: elephant.tables.v1.ColumnType
 	(SchemaStepKind)(0),               // 1: elephant.tables.v1.SchemaStepKind
@@ -12203,7 +12226,8 @@ var file_elephant_tables_v1_service_proto_goTypes = []any{
 	(*WatchEventsResponse)(nil),       // 140: elephant.tables.v1.WatchEventsResponse
 	(*Event)(nil),                     // 141: elephant.tables.v1.Event
 	nil,                               // 142: elephant.tables.v1.Row.CellsEntry
-	(*timestamppb.Timestamp)(nil),     // 143: google.protobuf.Timestamp
+	nil,                               // 143: elephant.tables.v1.QueryRequest.NamedParamsEntry
+	(*timestamppb.Timestamp)(nil),     // 144: google.protobuf.Timestamp
 }
 var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	8,   // 0: elephant.tables.v1.Value.multi_choice:type_name -> elephant.tables.v1.StringList
@@ -12216,28 +12240,28 @@ var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	7,   // 7: elephant.tables.v1.CellConflict.current:type_name -> elephant.tables.v1.Value
 	7,   // 8: elephant.tables.v1.CellConflict.proposed:type_name -> elephant.tables.v1.Value
 	10,  // 9: elephant.tables.v1.CellConflict.changed_at:type_name -> elephant.tables.v1.Cursor
-	143, // 10: elephant.tables.v1.PointInTime.time:type_name -> google.protobuf.Timestamp
+	144, // 10: elephant.tables.v1.PointInTime.time:type_name -> google.protobuf.Timestamp
 	7,   // 11: elephant.tables.v1.Filter.values:type_name -> elephant.tables.v1.Value
 	10,  // 12: elephant.tables.v1.DatabaseInfo.parent_cursor:type_name -> elephant.tables.v1.Cursor
 	10,  // 13: elephant.tables.v1.DatabaseInfo.head:type_name -> elephant.tables.v1.Cursor
 	10,  // 14: elephant.tables.v1.DatabaseInfo.durable:type_name -> elephant.tables.v1.Cursor
-	143, // 15: elephant.tables.v1.DatabaseInfo.created:type_name -> google.protobuf.Timestamp
+	144, // 15: elephant.tables.v1.DatabaseInfo.created:type_name -> google.protobuf.Timestamp
 	11,  // 16: elephant.tables.v1.DatabaseInfo.namespaces:type_name -> elephant.tables.v1.Namespace
 	23,  // 17: elephant.tables.v1.CreateDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	23,  // 18: elephant.tables.v1.GetDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	28,  // 19: elephant.tables.v1.GetDatabaseResponse.recovery:type_name -> elephant.tables.v1.DatabaseRecovery
-	143, // 20: elephant.tables.v1.DatabaseRecovery.lost_saved:type_name -> google.protobuf.Timestamp
-	143, // 21: elephant.tables.v1.DatabaseRecovery.offered_saved:type_name -> google.protobuf.Timestamp
+	144, // 20: elephant.tables.v1.DatabaseRecovery.lost_saved:type_name -> google.protobuf.Timestamp
+	144, // 21: elephant.tables.v1.DatabaseRecovery.offered_saved:type_name -> google.protobuf.Timestamp
 	20,  // 22: elephant.tables.v1.ForkRequest.at:type_name -> elephant.tables.v1.PointInTime
 	23,  // 23: elephant.tables.v1.ForkResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	20,  // 24: elephant.tables.v1.RestoreRequest.at:type_name -> elephant.tables.v1.PointInTime
 	10,  // 25: elephant.tables.v1.RestoreResponse.cursor:type_name -> elephant.tables.v1.Cursor
 	33,  // 26: elephant.tables.v1.RestoreResponse.batches:type_name -> elephant.tables.v1.NamespaceBatch
-	143, // 27: elephant.tables.v1.HistoryRequest.from:type_name -> google.protobuf.Timestamp
-	143, // 28: elephant.tables.v1.HistoryRequest.to:type_name -> google.protobuf.Timestamp
-	143, // 29: elephant.tables.v1.RestorePoint.time:type_name -> google.protobuf.Timestamp
+	144, // 27: elephant.tables.v1.HistoryRequest.from:type_name -> google.protobuf.Timestamp
+	144, // 28: elephant.tables.v1.HistoryRequest.to:type_name -> google.protobuf.Timestamp
+	144, // 29: elephant.tables.v1.RestorePoint.time:type_name -> google.protobuf.Timestamp
 	35,  // 30: elephant.tables.v1.HistoryResponse.points:type_name -> elephant.tables.v1.RestorePoint
-	143, // 31: elephant.tables.v1.HistoryResponse.retained_from:type_name -> google.protobuf.Timestamp
+	144, // 31: elephant.tables.v1.HistoryResponse.retained_from:type_name -> google.protobuf.Timestamp
 	23,  // 32: elephant.tables.v1.RecoverDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	42,  // 33: elephant.tables.v1.SchemaDeclaration.tables:type_name -> elephant.tables.v1.DeclaredTable
 	43,  // 34: elephant.tables.v1.DeclaredTable.columns:type_name -> elephant.tables.v1.DeclaredColumn
@@ -12302,179 +12326,181 @@ var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	10,  // 93: elephant.tables.v1.UndoResponse.cursor:type_name -> elephant.tables.v1.Cursor
 	82,  // 94: elephant.tables.v1.UndoResponse.results:type_name -> elephant.tables.v1.MutationResult
 	7,   // 95: elephant.tables.v1.QueryRequest.params:type_name -> elephant.tables.v1.Value
-	0,   // 96: elephant.tables.v1.QueryColumn.type:type_name -> elephant.tables.v1.ColumnType
-	7,   // 97: elephant.tables.v1.QueryRow.values:type_name -> elephant.tables.v1.Value
-	87,  // 98: elephant.tables.v1.QueryResponse.columns:type_name -> elephant.tables.v1.QueryColumn
-	88,  // 99: elephant.tables.v1.QueryResponse.rows:type_name -> elephant.tables.v1.QueryRow
-	10,  // 100: elephant.tables.v1.QueryResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	10,  // 101: elephant.tables.v1.Change.cursor:type_name -> elephant.tables.v1.Cursor
-	143, // 102: elephant.tables.v1.Change.at:type_name -> google.protobuf.Timestamp
-	7,   // 103: elephant.tables.v1.Change.old:type_name -> elephant.tables.v1.Value
-	7,   // 104: elephant.tables.v1.Change.new:type_name -> elephant.tables.v1.Value
-	17,  // 105: elephant.tables.v1.Change.row_state:type_name -> elephant.tables.v1.Row
-	16,  // 106: elephant.tables.v1.Change.table_state:type_name -> elephant.tables.v1.Table
-	11,  // 107: elephant.tables.v1.Change.namespace_state:type_name -> elephant.tables.v1.Namespace
-	10,  // 108: elephant.tables.v1.ChangesRequest.after:type_name -> elephant.tables.v1.Cursor
-	90,  // 109: elephant.tables.v1.ChangesResponse.changes:type_name -> elephant.tables.v1.Change
-	10,  // 110: elephant.tables.v1.ChangesResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	10,  // 111: elephant.tables.v1.WatchRequest.after:type_name -> elephant.tables.v1.Cursor
-	94,  // 112: elephant.tables.v1.WatchRequest.presence:type_name -> elephant.tables.v1.Presence
-	94,  // 113: elephant.tables.v1.PresenceUpdate.presence:type_name -> elephant.tables.v1.Presence
-	10,  // 114: elephant.tables.v1.Heartbeat.head:type_name -> elephant.tables.v1.Cursor
-	10,  // 115: elephant.tables.v1.Heartbeat.durable:type_name -> elephant.tables.v1.Cursor
-	10,  // 116: elephant.tables.v1.Heartbeat.resume:type_name -> elephant.tables.v1.Cursor
-	90,  // 117: elephant.tables.v1.WatchResponse.change:type_name -> elephant.tables.v1.Change
-	95,  // 118: elephant.tables.v1.WatchResponse.presence:type_name -> elephant.tables.v1.PresenceUpdate
-	96,  // 119: elephant.tables.v1.WatchResponse.heartbeat:type_name -> elephant.tables.v1.Heartbeat
-	106, // 120: elephant.tables.v1.WatchResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
-	97,  // 121: elephant.tables.v1.WatchResponse.hello:type_name -> elephant.tables.v1.Hello
-	21,  // 122: elephant.tables.v1.SummarizeRequest.filters:type_name -> elephant.tables.v1.Filter
-	7,   // 123: elephant.tables.v1.SummaryBucket.value:type_name -> elephant.tables.v1.Value
-	7,   // 124: elephant.tables.v1.SummaryBucket.upper:type_name -> elephant.tables.v1.Value
-	100, // 125: elephant.tables.v1.SummarizeResponse.buckets:type_name -> elephant.tables.v1.SummaryBucket
-	7,   // 126: elephant.tables.v1.SummarizeResponse.min:type_name -> elephant.tables.v1.Value
-	7,   // 127: elephant.tables.v1.SummarizeResponse.max:type_name -> elephant.tables.v1.Value
-	7,   // 128: elephant.tables.v1.SummarizeResponse.median:type_name -> elephant.tables.v1.Value
-	10,  // 129: elephant.tables.v1.SummarizeResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	94,  // 130: elephant.tables.v1.UpdatePresenceRequest.presence:type_name -> elephant.tables.v1.Presence
-	80,  // 131: elephant.tables.v1.SuggestRequest.mutations:type_name -> elephant.tables.v1.Mutation
-	106, // 132: elephant.tables.v1.SuggestResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
-	80,  // 133: elephant.tables.v1.Suggestion.mutations:type_name -> elephant.tables.v1.Mutation
-	2,   // 134: elephant.tables.v1.Suggestion.state:type_name -> elephant.tables.v1.SuggestionState
-	143, // 135: elephant.tables.v1.Suggestion.created:type_name -> google.protobuf.Timestamp
-	143, // 136: elephant.tables.v1.Suggestion.expires:type_name -> google.protobuf.Timestamp
-	106, // 137: elephant.tables.v1.ResolveSuggestionResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
-	83,  // 138: elephant.tables.v1.ResolveSuggestionResponse.result:type_name -> elephant.tables.v1.MutateResponse
-	106, // 139: elephant.tables.v1.ListSuggestionsResponse.suggestions:type_name -> elephant.tables.v1.Suggestion
-	10,  // 140: elephant.tables.v1.Snapshot.cursor:type_name -> elephant.tables.v1.Cursor
-	3,   // 141: elephant.tables.v1.Snapshot.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
-	4,   // 142: elephant.tables.v1.Snapshot.format:type_name -> elephant.tables.v1.ExportFormat
-	143, // 143: elephant.tables.v1.Snapshot.created:type_name -> google.protobuf.Timestamp
-	143, // 144: elephant.tables.v1.Snapshot.expires:type_name -> google.protobuf.Timestamp
-	3,   // 145: elephant.tables.v1.CreateSnapshotRequest.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
-	4,   // 146: elephant.tables.v1.CreateSnapshotRequest.format:type_name -> elephant.tables.v1.ExportFormat
-	111, // 147: elephant.tables.v1.CreateSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
-	111, // 148: elephant.tables.v1.GetSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
-	16,  // 149: elephant.tables.v1.GetSnapshotResponse.tables:type_name -> elephant.tables.v1.Table
-	111, // 150: elephant.tables.v1.ListSnapshotsResponse.snapshots:type_name -> elephant.tables.v1.Snapshot
-	21,  // 151: elephant.tables.v1.TableSelection.filters:type_name -> elephant.tables.v1.Filter
-	22,  // 152: elephant.tables.v1.TableSelection.sort:type_name -> elephant.tables.v1.Sort
-	118, // 153: elephant.tables.v1.PublicationSpec.tables:type_name -> elephant.tables.v1.TableSelection
-	119, // 154: elephant.tables.v1.PublishRequest.spec:type_name -> elephant.tables.v1.PublicationSpec
-	122, // 155: elephant.tables.v1.PublishResponse.publication:type_name -> elephant.tables.v1.Publication
-	143, // 156: elephant.tables.v1.Publication.created:type_name -> google.protobuf.Timestamp
-	122, // 157: elephant.tables.v1.GetPublicationResponse.publication:type_name -> elephant.tables.v1.Publication
-	119, // 158: elephant.tables.v1.GetPublicationResponse.spec:type_name -> elephant.tables.v1.PublicationSpec
-	16,  // 159: elephant.tables.v1.GetPublicationResponse.tables:type_name -> elephant.tables.v1.Table
-	20,  // 160: elephant.tables.v1.AnalyzeRequest.source_at:type_name -> elephant.tables.v1.PointInTime
-	133, // 161: elephant.tables.v1.AnalyzeResponse.plan:type_name -> elephant.tables.v1.ImportPlan
-	12,  // 162: elephant.tables.v1.ImportColumn.column:type_name -> elephant.tables.v1.Column
-	5,   // 163: elephant.tables.v1.ImportCandidate.kind:type_name -> elephant.tables.v1.SourceKind
-	6,   // 164: elephant.tables.v1.ImportCandidate.mode:type_name -> elephant.tables.v1.ImportMode
-	129, // 165: elephant.tables.v1.ImportCandidate.columns:type_name -> elephant.tables.v1.ImportColumn
-	130, // 166: elephant.tables.v1.ImportCandidate.preview:type_name -> elephant.tables.v1.DiffSummary
-	10,  // 167: elephant.tables.v1.RoundTrip.base:type_name -> elephant.tables.v1.Cursor
-	10,  // 168: elephant.tables.v1.ImportPlan.base:type_name -> elephant.tables.v1.Cursor
-	132, // 169: elephant.tables.v1.ImportPlan.round_trip:type_name -> elephant.tables.v1.RoundTrip
-	131, // 170: elephant.tables.v1.ImportPlan.candidates:type_name -> elephant.tables.v1.ImportCandidate
-	133, // 171: elephant.tables.v1.ApplyRequest.plan:type_name -> elephant.tables.v1.ImportPlan
-	138, // 172: elephant.tables.v1.ApplyResponse.job:type_name -> elephant.tables.v1.ImportJob
-	138, // 173: elephant.tables.v1.GetJobResponse.job:type_name -> elephant.tables.v1.ImportJob
-	10,  // 174: elephant.tables.v1.ImportJob.cursor:type_name -> elephant.tables.v1.Cursor
-	130, // 175: elephant.tables.v1.ImportJob.applied:type_name -> elephant.tables.v1.DiffSummary
-	18,  // 176: elephant.tables.v1.ImportJob.conflicts:type_name -> elephant.tables.v1.CellConflict
-	19,  // 177: elephant.tables.v1.ImportJob.failures:type_name -> elephant.tables.v1.CellError
-	141, // 178: elephant.tables.v1.WatchEventsResponse.event:type_name -> elephant.tables.v1.Event
-	10,  // 179: elephant.tables.v1.Event.cursor:type_name -> elephant.tables.v1.Cursor
-	143, // 180: elephant.tables.v1.Event.created:type_name -> google.protobuf.Timestamp
-	7,   // 181: elephant.tables.v1.Row.CellsEntry.value:type_name -> elephant.tables.v1.Value
-	24,  // 182: elephant.tables.v1.DatabasesService.CreateDatabase:input_type -> elephant.tables.v1.CreateDatabaseRequest
-	26,  // 183: elephant.tables.v1.DatabasesService.GetDatabase:input_type -> elephant.tables.v1.GetDatabaseRequest
-	29,  // 184: elephant.tables.v1.DatabasesService.Fork:input_type -> elephant.tables.v1.ForkRequest
-	31,  // 185: elephant.tables.v1.DatabasesService.Restore:input_type -> elephant.tables.v1.RestoreRequest
-	34,  // 186: elephant.tables.v1.DatabasesService.History:input_type -> elephant.tables.v1.HistoryRequest
-	37,  // 187: elephant.tables.v1.DatabasesService.RecoverDatabase:input_type -> elephant.tables.v1.RecoverDatabaseRequest
-	39,  // 188: elephant.tables.v1.DatabasesService.DeleteDatabase:input_type -> elephant.tables.v1.DeleteDatabaseRequest
-	50,  // 189: elephant.tables.v1.SchemaService.Describe:input_type -> elephant.tables.v1.DescribeRequest
-	52,  // 190: elephant.tables.v1.SchemaService.UpdateNamespace:input_type -> elephant.tables.v1.UpdateNamespaceRequest
-	54,  // 191: elephant.tables.v1.SchemaService.CreateTable:input_type -> elephant.tables.v1.CreateTableRequest
-	56,  // 192: elephant.tables.v1.SchemaService.UpdateTable:input_type -> elephant.tables.v1.UpdateTableRequest
-	58,  // 193: elephant.tables.v1.SchemaService.DeleteTable:input_type -> elephant.tables.v1.DeleteTableRequest
-	60,  // 194: elephant.tables.v1.SchemaService.AddColumn:input_type -> elephant.tables.v1.AddColumnRequest
-	62,  // 195: elephant.tables.v1.SchemaService.UpdateColumn:input_type -> elephant.tables.v1.UpdateColumnRequest
-	64,  // 196: elephant.tables.v1.SchemaService.ChangeColumnType:input_type -> elephant.tables.v1.ChangeColumnTypeRequest
-	66,  // 197: elephant.tables.v1.SchemaService.DeleteColumn:input_type -> elephant.tables.v1.DeleteColumnRequest
-	68,  // 198: elephant.tables.v1.SchemaService.SetRequired:input_type -> elephant.tables.v1.SetRequiredRequest
-	70,  // 199: elephant.tables.v1.SchemaService.AddIndex:input_type -> elephant.tables.v1.AddIndexRequest
-	72,  // 200: elephant.tables.v1.SchemaService.DeleteIndex:input_type -> elephant.tables.v1.DeleteIndexRequest
-	47,  // 201: elephant.tables.v1.SchemaService.EnsureSchema:input_type -> elephant.tables.v1.EnsureSchemaRequest
-	74,  // 202: elephant.tables.v1.DataService.List:input_type -> elephant.tables.v1.ListRequest
-	81,  // 203: elephant.tables.v1.DataService.Mutate:input_type -> elephant.tables.v1.MutateRequest
-	84,  // 204: elephant.tables.v1.DataService.Undo:input_type -> elephant.tables.v1.UndoRequest
-	86,  // 205: elephant.tables.v1.DataService.Query:input_type -> elephant.tables.v1.QueryRequest
-	91,  // 206: elephant.tables.v1.DataService.Changes:input_type -> elephant.tables.v1.ChangesRequest
-	93,  // 207: elephant.tables.v1.DataService.Watch:input_type -> elephant.tables.v1.WatchRequest
-	104, // 208: elephant.tables.v1.DataService.Suggest:input_type -> elephant.tables.v1.SuggestRequest
-	107, // 209: elephant.tables.v1.DataService.ResolveSuggestion:input_type -> elephant.tables.v1.ResolveSuggestionRequest
-	109, // 210: elephant.tables.v1.DataService.ListSuggestions:input_type -> elephant.tables.v1.ListSuggestionsRequest
-	99,  // 211: elephant.tables.v1.DataService.Summarize:input_type -> elephant.tables.v1.SummarizeRequest
-	102, // 212: elephant.tables.v1.DataService.UpdatePresence:input_type -> elephant.tables.v1.UpdatePresenceRequest
-	112, // 213: elephant.tables.v1.SnapshotsService.CreateSnapshot:input_type -> elephant.tables.v1.CreateSnapshotRequest
-	114, // 214: elephant.tables.v1.SnapshotsService.GetSnapshot:input_type -> elephant.tables.v1.GetSnapshotRequest
-	116, // 215: elephant.tables.v1.SnapshotsService.ListSnapshots:input_type -> elephant.tables.v1.ListSnapshotsRequest
-	120, // 216: elephant.tables.v1.SnapshotsService.Publish:input_type -> elephant.tables.v1.PublishRequest
-	123, // 217: elephant.tables.v1.SnapshotsService.GetPublication:input_type -> elephant.tables.v1.GetPublicationRequest
-	125, // 218: elephant.tables.v1.ImportsService.CreateUpload:input_type -> elephant.tables.v1.CreateUploadRequest
-	127, // 219: elephant.tables.v1.ImportsService.Analyze:input_type -> elephant.tables.v1.AnalyzeRequest
-	134, // 220: elephant.tables.v1.ImportsService.Apply:input_type -> elephant.tables.v1.ApplyRequest
-	136, // 221: elephant.tables.v1.ImportsService.GetJob:input_type -> elephant.tables.v1.GetJobRequest
-	139, // 222: elephant.tables.v1.EventsService.WatchEvents:input_type -> elephant.tables.v1.WatchEventsRequest
-	25,  // 223: elephant.tables.v1.DatabasesService.CreateDatabase:output_type -> elephant.tables.v1.CreateDatabaseResponse
-	27,  // 224: elephant.tables.v1.DatabasesService.GetDatabase:output_type -> elephant.tables.v1.GetDatabaseResponse
-	30,  // 225: elephant.tables.v1.DatabasesService.Fork:output_type -> elephant.tables.v1.ForkResponse
-	32,  // 226: elephant.tables.v1.DatabasesService.Restore:output_type -> elephant.tables.v1.RestoreResponse
-	36,  // 227: elephant.tables.v1.DatabasesService.History:output_type -> elephant.tables.v1.HistoryResponse
-	38,  // 228: elephant.tables.v1.DatabasesService.RecoverDatabase:output_type -> elephant.tables.v1.RecoverDatabaseResponse
-	40,  // 229: elephant.tables.v1.DatabasesService.DeleteDatabase:output_type -> elephant.tables.v1.DeleteDatabaseResponse
-	51,  // 230: elephant.tables.v1.SchemaService.Describe:output_type -> elephant.tables.v1.DescribeResponse
-	53,  // 231: elephant.tables.v1.SchemaService.UpdateNamespace:output_type -> elephant.tables.v1.UpdateNamespaceResponse
-	55,  // 232: elephant.tables.v1.SchemaService.CreateTable:output_type -> elephant.tables.v1.CreateTableResponse
-	57,  // 233: elephant.tables.v1.SchemaService.UpdateTable:output_type -> elephant.tables.v1.UpdateTableResponse
-	59,  // 234: elephant.tables.v1.SchemaService.DeleteTable:output_type -> elephant.tables.v1.DeleteTableResponse
-	61,  // 235: elephant.tables.v1.SchemaService.AddColumn:output_type -> elephant.tables.v1.AddColumnResponse
-	63,  // 236: elephant.tables.v1.SchemaService.UpdateColumn:output_type -> elephant.tables.v1.UpdateColumnResponse
-	65,  // 237: elephant.tables.v1.SchemaService.ChangeColumnType:output_type -> elephant.tables.v1.ChangeColumnTypeResponse
-	67,  // 238: elephant.tables.v1.SchemaService.DeleteColumn:output_type -> elephant.tables.v1.DeleteColumnResponse
-	69,  // 239: elephant.tables.v1.SchemaService.SetRequired:output_type -> elephant.tables.v1.SetRequiredResponse
-	71,  // 240: elephant.tables.v1.SchemaService.AddIndex:output_type -> elephant.tables.v1.AddIndexResponse
-	73,  // 241: elephant.tables.v1.SchemaService.DeleteIndex:output_type -> elephant.tables.v1.DeleteIndexResponse
-	48,  // 242: elephant.tables.v1.SchemaService.EnsureSchema:output_type -> elephant.tables.v1.EnsureSchemaResponse
-	75,  // 243: elephant.tables.v1.DataService.List:output_type -> elephant.tables.v1.ListResponse
-	83,  // 244: elephant.tables.v1.DataService.Mutate:output_type -> elephant.tables.v1.MutateResponse
-	85,  // 245: elephant.tables.v1.DataService.Undo:output_type -> elephant.tables.v1.UndoResponse
-	89,  // 246: elephant.tables.v1.DataService.Query:output_type -> elephant.tables.v1.QueryResponse
-	92,  // 247: elephant.tables.v1.DataService.Changes:output_type -> elephant.tables.v1.ChangesResponse
-	98,  // 248: elephant.tables.v1.DataService.Watch:output_type -> elephant.tables.v1.WatchResponse
-	105, // 249: elephant.tables.v1.DataService.Suggest:output_type -> elephant.tables.v1.SuggestResponse
-	108, // 250: elephant.tables.v1.DataService.ResolveSuggestion:output_type -> elephant.tables.v1.ResolveSuggestionResponse
-	110, // 251: elephant.tables.v1.DataService.ListSuggestions:output_type -> elephant.tables.v1.ListSuggestionsResponse
-	101, // 252: elephant.tables.v1.DataService.Summarize:output_type -> elephant.tables.v1.SummarizeResponse
-	103, // 253: elephant.tables.v1.DataService.UpdatePresence:output_type -> elephant.tables.v1.UpdatePresenceResponse
-	113, // 254: elephant.tables.v1.SnapshotsService.CreateSnapshot:output_type -> elephant.tables.v1.CreateSnapshotResponse
-	115, // 255: elephant.tables.v1.SnapshotsService.GetSnapshot:output_type -> elephant.tables.v1.GetSnapshotResponse
-	117, // 256: elephant.tables.v1.SnapshotsService.ListSnapshots:output_type -> elephant.tables.v1.ListSnapshotsResponse
-	121, // 257: elephant.tables.v1.SnapshotsService.Publish:output_type -> elephant.tables.v1.PublishResponse
-	124, // 258: elephant.tables.v1.SnapshotsService.GetPublication:output_type -> elephant.tables.v1.GetPublicationResponse
-	126, // 259: elephant.tables.v1.ImportsService.CreateUpload:output_type -> elephant.tables.v1.CreateUploadResponse
-	128, // 260: elephant.tables.v1.ImportsService.Analyze:output_type -> elephant.tables.v1.AnalyzeResponse
-	135, // 261: elephant.tables.v1.ImportsService.Apply:output_type -> elephant.tables.v1.ApplyResponse
-	137, // 262: elephant.tables.v1.ImportsService.GetJob:output_type -> elephant.tables.v1.GetJobResponse
-	140, // 263: elephant.tables.v1.EventsService.WatchEvents:output_type -> elephant.tables.v1.WatchEventsResponse
-	223, // [223:264] is the sub-list for method output_type
-	182, // [182:223] is the sub-list for method input_type
-	182, // [182:182] is the sub-list for extension type_name
-	182, // [182:182] is the sub-list for extension extendee
-	0,   // [0:182] is the sub-list for field type_name
+	143, // 96: elephant.tables.v1.QueryRequest.named_params:type_name -> elephant.tables.v1.QueryRequest.NamedParamsEntry
+	0,   // 97: elephant.tables.v1.QueryColumn.type:type_name -> elephant.tables.v1.ColumnType
+	7,   // 98: elephant.tables.v1.QueryRow.values:type_name -> elephant.tables.v1.Value
+	87,  // 99: elephant.tables.v1.QueryResponse.columns:type_name -> elephant.tables.v1.QueryColumn
+	88,  // 100: elephant.tables.v1.QueryResponse.rows:type_name -> elephant.tables.v1.QueryRow
+	10,  // 101: elephant.tables.v1.QueryResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	10,  // 102: elephant.tables.v1.Change.cursor:type_name -> elephant.tables.v1.Cursor
+	144, // 103: elephant.tables.v1.Change.at:type_name -> google.protobuf.Timestamp
+	7,   // 104: elephant.tables.v1.Change.old:type_name -> elephant.tables.v1.Value
+	7,   // 105: elephant.tables.v1.Change.new:type_name -> elephant.tables.v1.Value
+	17,  // 106: elephant.tables.v1.Change.row_state:type_name -> elephant.tables.v1.Row
+	16,  // 107: elephant.tables.v1.Change.table_state:type_name -> elephant.tables.v1.Table
+	11,  // 108: elephant.tables.v1.Change.namespace_state:type_name -> elephant.tables.v1.Namespace
+	10,  // 109: elephant.tables.v1.ChangesRequest.after:type_name -> elephant.tables.v1.Cursor
+	90,  // 110: elephant.tables.v1.ChangesResponse.changes:type_name -> elephant.tables.v1.Change
+	10,  // 111: elephant.tables.v1.ChangesResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	10,  // 112: elephant.tables.v1.WatchRequest.after:type_name -> elephant.tables.v1.Cursor
+	94,  // 113: elephant.tables.v1.WatchRequest.presence:type_name -> elephant.tables.v1.Presence
+	94,  // 114: elephant.tables.v1.PresenceUpdate.presence:type_name -> elephant.tables.v1.Presence
+	10,  // 115: elephant.tables.v1.Heartbeat.head:type_name -> elephant.tables.v1.Cursor
+	10,  // 116: elephant.tables.v1.Heartbeat.durable:type_name -> elephant.tables.v1.Cursor
+	10,  // 117: elephant.tables.v1.Heartbeat.resume:type_name -> elephant.tables.v1.Cursor
+	90,  // 118: elephant.tables.v1.WatchResponse.change:type_name -> elephant.tables.v1.Change
+	95,  // 119: elephant.tables.v1.WatchResponse.presence:type_name -> elephant.tables.v1.PresenceUpdate
+	96,  // 120: elephant.tables.v1.WatchResponse.heartbeat:type_name -> elephant.tables.v1.Heartbeat
+	106, // 121: elephant.tables.v1.WatchResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
+	97,  // 122: elephant.tables.v1.WatchResponse.hello:type_name -> elephant.tables.v1.Hello
+	21,  // 123: elephant.tables.v1.SummarizeRequest.filters:type_name -> elephant.tables.v1.Filter
+	7,   // 124: elephant.tables.v1.SummaryBucket.value:type_name -> elephant.tables.v1.Value
+	7,   // 125: elephant.tables.v1.SummaryBucket.upper:type_name -> elephant.tables.v1.Value
+	100, // 126: elephant.tables.v1.SummarizeResponse.buckets:type_name -> elephant.tables.v1.SummaryBucket
+	7,   // 127: elephant.tables.v1.SummarizeResponse.min:type_name -> elephant.tables.v1.Value
+	7,   // 128: elephant.tables.v1.SummarizeResponse.max:type_name -> elephant.tables.v1.Value
+	7,   // 129: elephant.tables.v1.SummarizeResponse.median:type_name -> elephant.tables.v1.Value
+	10,  // 130: elephant.tables.v1.SummarizeResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	94,  // 131: elephant.tables.v1.UpdatePresenceRequest.presence:type_name -> elephant.tables.v1.Presence
+	80,  // 132: elephant.tables.v1.SuggestRequest.mutations:type_name -> elephant.tables.v1.Mutation
+	106, // 133: elephant.tables.v1.SuggestResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
+	80,  // 134: elephant.tables.v1.Suggestion.mutations:type_name -> elephant.tables.v1.Mutation
+	2,   // 135: elephant.tables.v1.Suggestion.state:type_name -> elephant.tables.v1.SuggestionState
+	144, // 136: elephant.tables.v1.Suggestion.created:type_name -> google.protobuf.Timestamp
+	144, // 137: elephant.tables.v1.Suggestion.expires:type_name -> google.protobuf.Timestamp
+	106, // 138: elephant.tables.v1.ResolveSuggestionResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
+	83,  // 139: elephant.tables.v1.ResolveSuggestionResponse.result:type_name -> elephant.tables.v1.MutateResponse
+	106, // 140: elephant.tables.v1.ListSuggestionsResponse.suggestions:type_name -> elephant.tables.v1.Suggestion
+	10,  // 141: elephant.tables.v1.Snapshot.cursor:type_name -> elephant.tables.v1.Cursor
+	3,   // 142: elephant.tables.v1.Snapshot.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
+	4,   // 143: elephant.tables.v1.Snapshot.format:type_name -> elephant.tables.v1.ExportFormat
+	144, // 144: elephant.tables.v1.Snapshot.created:type_name -> google.protobuf.Timestamp
+	144, // 145: elephant.tables.v1.Snapshot.expires:type_name -> google.protobuf.Timestamp
+	3,   // 146: elephant.tables.v1.CreateSnapshotRequest.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
+	4,   // 147: elephant.tables.v1.CreateSnapshotRequest.format:type_name -> elephant.tables.v1.ExportFormat
+	111, // 148: elephant.tables.v1.CreateSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
+	111, // 149: elephant.tables.v1.GetSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
+	16,  // 150: elephant.tables.v1.GetSnapshotResponse.tables:type_name -> elephant.tables.v1.Table
+	111, // 151: elephant.tables.v1.ListSnapshotsResponse.snapshots:type_name -> elephant.tables.v1.Snapshot
+	21,  // 152: elephant.tables.v1.TableSelection.filters:type_name -> elephant.tables.v1.Filter
+	22,  // 153: elephant.tables.v1.TableSelection.sort:type_name -> elephant.tables.v1.Sort
+	118, // 154: elephant.tables.v1.PublicationSpec.tables:type_name -> elephant.tables.v1.TableSelection
+	119, // 155: elephant.tables.v1.PublishRequest.spec:type_name -> elephant.tables.v1.PublicationSpec
+	122, // 156: elephant.tables.v1.PublishResponse.publication:type_name -> elephant.tables.v1.Publication
+	144, // 157: elephant.tables.v1.Publication.created:type_name -> google.protobuf.Timestamp
+	122, // 158: elephant.tables.v1.GetPublicationResponse.publication:type_name -> elephant.tables.v1.Publication
+	119, // 159: elephant.tables.v1.GetPublicationResponse.spec:type_name -> elephant.tables.v1.PublicationSpec
+	16,  // 160: elephant.tables.v1.GetPublicationResponse.tables:type_name -> elephant.tables.v1.Table
+	20,  // 161: elephant.tables.v1.AnalyzeRequest.source_at:type_name -> elephant.tables.v1.PointInTime
+	133, // 162: elephant.tables.v1.AnalyzeResponse.plan:type_name -> elephant.tables.v1.ImportPlan
+	12,  // 163: elephant.tables.v1.ImportColumn.column:type_name -> elephant.tables.v1.Column
+	5,   // 164: elephant.tables.v1.ImportCandidate.kind:type_name -> elephant.tables.v1.SourceKind
+	6,   // 165: elephant.tables.v1.ImportCandidate.mode:type_name -> elephant.tables.v1.ImportMode
+	129, // 166: elephant.tables.v1.ImportCandidate.columns:type_name -> elephant.tables.v1.ImportColumn
+	130, // 167: elephant.tables.v1.ImportCandidate.preview:type_name -> elephant.tables.v1.DiffSummary
+	10,  // 168: elephant.tables.v1.RoundTrip.base:type_name -> elephant.tables.v1.Cursor
+	10,  // 169: elephant.tables.v1.ImportPlan.base:type_name -> elephant.tables.v1.Cursor
+	132, // 170: elephant.tables.v1.ImportPlan.round_trip:type_name -> elephant.tables.v1.RoundTrip
+	131, // 171: elephant.tables.v1.ImportPlan.candidates:type_name -> elephant.tables.v1.ImportCandidate
+	133, // 172: elephant.tables.v1.ApplyRequest.plan:type_name -> elephant.tables.v1.ImportPlan
+	138, // 173: elephant.tables.v1.ApplyResponse.job:type_name -> elephant.tables.v1.ImportJob
+	138, // 174: elephant.tables.v1.GetJobResponse.job:type_name -> elephant.tables.v1.ImportJob
+	10,  // 175: elephant.tables.v1.ImportJob.cursor:type_name -> elephant.tables.v1.Cursor
+	130, // 176: elephant.tables.v1.ImportJob.applied:type_name -> elephant.tables.v1.DiffSummary
+	18,  // 177: elephant.tables.v1.ImportJob.conflicts:type_name -> elephant.tables.v1.CellConflict
+	19,  // 178: elephant.tables.v1.ImportJob.failures:type_name -> elephant.tables.v1.CellError
+	141, // 179: elephant.tables.v1.WatchEventsResponse.event:type_name -> elephant.tables.v1.Event
+	10,  // 180: elephant.tables.v1.Event.cursor:type_name -> elephant.tables.v1.Cursor
+	144, // 181: elephant.tables.v1.Event.created:type_name -> google.protobuf.Timestamp
+	7,   // 182: elephant.tables.v1.Row.CellsEntry.value:type_name -> elephant.tables.v1.Value
+	7,   // 183: elephant.tables.v1.QueryRequest.NamedParamsEntry.value:type_name -> elephant.tables.v1.Value
+	24,  // 184: elephant.tables.v1.DatabasesService.CreateDatabase:input_type -> elephant.tables.v1.CreateDatabaseRequest
+	26,  // 185: elephant.tables.v1.DatabasesService.GetDatabase:input_type -> elephant.tables.v1.GetDatabaseRequest
+	29,  // 186: elephant.tables.v1.DatabasesService.Fork:input_type -> elephant.tables.v1.ForkRequest
+	31,  // 187: elephant.tables.v1.DatabasesService.Restore:input_type -> elephant.tables.v1.RestoreRequest
+	34,  // 188: elephant.tables.v1.DatabasesService.History:input_type -> elephant.tables.v1.HistoryRequest
+	37,  // 189: elephant.tables.v1.DatabasesService.RecoverDatabase:input_type -> elephant.tables.v1.RecoverDatabaseRequest
+	39,  // 190: elephant.tables.v1.DatabasesService.DeleteDatabase:input_type -> elephant.tables.v1.DeleteDatabaseRequest
+	50,  // 191: elephant.tables.v1.SchemaService.Describe:input_type -> elephant.tables.v1.DescribeRequest
+	52,  // 192: elephant.tables.v1.SchemaService.UpdateNamespace:input_type -> elephant.tables.v1.UpdateNamespaceRequest
+	54,  // 193: elephant.tables.v1.SchemaService.CreateTable:input_type -> elephant.tables.v1.CreateTableRequest
+	56,  // 194: elephant.tables.v1.SchemaService.UpdateTable:input_type -> elephant.tables.v1.UpdateTableRequest
+	58,  // 195: elephant.tables.v1.SchemaService.DeleteTable:input_type -> elephant.tables.v1.DeleteTableRequest
+	60,  // 196: elephant.tables.v1.SchemaService.AddColumn:input_type -> elephant.tables.v1.AddColumnRequest
+	62,  // 197: elephant.tables.v1.SchemaService.UpdateColumn:input_type -> elephant.tables.v1.UpdateColumnRequest
+	64,  // 198: elephant.tables.v1.SchemaService.ChangeColumnType:input_type -> elephant.tables.v1.ChangeColumnTypeRequest
+	66,  // 199: elephant.tables.v1.SchemaService.DeleteColumn:input_type -> elephant.tables.v1.DeleteColumnRequest
+	68,  // 200: elephant.tables.v1.SchemaService.SetRequired:input_type -> elephant.tables.v1.SetRequiredRequest
+	70,  // 201: elephant.tables.v1.SchemaService.AddIndex:input_type -> elephant.tables.v1.AddIndexRequest
+	72,  // 202: elephant.tables.v1.SchemaService.DeleteIndex:input_type -> elephant.tables.v1.DeleteIndexRequest
+	47,  // 203: elephant.tables.v1.SchemaService.EnsureSchema:input_type -> elephant.tables.v1.EnsureSchemaRequest
+	74,  // 204: elephant.tables.v1.DataService.List:input_type -> elephant.tables.v1.ListRequest
+	81,  // 205: elephant.tables.v1.DataService.Mutate:input_type -> elephant.tables.v1.MutateRequest
+	84,  // 206: elephant.tables.v1.DataService.Undo:input_type -> elephant.tables.v1.UndoRequest
+	86,  // 207: elephant.tables.v1.DataService.Query:input_type -> elephant.tables.v1.QueryRequest
+	91,  // 208: elephant.tables.v1.DataService.Changes:input_type -> elephant.tables.v1.ChangesRequest
+	93,  // 209: elephant.tables.v1.DataService.Watch:input_type -> elephant.tables.v1.WatchRequest
+	104, // 210: elephant.tables.v1.DataService.Suggest:input_type -> elephant.tables.v1.SuggestRequest
+	107, // 211: elephant.tables.v1.DataService.ResolveSuggestion:input_type -> elephant.tables.v1.ResolveSuggestionRequest
+	109, // 212: elephant.tables.v1.DataService.ListSuggestions:input_type -> elephant.tables.v1.ListSuggestionsRequest
+	99,  // 213: elephant.tables.v1.DataService.Summarize:input_type -> elephant.tables.v1.SummarizeRequest
+	102, // 214: elephant.tables.v1.DataService.UpdatePresence:input_type -> elephant.tables.v1.UpdatePresenceRequest
+	112, // 215: elephant.tables.v1.SnapshotsService.CreateSnapshot:input_type -> elephant.tables.v1.CreateSnapshotRequest
+	114, // 216: elephant.tables.v1.SnapshotsService.GetSnapshot:input_type -> elephant.tables.v1.GetSnapshotRequest
+	116, // 217: elephant.tables.v1.SnapshotsService.ListSnapshots:input_type -> elephant.tables.v1.ListSnapshotsRequest
+	120, // 218: elephant.tables.v1.SnapshotsService.Publish:input_type -> elephant.tables.v1.PublishRequest
+	123, // 219: elephant.tables.v1.SnapshotsService.GetPublication:input_type -> elephant.tables.v1.GetPublicationRequest
+	125, // 220: elephant.tables.v1.ImportsService.CreateUpload:input_type -> elephant.tables.v1.CreateUploadRequest
+	127, // 221: elephant.tables.v1.ImportsService.Analyze:input_type -> elephant.tables.v1.AnalyzeRequest
+	134, // 222: elephant.tables.v1.ImportsService.Apply:input_type -> elephant.tables.v1.ApplyRequest
+	136, // 223: elephant.tables.v1.ImportsService.GetJob:input_type -> elephant.tables.v1.GetJobRequest
+	139, // 224: elephant.tables.v1.EventsService.WatchEvents:input_type -> elephant.tables.v1.WatchEventsRequest
+	25,  // 225: elephant.tables.v1.DatabasesService.CreateDatabase:output_type -> elephant.tables.v1.CreateDatabaseResponse
+	27,  // 226: elephant.tables.v1.DatabasesService.GetDatabase:output_type -> elephant.tables.v1.GetDatabaseResponse
+	30,  // 227: elephant.tables.v1.DatabasesService.Fork:output_type -> elephant.tables.v1.ForkResponse
+	32,  // 228: elephant.tables.v1.DatabasesService.Restore:output_type -> elephant.tables.v1.RestoreResponse
+	36,  // 229: elephant.tables.v1.DatabasesService.History:output_type -> elephant.tables.v1.HistoryResponse
+	38,  // 230: elephant.tables.v1.DatabasesService.RecoverDatabase:output_type -> elephant.tables.v1.RecoverDatabaseResponse
+	40,  // 231: elephant.tables.v1.DatabasesService.DeleteDatabase:output_type -> elephant.tables.v1.DeleteDatabaseResponse
+	51,  // 232: elephant.tables.v1.SchemaService.Describe:output_type -> elephant.tables.v1.DescribeResponse
+	53,  // 233: elephant.tables.v1.SchemaService.UpdateNamespace:output_type -> elephant.tables.v1.UpdateNamespaceResponse
+	55,  // 234: elephant.tables.v1.SchemaService.CreateTable:output_type -> elephant.tables.v1.CreateTableResponse
+	57,  // 235: elephant.tables.v1.SchemaService.UpdateTable:output_type -> elephant.tables.v1.UpdateTableResponse
+	59,  // 236: elephant.tables.v1.SchemaService.DeleteTable:output_type -> elephant.tables.v1.DeleteTableResponse
+	61,  // 237: elephant.tables.v1.SchemaService.AddColumn:output_type -> elephant.tables.v1.AddColumnResponse
+	63,  // 238: elephant.tables.v1.SchemaService.UpdateColumn:output_type -> elephant.tables.v1.UpdateColumnResponse
+	65,  // 239: elephant.tables.v1.SchemaService.ChangeColumnType:output_type -> elephant.tables.v1.ChangeColumnTypeResponse
+	67,  // 240: elephant.tables.v1.SchemaService.DeleteColumn:output_type -> elephant.tables.v1.DeleteColumnResponse
+	69,  // 241: elephant.tables.v1.SchemaService.SetRequired:output_type -> elephant.tables.v1.SetRequiredResponse
+	71,  // 242: elephant.tables.v1.SchemaService.AddIndex:output_type -> elephant.tables.v1.AddIndexResponse
+	73,  // 243: elephant.tables.v1.SchemaService.DeleteIndex:output_type -> elephant.tables.v1.DeleteIndexResponse
+	48,  // 244: elephant.tables.v1.SchemaService.EnsureSchema:output_type -> elephant.tables.v1.EnsureSchemaResponse
+	75,  // 245: elephant.tables.v1.DataService.List:output_type -> elephant.tables.v1.ListResponse
+	83,  // 246: elephant.tables.v1.DataService.Mutate:output_type -> elephant.tables.v1.MutateResponse
+	85,  // 247: elephant.tables.v1.DataService.Undo:output_type -> elephant.tables.v1.UndoResponse
+	89,  // 248: elephant.tables.v1.DataService.Query:output_type -> elephant.tables.v1.QueryResponse
+	92,  // 249: elephant.tables.v1.DataService.Changes:output_type -> elephant.tables.v1.ChangesResponse
+	98,  // 250: elephant.tables.v1.DataService.Watch:output_type -> elephant.tables.v1.WatchResponse
+	105, // 251: elephant.tables.v1.DataService.Suggest:output_type -> elephant.tables.v1.SuggestResponse
+	108, // 252: elephant.tables.v1.DataService.ResolveSuggestion:output_type -> elephant.tables.v1.ResolveSuggestionResponse
+	110, // 253: elephant.tables.v1.DataService.ListSuggestions:output_type -> elephant.tables.v1.ListSuggestionsResponse
+	101, // 254: elephant.tables.v1.DataService.Summarize:output_type -> elephant.tables.v1.SummarizeResponse
+	103, // 255: elephant.tables.v1.DataService.UpdatePresence:output_type -> elephant.tables.v1.UpdatePresenceResponse
+	113, // 256: elephant.tables.v1.SnapshotsService.CreateSnapshot:output_type -> elephant.tables.v1.CreateSnapshotResponse
+	115, // 257: elephant.tables.v1.SnapshotsService.GetSnapshot:output_type -> elephant.tables.v1.GetSnapshotResponse
+	117, // 258: elephant.tables.v1.SnapshotsService.ListSnapshots:output_type -> elephant.tables.v1.ListSnapshotsResponse
+	121, // 259: elephant.tables.v1.SnapshotsService.Publish:output_type -> elephant.tables.v1.PublishResponse
+	124, // 260: elephant.tables.v1.SnapshotsService.GetPublication:output_type -> elephant.tables.v1.GetPublicationResponse
+	126, // 261: elephant.tables.v1.ImportsService.CreateUpload:output_type -> elephant.tables.v1.CreateUploadResponse
+	128, // 262: elephant.tables.v1.ImportsService.Analyze:output_type -> elephant.tables.v1.AnalyzeResponse
+	135, // 263: elephant.tables.v1.ImportsService.Apply:output_type -> elephant.tables.v1.ApplyResponse
+	137, // 264: elephant.tables.v1.ImportsService.GetJob:output_type -> elephant.tables.v1.GetJobResponse
+	140, // 265: elephant.tables.v1.EventsService.WatchEvents:output_type -> elephant.tables.v1.WatchEventsResponse
+	225, // [225:266] is the sub-list for method output_type
+	184, // [184:225] is the sub-list for method input_type
+	184, // [184:184] is the sub-list for extension type_name
+	184, // [184:184] is the sub-list for extension extendee
+	0,   // [0:184] is the sub-list for field type_name
 }
 
 func init() { file_elephant_tables_v1_service_proto_init() }
@@ -12533,7 +12559,7 @@ func file_elephant_tables_v1_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_elephant_tables_v1_service_proto_rawDesc), len(file_elephant_tables_v1_service_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   136,
+			NumMessages:   137,
 			NumExtensions: 0,
 			NumServices:   6,
 		},
