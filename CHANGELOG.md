@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.30.0] - Unreleased
+## [v0.30.0] - 2026-11-18
 
 **Breaking (Comments):** `Comments.WaitForComments`, the interim wakeup poll
 for comment changes, is removed together with `WaitForCommentsRequest` and
