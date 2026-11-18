@@ -28,6 +28,79 @@ streams and need no HTTP/2 transport.
 
 Changes:
 
+- Namespaces in `tables.v1`: every table belongs to a namespace, named
+  by the application that created it, and a change batch touches
+  exactly one. The new `Namespace` message (name and the advisory
+  `schema_editable` flag) and `SchemaService.UpdateNamespace`, which
+  sets the flag as a change batch. `Table.namespace` (7);
+  `DatabaseInfo.namespaces` (9) replaces `DatabaseInfo.tables` (7,
+  reserved); `DescribeResponse.namespace` (4). A required `namespace`
+  on `DescribeRequest` (2), `CreateTableRequest` (4),
+  `UpdateTableRequest` (5), `DeleteTableRequest` (3),
+  `AddColumnRequest` (4), `UpdateColumnRequest` (4),
+  `ChangeColumnTypeRequest` (7), `DeleteColumnRequest` (4),
+  `ListRequest` (8), `MutateRequest` (5), `UndoRequest` (3),
+  `ChangesRequest` (4), `WatchRequest` (5), `SummarizeRequest` (6),
+  `SuggestRequest` (5), `ResolveSuggestionRequest` (5),
+  `ListSuggestionsRequest` (3), `AnalyzeRequest` (5) and
+  `WatchEventsRequest` (2); `ImportPlan.namespace` (8),
+  `Suggestion.namespace` (11), `Change.namespace` (15),
+  `Change.namespace_state` (16) and `Event.namespace` (8).
+  `ChangesResponse.cursor` (3) is how far a read reached, past the
+  other namespaces' changes. `RestoreResponse.batches` (9, the new
+  `NamespaceBatch`) replaces `RestoreResponse.batch` (1, reserved): a
+  restore writes one batch per namespace it changes. A table's view for
+  `Query` is named `<namespace>__<sql_name>`.
+- Stable keys in `tables.v1`: `Table.key` (8), unique within the
+  namespace, and `Column.key` (9), unique within the table, given at
+  creation or made by the service from the name, and never changed.
+  `CreateTableRequest.key` (5) and `ImportCandidate.table_key` (13) give
+  a new table's key, and a new column's comes from its `Column.key`.
+  Requests that take a namespace accept a key wherever they name a
+  table or column by id; ids now always start with a digit and keys
+  with a letter, so a reference is one or the other. A deleted table's
+  or column's key stays reserved for it while the change log holds the
+  deletion, and a key in use or reserved is refused with
+  `already_exists`. `UpdateColumnRequest.column` is matched on its key
+  when its id is empty.
+- Constraints in `tables.v1`: `Column.required` (10), and unique
+  constraints and indexes as the new `Index` message in `Table.indexes`
+  (9), at most 16 per table and 8 columns each. New
+  `SchemaService.SetRequired`, `AddIndex` and `DeleteIndex`, each a change
+  batch; the first two take a `dry_run` that lists the rows that would
+  refuse the constraint. A write that would leave a required column
+  empty or duplicate a unique constraint's values is refused per
+  operation with the new `ConstraintViolation`, in
+  `MutationResult.violation` (6); adding a constraint existing rows
+  break is `failed_precondition` with a `ConstraintViolations` detail.
+  `UpdateColumn` ignores `required`; a column an index covers cannot be
+  deleted, nor retyped when a unique constraint covers it.
+- Declared schemas in `tables.v1`: the new `SchemaService.EnsureSchema`
+  (`EnsureSchemaRequest`, `EnsureSchemaResponse`) declares the whole
+  schema of a namespace with a version, as the new `SchemaDeclaration`,
+  `DeclaredTable`, `DeclaredColumn` and `DeclaredIndex`, matched by
+  key, and applies the difference as one change batch, compared and set
+  against the namespace's stored version. A dry run returns the planned
+  `SchemaStep`s (new enum `SchemaStepKind`) and the rows that would
+  refuse them. An older version, or the stored one with another schema,
+  is `failed_precondition` with the new reason
+  `schema_version_conflict` and a `SchemaVersionConflict` detail.
+  `Namespace.schema_version` (3) and `Namespace.schema_digest` (4)
+  report the stored version and digest. `ConstraintViolation` also
+  reports a cell that does not convert to a declared type.
+- `tables.v1.QueryRequest.namespace` (5), optional, scopes a `Query`
+  statement to one namespace: it then sees that namespace's views under
+  their tables' `sql_name` alone and only that namespace's rows of
+  `_tables` and `_columns`. Without it a statement sees every namespace
+  under `<namespace>__<sql_name>`, as before.
+- `tables.v1.RestoreRequest.namespace` (5), optional, limits a restore
+  to one namespace: its tables, rows, schema, constraints, declared
+  schema version and `schema_editable` flag go back to the point as one
+  restore batch in that namespace, and with a namespace `tables` may
+  name tables by key. A restore of the whole database or of a whole
+  namespace also puts back each namespace's `schema_editable` flag.
+- `tables.v1.ImportJob.namespace` (10) is the namespace the import
+  writes to, which its batch is in and an `Undo` of it names.
 - `tables.v1.Snapshot.expires` documents that restore points expire too,
   not only exports.
 - `tables.v1.Snapshot.txid` documents a replica position, in the cursor's

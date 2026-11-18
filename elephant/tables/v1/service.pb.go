@@ -28,10 +28,111 @@
 // streamed on Watch and undoable as a unit. Positions in that log are
 // Cursors.
 //
+// Namespaces: the table widget is one of several applications that keep
+// tabular data in a document's one database. Every table belongs to a
+// namespace, named by the application that created it, and a change
+// batch touches exactly one namespace. Calls that name tables, batches or
+// suggestions take a namespace, and the catalog, Watch, Changes and the
+// event stream return only what belongs to it; a table, batch or
+// suggestion of another namespace is not found. Snapshots, publishing
+// and forks cover the whole database. A namespace is an organising
+// convention, not an access boundary: access is the caller's access to
+// the owning document, and anyone who may write the document may write
+// every namespace in it.
+//
+// A namespace name is an identifier: a lower-case ASCII letter, then
+// lower-case letters and digits in runs joined by single underscores, at
+// most 32 bytes, not starting with "sqlite" or "pragma", such as
+// "widget" or "plan_board". A malformed one is refused with
+// invalid_argument. A namespace exists once a table has been created in
+// it or SchemaService.UpdateNamespace has set its flag. A database holds
+// at most 20 namespaces, and a namespace at most 200 tables; past either
+// a call is refused with resource_exhausted. The database size cap, the
+// change log and the single writer are shared by every namespace.
+//
+// Keys: a table has a key, unique within its namespace, and a column a
+// key, unique within its table. A key is an identifier: a lower-case
+// ASCII letter, then lower-case letters and digits in runs joined by
+// single underscores, at most 64 bytes, such as "people" or
+// "start_date"; a malformed one is refused with invalid_argument. It is
+// given when the table or column is created, or made by the service from
+// the display name when none is given, as the table widget's are, and
+// it never changes: a rename leaves it, and so do undo, restore, import
+// and every other change. Undo, restore, forks and snapshots carry it
+// with the table or column.
+//
+// A key is not reused while history that names it can be undone: once a
+// table or column is deleted, its key stays reserved for it, within the
+// namespace or the table, as long as the change log holds the deletion
+// (the change log window, the span Undo is offered in). Only after that
+// can another table or column be given it. A request that gives a key
+// another table or column holds or reserves is refused with
+// already_exists. A restore is the exception: it puts back the state at
+// the point it restores to, keys included, so it may bring back a table
+// or column whose key a deleted one still reserves, and an undo of that
+// deletion is then a conflict.
+//
+// Addressing: wherever a request names a table or column of a namespace
+// by id, it may give its key instead. That is every table, column,
+// summary_column, target_table, target_column and key_columns field and
+// every entry of a tables or columns list of a request that takes a
+// namespace, and the column of a CellWrite, Filter or Sort in one. Ids
+// always start with a digit and keys always with a letter, so a
+// reference is unambiguously one or the other. Responses, change records
+// and stored suggestions name tables and columns by id, and Table and
+// Column carry both, as do rendered publications. Calls that span the
+// whole database name tables by id only, since a key is unique only
+// within its namespace: DatabasesService.Restore,
+// SnapshotsService.CreateSnapshot and the tables of a PublicationSpec.
+// The columns, filters and sort of a TableSelection may name a column
+// by key, since the table is named. A Presence is relayed between
+// clients as it was sent, unresolved.
+//
+// Constraints: a column can be required, and a table can have unique
+// constraints and indexes over one or more of its columns, together at
+// most 16 per table (Table.indexes). All three are schema: setting or
+// clearing a required flag (SchemaService.SetRequired) and adding or
+// deleting a unique constraint or index (SchemaService.AddIndex and
+// DeleteIndex) are change batches, streamed on Watch and undoable.
+//
+// A cell is empty when it holds no value, and a text cell also when it
+// holds the empty string. A write that would leave a required column
+// empty, or give two rows the same values in the columns of a unique
+// constraint, is refused for that operation with a ConstraintViolation
+// naming the constraint and, for a unique constraint, the row that
+// already holds the values; the rest of the request applies as for any
+// other failing operation. Rows where any column of a unique constraint
+// is empty are not compared. Values compare as their column type does:
+// text, choice, date, datetime and document references exactly, as
+// stored (so text is case and space sensitive, and a document reference
+// is compared in its canonical lower-case form); integers, numbers and
+// booleans by value; decimals by value, so 1.5 and 1.50 collide. A
+// unique constraint cannot cover a multi_choice or json column. This
+// holds for every write: Mutate, an applied suggestion, Undo (where it
+// is a conflict for the change that would break it), a restore and an
+// import (where a refused row is reported as a failure).
+//
+// Adding a required flag or a unique constraint that existing rows
+// break is refused with failed_precondition, carrying a
+// ConstraintViolations detail that lists the offending rows up to a cap;
+// the request's dry_run reports the same without changing anything. A
+// column that a unique constraint or index covers cannot be deleted, and
+// one a unique constraint covers cannot change type: delete the index
+// first. A type change of a required column is refused when a cell
+// would not convert, since it would become empty. An index changes no
+// results; it only makes filters, sorts and queries on its columns
+// faster.
+//
 // Refusals carry a structured reason in the error metadata under
 // "reason", as elephant-collab's do. The reasons a stream ends with are
 // lease_moved, cursor_invalid and token_expired; see DataService.Watch.
-// One more reason refuses a call before it starts:
+// Two more reasons refuse a call:
+//
+//   schema_version_conflict (code failed_precondition):
+//   SchemaService.EnsureSchema was given a version lower than the one
+//   the namespace has, or the same version with another schema. The
+//   error carries a SchemaVersionConflict detail with the stored
+//   version.
 //
 //   recovery_needed (code failed_precondition): the database cannot be
 //   opened, because nothing is restorable from the replica of its newest
@@ -152,6 +253,102 @@ func (ColumnType) EnumDescriptor() ([]byte, []int) {
 	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{0}
 }
 
+// SchemaStepKind is what a step of a schema declaration does.
+type SchemaStepKind int32
+
+const (
+	// Not a step.
+	SchemaStepKind_SCHEMA_STEP_KIND_UNSPECIFIED SchemaStepKind = 0
+	// Creates a table, with its columns, constraints and indexes.
+	SchemaStepKind_SCHEMA_STEP_KIND_CREATE_TABLE SchemaStepKind = 1
+	// Renames a table, or sets its summary column.
+	SchemaStepKind_SCHEMA_STEP_KIND_UPDATE_TABLE SchemaStepKind = 2
+	// Deletes an undeclared table: only with remove_undeclared.
+	SchemaStepKind_SCHEMA_STEP_KIND_DELETE_TABLE SchemaStepKind = 3
+	// Leaves an undeclared table as it is.
+	SchemaStepKind_SCHEMA_STEP_KIND_KEEP_TABLE SchemaStepKind = 4
+	// Adds a column.
+	SchemaStepKind_SCHEMA_STEP_KIND_ADD_COLUMN SchemaStepKind = 5
+	// Changes a column's name, format, options, hidden flag, required flag
+	// or position.
+	SchemaStepKind_SCHEMA_STEP_KIND_UPDATE_COLUMN SchemaStepKind = 6
+	// Converts a column to another type.
+	SchemaStepKind_SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE SchemaStepKind = 7
+	// Deletes an undeclared column: only with remove_undeclared.
+	SchemaStepKind_SCHEMA_STEP_KIND_DELETE_COLUMN SchemaStepKind = 8
+	// Leaves an undeclared column as it is.
+	SchemaStepKind_SCHEMA_STEP_KIND_KEEP_COLUMN SchemaStepKind = 9
+	// Adds a unique constraint or index.
+	SchemaStepKind_SCHEMA_STEP_KIND_ADD_INDEX SchemaStepKind = 10
+	// Removes a unique constraint or index that is undeclared or declared
+	// otherwise.
+	SchemaStepKind_SCHEMA_STEP_KIND_DELETE_INDEX SchemaStepKind = 11
+	// Sets the namespace's schema_editable flag, version and digest. Every
+	// applied declaration ends with it.
+	SchemaStepKind_SCHEMA_STEP_KIND_UPDATE_NAMESPACE SchemaStepKind = 12
+)
+
+// Enum value maps for SchemaStepKind.
+var (
+	SchemaStepKind_name = map[int32]string{
+		0:  "SCHEMA_STEP_KIND_UNSPECIFIED",
+		1:  "SCHEMA_STEP_KIND_CREATE_TABLE",
+		2:  "SCHEMA_STEP_KIND_UPDATE_TABLE",
+		3:  "SCHEMA_STEP_KIND_DELETE_TABLE",
+		4:  "SCHEMA_STEP_KIND_KEEP_TABLE",
+		5:  "SCHEMA_STEP_KIND_ADD_COLUMN",
+		6:  "SCHEMA_STEP_KIND_UPDATE_COLUMN",
+		7:  "SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE",
+		8:  "SCHEMA_STEP_KIND_DELETE_COLUMN",
+		9:  "SCHEMA_STEP_KIND_KEEP_COLUMN",
+		10: "SCHEMA_STEP_KIND_ADD_INDEX",
+		11: "SCHEMA_STEP_KIND_DELETE_INDEX",
+		12: "SCHEMA_STEP_KIND_UPDATE_NAMESPACE",
+	}
+	SchemaStepKind_value = map[string]int32{
+		"SCHEMA_STEP_KIND_UNSPECIFIED":        0,
+		"SCHEMA_STEP_KIND_CREATE_TABLE":       1,
+		"SCHEMA_STEP_KIND_UPDATE_TABLE":       2,
+		"SCHEMA_STEP_KIND_DELETE_TABLE":       3,
+		"SCHEMA_STEP_KIND_KEEP_TABLE":         4,
+		"SCHEMA_STEP_KIND_ADD_COLUMN":         5,
+		"SCHEMA_STEP_KIND_UPDATE_COLUMN":      6,
+		"SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE": 7,
+		"SCHEMA_STEP_KIND_DELETE_COLUMN":      8,
+		"SCHEMA_STEP_KIND_KEEP_COLUMN":        9,
+		"SCHEMA_STEP_KIND_ADD_INDEX":          10,
+		"SCHEMA_STEP_KIND_DELETE_INDEX":       11,
+		"SCHEMA_STEP_KIND_UPDATE_NAMESPACE":   12,
+	}
+)
+
+func (x SchemaStepKind) Enum() *SchemaStepKind {
+	p := new(SchemaStepKind)
+	*p = x
+	return p
+}
+
+func (x SchemaStepKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SchemaStepKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_elephant_tables_v1_service_proto_enumTypes[1].Descriptor()
+}
+
+func (SchemaStepKind) Type() protoreflect.EnumType {
+	return &file_elephant_tables_v1_service_proto_enumTypes[1]
+}
+
+func (x SchemaStepKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SchemaStepKind.Descriptor instead.
+func (SchemaStepKind) EnumDescriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{1}
+}
+
 // SuggestionState is where a suggestion is in its life.
 type SuggestionState int32
 
@@ -197,11 +394,11 @@ func (x SuggestionState) String() string {
 }
 
 func (SuggestionState) Descriptor() protoreflect.EnumDescriptor {
-	return file_elephant_tables_v1_service_proto_enumTypes[1].Descriptor()
+	return file_elephant_tables_v1_service_proto_enumTypes[2].Descriptor()
 }
 
 func (SuggestionState) Type() protoreflect.EnumType {
-	return &file_elephant_tables_v1_service_proto_enumTypes[1]
+	return &file_elephant_tables_v1_service_proto_enumTypes[2]
 }
 
 func (x SuggestionState) Number() protoreflect.EnumNumber {
@@ -210,7 +407,7 @@ func (x SuggestionState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SuggestionState.Descriptor instead.
 func (SuggestionState) EnumDescriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{1}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{2}
 }
 
 // SnapshotPurpose is why a snapshot was taken, which decides how long it
@@ -255,11 +452,11 @@ func (x SnapshotPurpose) String() string {
 }
 
 func (SnapshotPurpose) Descriptor() protoreflect.EnumDescriptor {
-	return file_elephant_tables_v1_service_proto_enumTypes[2].Descriptor()
+	return file_elephant_tables_v1_service_proto_enumTypes[3].Descriptor()
 }
 
 func (SnapshotPurpose) Type() protoreflect.EnumType {
-	return &file_elephant_tables_v1_service_proto_enumTypes[2]
+	return &file_elephant_tables_v1_service_proto_enumTypes[3]
 }
 
 func (x SnapshotPurpose) Number() protoreflect.EnumNumber {
@@ -268,7 +465,7 @@ func (x SnapshotPurpose) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SnapshotPurpose.Descriptor instead.
 func (SnapshotPurpose) EnumDescriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{2}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{3}
 }
 
 // ExportFormat is the file format of a snapshot.
@@ -314,11 +511,11 @@ func (x ExportFormat) String() string {
 }
 
 func (ExportFormat) Descriptor() protoreflect.EnumDescriptor {
-	return file_elephant_tables_v1_service_proto_enumTypes[3].Descriptor()
+	return file_elephant_tables_v1_service_proto_enumTypes[4].Descriptor()
 }
 
 func (ExportFormat) Type() protoreflect.EnumType {
-	return &file_elephant_tables_v1_service_proto_enumTypes[3]
+	return &file_elephant_tables_v1_service_proto_enumTypes[4]
 }
 
 func (x ExportFormat) Number() protoreflect.EnumNumber {
@@ -327,7 +524,7 @@ func (x ExportFormat) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ExportFormat.Descriptor instead.
 func (ExportFormat) EnumDescriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{3}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{4}
 }
 
 // SourceKind is what an import candidate was found as.
@@ -383,11 +580,11 @@ func (x SourceKind) String() string {
 }
 
 func (SourceKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_elephant_tables_v1_service_proto_enumTypes[4].Descriptor()
+	return file_elephant_tables_v1_service_proto_enumTypes[5].Descriptor()
 }
 
 func (SourceKind) Type() protoreflect.EnumType {
-	return &file_elephant_tables_v1_service_proto_enumTypes[4]
+	return &file_elephant_tables_v1_service_proto_enumTypes[5]
 }
 
 func (x SourceKind) Number() protoreflect.EnumNumber {
@@ -396,7 +593,7 @@ func (x SourceKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SourceKind.Descriptor instead.
 func (SourceKind) EnumDescriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{4}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{5}
 }
 
 // ImportMode is what an import does to the live table, chosen per
@@ -451,11 +648,11 @@ func (x ImportMode) String() string {
 }
 
 func (ImportMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_elephant_tables_v1_service_proto_enumTypes[5].Descriptor()
+	return file_elephant_tables_v1_service_proto_enumTypes[6].Descriptor()
 }
 
 func (ImportMode) Type() protoreflect.EnumType {
-	return &file_elephant_tables_v1_service_proto_enumTypes[5]
+	return &file_elephant_tables_v1_service_proto_enumTypes[6]
 }
 
 func (x ImportMode) Number() protoreflect.EnumNumber {
@@ -464,7 +661,7 @@ func (x ImportMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ImportMode.Descriptor instead.
 func (ImportMode) EnumDescriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{5}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{6}
 }
 
 // Value is one cell value, typed after the column it belongs to. Exactly
@@ -918,10 +1115,92 @@ func (x *Cursor) GetSeq() int64 {
 	return 0
 }
 
+// Namespace is a namespace of a database: a group of tables belonging to
+// one application.
+type Namespace struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The namespace's name.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// True when people may edit the namespace's schema, as the table
+	// widget's own tables may be. An application that manages its own
+	// schema leaves it unset, and the widget's schema editor offers those
+	// tables as read-only structure. The flag guides clients; the service
+	// stores and returns it, and does not enforce it.
+	SchemaEditable bool `protobuf:"varint,2,opt,name=schema_editable,json=schemaEditable,proto3" json:"schema_editable,omitempty"`
+	// The version of the schema last declared for the namespace with
+	// SchemaService.EnsureSchema. 0 when none has been.
+	SchemaVersion int64 `protobuf:"varint,3,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	// The digest of that declaration: the lower-case hex SHA-256 of its
+	// canonical form, the same for two declarations of the same schema
+	// whatever their version. Empty when none has been declared.
+	SchemaDigest  string `protobuf:"bytes,4,opt,name=schema_digest,json=schemaDigest,proto3" json:"schema_digest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Namespace) Reset() {
+	*x = Namespace{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Namespace) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Namespace) ProtoMessage() {}
+
+func (x *Namespace) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Namespace.ProtoReflect.Descriptor instead.
+func (*Namespace) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Namespace) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Namespace) GetSchemaEditable() bool {
+	if x != nil {
+		return x.SchemaEditable
+	}
+	return false
+}
+
+func (x *Namespace) GetSchemaVersion() int64 {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return 0
+}
+
+func (x *Namespace) GetSchemaDigest() string {
+	if x != nil {
+		return x.SchemaDigest
+	}
+	return ""
+}
+
 // Column is a column in a table's catalog.
 type Column struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Column id, assigned by the server. Stable across renames.
+	// Column id, assigned by the server: twelve characters, the first a
+	// digit. Stable across renames.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Display name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -943,14 +1222,24 @@ type Column struct {
 	Position int32 `protobuf:"varint,7,opt,name=position,proto3" json:"position,omitempty"`
 	// True when the column is hidden from the default view. It is still
 	// read, written and queried like any other.
-	Hidden        bool `protobuf:"varint,8,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	Hidden bool `protobuf:"varint,8,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	// The column's key, unique within its table: given when the column is
+	// created, or made by the service from its name, and never changed.
+	// See Keys in the package comment.
+	Key string `protobuf:"bytes,9,opt,name=key,proto3" json:"key,omitempty"`
+	// True when the column refuses empty cells. Honoured when a column is
+	// created (CreateTable, AddColumn, a new column of an import), where
+	// existing rows that would be empty refuse it; changed with
+	// SchemaService.SetRequired, and ignored by UpdateColumn. See
+	// Constraints in the package comment.
+	Required      bool `protobuf:"varint,10,opt,name=required,proto3" json:"required,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Column) Reset() {
 	*x = Column{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[4]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -962,7 +1251,7 @@ func (x *Column) String() string {
 func (*Column) ProtoMessage() {}
 
 func (x *Column) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[4]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +1264,7 @@ func (x *Column) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Column.ProtoReflect.Descriptor instead.
 func (*Column) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{4}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Column) GetId() string {
@@ -1034,15 +1323,263 @@ func (x *Column) GetHidden() bool {
 	return false
 }
 
+func (x *Column) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Column) GetRequired() bool {
+	if x != nil {
+		return x.Required
+	}
+	return false
+}
+
+// Index is a unique constraint or an index over columns of a table. See
+// Constraints in the package comment.
+type Index struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Index id, assigned by the server: twelve characters, the first a
+	// digit. Ignored on AddIndex.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// The index's key, unique among the indexes of its table: given on
+	// AddIndex, or made by the service from its columns' keys. A key is an
+	// identifier as a column key is.
+	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	// Ids of the columns, in order, at most 8. AddIndex takes keys too.
+	Columns []string `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
+	// True for a unique constraint, false for an index.
+	Unique        bool `protobuf:"varint,4,opt,name=unique,proto3" json:"unique,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Index) Reset() {
+	*x = Index{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Index) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Index) ProtoMessage() {}
+
+func (x *Index) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Index.ProtoReflect.Descriptor instead.
+func (*Index) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Index) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Index) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Index) GetColumns() []string {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *Index) GetUnique() bool {
+	if x != nil {
+		return x.Unique
+	}
+	return false
+}
+
+// ConstraintViolation is a row that breaks a required column or a unique
+// constraint: the refusal of one write, or one of the rows that keep a
+// constraint from being added. For SchemaService.EnsureSchema it is also
+// a cell that does not convert to the type a column is declared with.
+type ConstraintViolation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Id of the table.
+	Table string `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
+	// Id of the required column that would be empty, or of the column
+	// whose cell does not convert. Empty for a unique constraint.
+	Column string `protobuf:"bytes,2,opt,name=column,proto3" json:"column,omitempty"`
+	// Id of the unique constraint. Empty for a required column.
+	Index string `protobuf:"bytes,3,opt,name=index,proto3" json:"index,omitempty"`
+	// Id of the row that breaks it: the row a write updates, 0 for a row
+	// an insert would have added, or a row that keeps a constraint from
+	// being added.
+	Row int64 `protobuf:"varint,4,opt,name=row,proto3" json:"row,omitempty"`
+	// For a unique constraint, the row that already holds the values.
+	ExistingRow int64 `protobuf:"varint,5,opt,name=existing_row,json=existingRow,proto3" json:"existing_row,omitempty"`
+	// Human-readable description, naming the constraint by key.
+	Message       string `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConstraintViolation) Reset() {
+	*x = ConstraintViolation{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConstraintViolation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConstraintViolation) ProtoMessage() {}
+
+func (x *ConstraintViolation) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConstraintViolation.ProtoReflect.Descriptor instead.
+func (*ConstraintViolation) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ConstraintViolation) GetTable() string {
+	if x != nil {
+		return x.Table
+	}
+	return ""
+}
+
+func (x *ConstraintViolation) GetColumn() string {
+	if x != nil {
+		return x.Column
+	}
+	return ""
+}
+
+func (x *ConstraintViolation) GetIndex() string {
+	if x != nil {
+		return x.Index
+	}
+	return ""
+}
+
+func (x *ConstraintViolation) GetRow() int64 {
+	if x != nil {
+		return x.Row
+	}
+	return 0
+}
+
+func (x *ConstraintViolation) GetExistingRow() int64 {
+	if x != nil {
+		return x.ExistingRow
+	}
+	return 0
+}
+
+func (x *ConstraintViolation) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// ConstraintViolations is the detail of the failed_precondition that
+// refuses a required flag or unique constraint existing rows break.
+type ConstraintViolations struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The offending rows, capped at 100.
+	Violations []*ConstraintViolation `protobuf:"bytes,1,rep,name=violations,proto3" json:"violations,omitempty"`
+	// How many rows break it, all counted.
+	Count         int64 `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConstraintViolations) Reset() {
+	*x = ConstraintViolations{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConstraintViolations) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConstraintViolations) ProtoMessage() {}
+
+func (x *ConstraintViolations) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConstraintViolations.ProtoReflect.Descriptor instead.
+func (*ConstraintViolations) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ConstraintViolations) GetViolations() []*ConstraintViolation {
+	if x != nil {
+		return x.Violations
+	}
+	return nil
+}
+
+func (x *ConstraintViolations) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 // Table is a user table in a database, with its catalog.
 type Table struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Table id, assigned by the server. Stable across renames.
+	// Table id, assigned by the server: twelve characters, the first a
+	// digit. Stable across renames.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Display name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The table's view name for Query: a slug of the display name,
-	// regenerated on every schema change. Assigned by the server.
+	// The table's SQL name: a slug of the display name, unique within its
+	// namespace, made again when the table is renamed. Assigned by the
+	// server. The table's view for Query is named by the namespace, two
+	// underscores and the SQL name, such as "widget__people", which no two
+	// tables of a database share.
 	SqlName string `protobuf:"bytes,3,opt,name=sql_name,json=sqlName,proto3" json:"sql_name,omitempty"`
 	// The table's columns, in position order.
 	Columns []*Column `protobuf:"bytes,4,rep,name=columns,proto3" json:"columns,omitempty"`
@@ -1055,13 +1592,23 @@ type Table struct {
 	// SchemaService.UpdateTable. A board can override it for its own
 	// widget, in the board document.
 	SummaryColumn string `protobuf:"bytes,6,opt,name=summary_column,json=summaryColumn,proto3" json:"summary_column,omitempty"`
+	// The namespace the table belongs to, set when it is created and never
+	// changed.
+	Namespace string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// The table's key, unique within its namespace: given when the table is
+	// created, or made by the service from its name, and never changed.
+	// See Keys in the package comment.
+	Key string `protobuf:"bytes,8,opt,name=key,proto3" json:"key,omitempty"`
+	// The table's unique constraints and indexes, in the order they were
+	// added.
+	Indexes       []*Index `protobuf:"bytes,9,rep,name=indexes,proto3" json:"indexes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Table) Reset() {
 	*x = Table{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[5]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1073,7 +1620,7 @@ func (x *Table) String() string {
 func (*Table) ProtoMessage() {}
 
 func (x *Table) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[5]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1086,7 +1633,7 @@ func (x *Table) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Table.ProtoReflect.Descriptor instead.
 func (*Table) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{5}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Table) GetId() string {
@@ -1131,6 +1678,27 @@ func (x *Table) GetSummaryColumn() string {
 	return ""
 }
 
+func (x *Table) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *Table) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Table) GetIndexes() []*Index {
+	if x != nil {
+		return x.Indexes
+	}
+	return nil
+}
+
 // Row is one row of a table.
 type Row struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1148,7 +1716,7 @@ type Row struct {
 
 func (x *Row) Reset() {
 	*x = Row{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[6]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1160,7 +1728,7 @@ func (x *Row) String() string {
 func (*Row) ProtoMessage() {}
 
 func (x *Row) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[6]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1173,7 +1741,7 @@ func (x *Row) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Row.ProtoReflect.Descriptor instead.
 func (*Row) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{6}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Row) GetId() int64 {
@@ -1225,7 +1793,7 @@ type CellConflict struct {
 
 func (x *CellConflict) Reset() {
 	*x = CellConflict{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[7]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1237,7 +1805,7 @@ func (x *CellConflict) String() string {
 func (*CellConflict) ProtoMessage() {}
 
 func (x *CellConflict) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[7]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1250,7 +1818,7 @@ func (x *CellConflict) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CellConflict.ProtoReflect.Descriptor instead.
 func (*CellConflict) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{7}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CellConflict) GetTable() string {
@@ -1321,7 +1889,7 @@ type CellError struct {
 
 func (x *CellError) Reset() {
 	*x = CellError{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[8]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1333,7 +1901,7 @@ func (x *CellError) String() string {
 func (*CellError) ProtoMessage() {}
 
 func (x *CellError) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[8]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1346,7 +1914,7 @@ func (x *CellError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CellError.ProtoReflect.Descriptor instead.
 func (*CellError) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{8}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CellError) GetRow() int64 {
@@ -1394,7 +1962,7 @@ type PointInTime struct {
 
 func (x *PointInTime) Reset() {
 	*x = PointInTime{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[9]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1406,7 +1974,7 @@ func (x *PointInTime) String() string {
 func (*PointInTime) ProtoMessage() {}
 
 func (x *PointInTime) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[9]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1419,7 +1987,7 @@ func (x *PointInTime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointInTime.ProtoReflect.Descriptor instead.
 func (*PointInTime) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{9}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PointInTime) GetAt() isPointInTime_At {
@@ -1486,7 +2054,9 @@ func (*PointInTime_Snapshot) isPointInTime_At() {}
 // what a publication carries.
 type Filter struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Id of the column to test.
+	// Id of the column to test. Its key may be given instead wherever the
+	// table is named: in a request that takes a namespace, and in a
+	// TableSelection.
 	Column string `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
 	// The comparison: one of eq, ne, lt, lte, gt, gte, contains, in and
 	// empty. in takes any number of values, empty takes none, and the rest
@@ -1500,7 +2070,7 @@ type Filter struct {
 
 func (x *Filter) Reset() {
 	*x = Filter{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[10]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1512,7 +2082,7 @@ func (x *Filter) String() string {
 func (*Filter) ProtoMessage() {}
 
 func (x *Filter) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[10]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1525,7 +2095,7 @@ func (x *Filter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Filter.ProtoReflect.Descriptor instead.
 func (*Filter) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{10}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Filter) GetColumn() string {
@@ -1553,6 +2123,8 @@ func (x *Filter) GetValues() []*Value {
 type Sort struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the column to sort on. Empty sorts by the manual row order.
+	// Its key may be given instead wherever the table is named: in a
+	// request that takes a namespace, and in a TableSelection.
 	Column string `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
 	// True to sort in descending order.
 	Descending    bool `protobuf:"varint,2,opt,name=descending,proto3" json:"descending,omitempty"`
@@ -1562,7 +2134,7 @@ type Sort struct {
 
 func (x *Sort) Reset() {
 	*x = Sort{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[11]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1574,7 +2146,7 @@ func (x *Sort) String() string {
 func (*Sort) ProtoMessage() {}
 
 func (x *Sort) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[11]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1587,7 +2159,7 @@ func (x *Sort) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sort.ProtoReflect.Descriptor instead.
 func (*Sort) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{11}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Sort) GetColumn() string {
@@ -1621,17 +2193,18 @@ type DatabaseInfo struct {
 	// The latest change that is replicated to S3, and so survives a crash
 	// of the owning pod.
 	Durable *Cursor `protobuf:"bytes,6,opt,name=durable,proto3" json:"durable,omitempty"`
-	// The database's tables.
-	Tables []*Table `protobuf:"bytes,7,rep,name=tables,proto3" json:"tables,omitempty"`
 	// When the database was created.
-	Created       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created,proto3" json:"created,omitempty"`
+	Created *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created,proto3" json:"created,omitempty"`
+	// The database's namespaces, by name. Their tables are read with
+	// SchemaService.Describe.
+	Namespaces    []*Namespace `protobuf:"bytes,9,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DatabaseInfo) Reset() {
 	*x = DatabaseInfo{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[12]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1643,7 +2216,7 @@ func (x *DatabaseInfo) String() string {
 func (*DatabaseInfo) ProtoMessage() {}
 
 func (x *DatabaseInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[12]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1656,7 +2229,7 @@ func (x *DatabaseInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DatabaseInfo.ProtoReflect.Descriptor instead.
 func (*DatabaseInfo) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{12}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DatabaseInfo) GetDatabase() string {
@@ -1701,16 +2274,16 @@ func (x *DatabaseInfo) GetDurable() *Cursor {
 	return nil
 }
 
-func (x *DatabaseInfo) GetTables() []*Table {
+func (x *DatabaseInfo) GetCreated() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Tables
+		return x.Created
 	}
 	return nil
 }
 
-func (x *DatabaseInfo) GetCreated() *timestamppb.Timestamp {
+func (x *DatabaseInfo) GetNamespaces() []*Namespace {
 	if x != nil {
-		return x.Created
+		return x.Namespaces
 	}
 	return nil
 }
@@ -1725,7 +2298,7 @@ type CreateDatabaseRequest struct {
 
 func (x *CreateDatabaseRequest) Reset() {
 	*x = CreateDatabaseRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[13]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1737,7 +2310,7 @@ func (x *CreateDatabaseRequest) String() string {
 func (*CreateDatabaseRequest) ProtoMessage() {}
 
 func (x *CreateDatabaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[13]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1750,7 +2323,7 @@ func (x *CreateDatabaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDatabaseRequest.ProtoReflect.Descriptor instead.
 func (*CreateDatabaseRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{13}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CreateDatabaseRequest) GetOwnerDocument() string {
@@ -1770,7 +2343,7 @@ type CreateDatabaseResponse struct {
 
 func (x *CreateDatabaseResponse) Reset() {
 	*x = CreateDatabaseResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[14]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1782,7 +2355,7 @@ func (x *CreateDatabaseResponse) String() string {
 func (*CreateDatabaseResponse) ProtoMessage() {}
 
 func (x *CreateDatabaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[14]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1795,7 +2368,7 @@ func (x *CreateDatabaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDatabaseResponse.ProtoReflect.Descriptor instead.
 func (*CreateDatabaseResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{14}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreateDatabaseResponse) GetInfo() *DatabaseInfo {
@@ -1820,7 +2393,7 @@ type GetDatabaseRequest struct {
 
 func (x *GetDatabaseRequest) Reset() {
 	*x = GetDatabaseRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[15]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1832,7 +2405,7 @@ func (x *GetDatabaseRequest) String() string {
 func (*GetDatabaseRequest) ProtoMessage() {}
 
 func (x *GetDatabaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[15]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1845,7 +2418,7 @@ func (x *GetDatabaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDatabaseRequest.ProtoReflect.Descriptor instead.
 func (*GetDatabaseRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{15}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetDatabaseRequest) GetTarget() isGetDatabaseRequest_Target {
@@ -1893,7 +2466,8 @@ func (*GetDatabaseRequest_OwnerDocument) isGetDatabaseRequest_Target() {}
 
 type GetDatabaseResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The database. Without head, durable and tables when recovery is set.
+	// The database. Without head, durable and namespaces when recovery is
+	// set.
 	Info *DatabaseInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
 	// Why the database cannot be opened, and what it can be recovered to.
 	// Unset when the database is healthy.
@@ -1904,7 +2478,7 @@ type GetDatabaseResponse struct {
 
 func (x *GetDatabaseResponse) Reset() {
 	*x = GetDatabaseResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[16]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1916,7 +2490,7 @@ func (x *GetDatabaseResponse) String() string {
 func (*GetDatabaseResponse) ProtoMessage() {}
 
 func (x *GetDatabaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[16]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1929,7 +2503,7 @@ func (x *GetDatabaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDatabaseResponse.ProtoReflect.Descriptor instead.
 func (*GetDatabaseResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{16}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetDatabaseResponse) GetInfo() *DatabaseInfo {
@@ -1980,7 +2554,7 @@ type DatabaseRecovery struct {
 
 func (x *DatabaseRecovery) Reset() {
 	*x = DatabaseRecovery{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[17]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1992,7 +2566,7 @@ func (x *DatabaseRecovery) String() string {
 func (*DatabaseRecovery) ProtoMessage() {}
 
 func (x *DatabaseRecovery) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[17]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2005,7 +2579,7 @@ func (x *DatabaseRecovery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DatabaseRecovery.ProtoReflect.Descriptor instead.
 func (*DatabaseRecovery) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{17}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DatabaseRecovery) GetLostEpochs() []int64 {
@@ -2066,7 +2640,7 @@ type ForkRequest struct {
 
 func (x *ForkRequest) Reset() {
 	*x = ForkRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[18]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2078,7 +2652,7 @@ func (x *ForkRequest) String() string {
 func (*ForkRequest) ProtoMessage() {}
 
 func (x *ForkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[18]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2091,7 +2665,7 @@ func (x *ForkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForkRequest.ProtoReflect.Descriptor instead.
 func (*ForkRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{18}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ForkRequest) GetDatabase() string {
@@ -2125,7 +2699,7 @@ type ForkResponse struct {
 
 func (x *ForkResponse) Reset() {
 	*x = ForkResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[19]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2137,7 +2711,7 @@ func (x *ForkResponse) String() string {
 func (*ForkResponse) ProtoMessage() {}
 
 func (x *ForkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[19]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2150,7 +2724,7 @@ func (x *ForkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForkResponse.ProtoReflect.Descriptor instead.
 func (*ForkResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{19}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ForkResponse) GetInfo() *DatabaseInfo {
@@ -2166,17 +2740,28 @@ type RestoreRequest struct {
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// The point to restore to. Required.
 	At *PointInTime `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
-	// Ids of the tables to restore. Empty restores all of them.
+	// Tables to restore. Empty restores all of them, those of the
+	// namespace when one is given. Without a namespace a table is named by
+	// id only, since the restore spans namespaces; with one it is named by
+	// id or key, and must be in that namespace at the point or now, or it
+	// is not found. A table the restore would bring back whose key a live
+	// table outside the restored set holds is refused with
+	// already_exists.
 	Tables []string `protobuf:"bytes,3,rep,name=tables,proto3" json:"tables,omitempty"`
 	// Report what would be discarded without writing anything.
-	DryRun        bool `protobuf:"varint,4,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	DryRun bool `protobuf:"varint,4,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	// Namespace to restore, alone. Optional: unset restores the whole
+	// database. A namespace that neither the point nor the database holds
+	// is not found. The counts of changes discarded and their actors cover
+	// only that namespace.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[20]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2188,7 +2773,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[20]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2201,7 +2786,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{20}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RestoreRequest) GetDatabase() string {
@@ -2232,11 +2817,16 @@ func (x *RestoreRequest) GetDryRun() bool {
 	return false
 }
 
+func (x *RestoreRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type RestoreResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Id of the restore batch. Empty on a dry run.
-	Batch string `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
-	// Position of the restore batch. Unset on a dry run.
+	// Position of the last restore batch. Unset on a dry run.
 	Cursor *Cursor `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	// Cells the restore changes.
 	CellsChanged int64 `protobuf:"varint,3,opt,name=cells_changed,json=cellsChanged,proto3" json:"cells_changed,omitempty"`
@@ -2250,14 +2840,17 @@ type RestoreResponse struct {
 	DiscardedActors []string `protobuf:"bytes,7,rep,name=discarded_actors,json=discardedActors,proto3" json:"discarded_actors,omitempty"`
 	// Id of the snapshot of the pre-restore state. Restore to it to go
 	// back. Empty on a dry run.
-	RestorePoint  string `protobuf:"bytes,8,opt,name=restore_point,json=restorePoint,proto3" json:"restore_point,omitempty"`
+	RestorePoint string `protobuf:"bytes,8,opt,name=restore_point,json=restorePoint,proto3" json:"restore_point,omitempty"`
+	// The restore batches, one per namespace the restore changes, by
+	// namespace. Empty on a dry run.
+	Batches       []*NamespaceBatch `protobuf:"bytes,9,rep,name=batches,proto3" json:"batches,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RestoreResponse) Reset() {
 	*x = RestoreResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[21]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2269,7 +2862,7 @@ func (x *RestoreResponse) String() string {
 func (*RestoreResponse) ProtoMessage() {}
 
 func (x *RestoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[21]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2282,14 +2875,7 @@ func (x *RestoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreResponse.ProtoReflect.Descriptor instead.
 func (*RestoreResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{21}
-}
-
-func (x *RestoreResponse) GetBatch() string {
-	if x != nil {
-		return x.Batch
-	}
-	return ""
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RestoreResponse) GetCursor() *Cursor {
@@ -2341,6 +2927,68 @@ func (x *RestoreResponse) GetRestorePoint() string {
 	return ""
 }
 
+func (x *RestoreResponse) GetBatches() []*NamespaceBatch {
+	if x != nil {
+		return x.Batches
+	}
+	return nil
+}
+
+// NamespaceBatch is a change batch and the namespace it is in.
+type NamespaceBatch struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The namespace.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Id of the change batch.
+	Batch         string `protobuf:"bytes,2,opt,name=batch,proto3" json:"batch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NamespaceBatch) Reset() {
+	*x = NamespaceBatch{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NamespaceBatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NamespaceBatch) ProtoMessage() {}
+
+func (x *NamespaceBatch) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NamespaceBatch.ProtoReflect.Descriptor instead.
+func (*NamespaceBatch) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *NamespaceBatch) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *NamespaceBatch) GetBatch() string {
+	if x != nil {
+		return x.Batch
+	}
+	return ""
+}
+
 type HistoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database to list restore points for.
@@ -2355,7 +3003,7 @@ type HistoryRequest struct {
 
 func (x *HistoryRequest) Reset() {
 	*x = HistoryRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[22]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2367,7 +3015,7 @@ func (x *HistoryRequest) String() string {
 func (*HistoryRequest) ProtoMessage() {}
 
 func (x *HistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[22]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2380,7 +3028,7 @@ func (x *HistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryRequest.ProtoReflect.Descriptor instead.
 func (*HistoryRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{22}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *HistoryRequest) GetDatabase() string {
@@ -2417,7 +3065,7 @@ type RestorePoint struct {
 
 func (x *RestorePoint) Reset() {
 	*x = RestorePoint{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[23]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2429,7 +3077,7 @@ func (x *RestorePoint) String() string {
 func (*RestorePoint) ProtoMessage() {}
 
 func (x *RestorePoint) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[23]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2442,7 +3090,7 @@ func (x *RestorePoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestorePoint.ProtoReflect.Descriptor instead.
 func (*RestorePoint) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{23}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RestorePoint) GetSeq() int64 {
@@ -2471,7 +3119,7 @@ type HistoryResponse struct {
 
 func (x *HistoryResponse) Reset() {
 	*x = HistoryResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[24]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2483,7 +3131,7 @@ func (x *HistoryResponse) String() string {
 func (*HistoryResponse) ProtoMessage() {}
 
 func (x *HistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[24]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2496,7 +3144,7 @@ func (x *HistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryResponse.ProtoReflect.Descriptor instead.
 func (*HistoryResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{24}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *HistoryResponse) GetPoints() []*RestorePoint {
@@ -2539,7 +3187,7 @@ type RecoverDatabaseRequest struct {
 
 func (x *RecoverDatabaseRequest) Reset() {
 	*x = RecoverDatabaseRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[25]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2551,7 +3199,7 @@ func (x *RecoverDatabaseRequest) String() string {
 func (*RecoverDatabaseRequest) ProtoMessage() {}
 
 func (x *RecoverDatabaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[25]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2564,7 +3212,7 @@ func (x *RecoverDatabaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecoverDatabaseRequest.ProtoReflect.Descriptor instead.
 func (*RecoverDatabaseRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{25}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *RecoverDatabaseRequest) GetDatabase() string {
@@ -2613,7 +3261,7 @@ type RecoverDatabaseResponse struct {
 
 func (x *RecoverDatabaseResponse) Reset() {
 	*x = RecoverDatabaseResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[26]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2625,7 +3273,7 @@ func (x *RecoverDatabaseResponse) String() string {
 func (*RecoverDatabaseResponse) ProtoMessage() {}
 
 func (x *RecoverDatabaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[26]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2638,7 +3286,7 @@ func (x *RecoverDatabaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecoverDatabaseResponse.ProtoReflect.Descriptor instead.
 func (*RecoverDatabaseResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{26}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *RecoverDatabaseResponse) GetInfo() *DatabaseInfo {
@@ -2658,7 +3306,7 @@ type DeleteDatabaseRequest struct {
 
 func (x *DeleteDatabaseRequest) Reset() {
 	*x = DeleteDatabaseRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[27]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2670,7 +3318,7 @@ func (x *DeleteDatabaseRequest) String() string {
 func (*DeleteDatabaseRequest) ProtoMessage() {}
 
 func (x *DeleteDatabaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[27]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2683,7 +3331,7 @@ func (x *DeleteDatabaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDatabaseRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDatabaseRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{27}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DeleteDatabaseRequest) GetDatabase() string {
@@ -2701,7 +3349,7 @@ type DeleteDatabaseResponse struct {
 
 func (x *DeleteDatabaseResponse) Reset() {
 	*x = DeleteDatabaseResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[28]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2713,7 +3361,7 @@ func (x *DeleteDatabaseResponse) String() string {
 func (*DeleteDatabaseResponse) ProtoMessage() {}
 
 func (x *DeleteDatabaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[28]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2726,7 +3374,670 @@ func (x *DeleteDatabaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDatabaseResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDatabaseResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{28}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{33}
+}
+
+// SchemaDeclaration is the whole schema of a namespace as an application
+// declares it to EnsureSchema.
+type SchemaDeclaration struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The version of the schema, at least 1. A changed schema needs a
+	// higher version.
+	Version int64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// Whether people may edit the namespace's schema; see
+	// Namespace.schema_editable.
+	SchemaEditable bool `protobuf:"varint,2,opt,name=schema_editable,json=schemaEditable,proto3" json:"schema_editable,omitempty"`
+	// The namespace's tables, at most 200, each key once.
+	Tables        []*DeclaredTable `protobuf:"bytes,3,rep,name=tables,proto3" json:"tables,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SchemaDeclaration) Reset() {
+	*x = SchemaDeclaration{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SchemaDeclaration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SchemaDeclaration) ProtoMessage() {}
+
+func (x *SchemaDeclaration) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SchemaDeclaration.ProtoReflect.Descriptor instead.
+func (*SchemaDeclaration) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *SchemaDeclaration) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *SchemaDeclaration) GetSchemaEditable() bool {
+	if x != nil {
+		return x.SchemaEditable
+	}
+	return false
+}
+
+func (x *SchemaDeclaration) GetTables() []*DeclaredTable {
+	if x != nil {
+		return x.Tables
+	}
+	return nil
+}
+
+// DeclaredTable is a table of a SchemaDeclaration.
+type DeclaredTable struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The table's key, which matches it with the namespace's table of the
+	// same key. Required.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Display name. Required.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The table's columns, in the order the table has them, at most 500,
+	// each key once.
+	Columns []*DeclaredColumn `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
+	// The table's unique constraints and indexes, at most 16, each key
+	// once.
+	Indexes []*DeclaredIndex `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
+	// Key of the column DataService.Summarize summarises by default, which
+	// must be a declared column that can be summarised. Empty leaves it to
+	// the default rule; see Table.summary_column.
+	SummaryColumn string `protobuf:"bytes,5,opt,name=summary_column,json=summaryColumn,proto3" json:"summary_column,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeclaredTable) Reset() {
+	*x = DeclaredTable{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeclaredTable) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeclaredTable) ProtoMessage() {}
+
+func (x *DeclaredTable) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeclaredTable.ProtoReflect.Descriptor instead.
+func (*DeclaredTable) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *DeclaredTable) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *DeclaredTable) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DeclaredTable) GetColumns() []*DeclaredColumn {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *DeclaredTable) GetIndexes() []*DeclaredIndex {
+	if x != nil {
+		return x.Indexes
+	}
+	return nil
+}
+
+func (x *DeclaredTable) GetSummaryColumn() string {
+	if x != nil {
+		return x.SummaryColumn
+	}
+	return ""
+}
+
+// DeclaredColumn is a column of a DeclaredTable.
+type DeclaredColumn struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The column's key, which matches it with the table's column of the
+	// same key. Required.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Display name. Required.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Type of the column. Required.
+	Type ColumnType `protobuf:"varint,3,opt,name=type,proto3,enum=elephant.tables.v1.ColumnType" json:"type,omitempty"`
+	// Display hint; see Column.format.
+	Format string `protobuf:"bytes,4,opt,name=format,proto3" json:"format,omitempty"`
+	// The allowed values of a COLUMN_TYPE_CHOICE or COLUMN_TYPE_MULTI_CHOICE
+	// column; see Column.options.
+	Options []string `protobuf:"bytes,5,rep,name=options,proto3" json:"options,omitempty"`
+	// True to hide the column from the default view.
+	Hidden bool `protobuf:"varint,6,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	// True when the column refuses empty cells.
+	Required      bool `protobuf:"varint,7,opt,name=required,proto3" json:"required,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeclaredColumn) Reset() {
+	*x = DeclaredColumn{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeclaredColumn) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeclaredColumn) ProtoMessage() {}
+
+func (x *DeclaredColumn) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeclaredColumn.ProtoReflect.Descriptor instead.
+func (*DeclaredColumn) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *DeclaredColumn) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *DeclaredColumn) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DeclaredColumn) GetType() ColumnType {
+	if x != nil {
+		return x.Type
+	}
+	return ColumnType_COLUMN_TYPE_UNSPECIFIED
+}
+
+func (x *DeclaredColumn) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+func (x *DeclaredColumn) GetOptions() []string {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+func (x *DeclaredColumn) GetHidden() bool {
+	if x != nil {
+		return x.Hidden
+	}
+	return false
+}
+
+func (x *DeclaredColumn) GetRequired() bool {
+	if x != nil {
+		return x.Required
+	}
+	return false
+}
+
+// DeclaredIndex is a unique constraint or index of a DeclaredTable.
+type DeclaredIndex struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The index's key, which matches it with the table's index of the same
+	// key. Required.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Keys of the declared columns it covers, in order, at most 8 and each
+	// once.
+	Columns []string `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
+	// True for a unique constraint, false for an index.
+	Unique        bool `protobuf:"varint,3,opt,name=unique,proto3" json:"unique,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeclaredIndex) Reset() {
+	*x = DeclaredIndex{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeclaredIndex) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeclaredIndex) ProtoMessage() {}
+
+func (x *DeclaredIndex) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeclaredIndex.ProtoReflect.Descriptor instead.
+func (*DeclaredIndex) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *DeclaredIndex) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *DeclaredIndex) GetColumns() []string {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *DeclaredIndex) GetUnique() bool {
+	if x != nil {
+		return x.Unique
+	}
+	return false
+}
+
+// SchemaStep is one step of applying a schema declaration.
+type SchemaStep struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What the step does.
+	Kind SchemaStepKind `protobuf:"varint,1,opt,name=kind,proto3,enum=elephant.tables.v1.SchemaStepKind" json:"kind,omitempty"`
+	// Key of the table. Empty for SCHEMA_STEP_KIND_UPDATE_NAMESPACE.
+	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
+	// Key of the column, for a column step.
+	Column string `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
+	// Key of the unique constraint or index, for an index step.
+	Index string `protobuf:"bytes,4,opt,name=index,proto3" json:"index,omitempty"`
+	// Human-readable description, such as "type text to integer".
+	Description   string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SchemaStep) Reset() {
+	*x = SchemaStep{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SchemaStep) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SchemaStep) ProtoMessage() {}
+
+func (x *SchemaStep) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SchemaStep.ProtoReflect.Descriptor instead.
+func (*SchemaStep) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *SchemaStep) GetKind() SchemaStepKind {
+	if x != nil {
+		return x.Kind
+	}
+	return SchemaStepKind_SCHEMA_STEP_KIND_UNSPECIFIED
+}
+
+func (x *SchemaStep) GetTable() string {
+	if x != nil {
+		return x.Table
+	}
+	return ""
+}
+
+func (x *SchemaStep) GetColumn() string {
+	if x != nil {
+		return x.Column
+	}
+	return ""
+}
+
+func (x *SchemaStep) GetIndex() string {
+	if x != nil {
+		return x.Index
+	}
+	return ""
+}
+
+func (x *SchemaStep) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+// SchemaVersionConflict is the detail of the failed_precondition that
+// refuses a declaration whose version is lower than the stored one, or
+// equal to it with another schema.
+type SchemaVersionConflict struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The version stored on the namespace.
+	StoredVersion int64 `protobuf:"varint,1,opt,name=stored_version,json=storedVersion,proto3" json:"stored_version,omitempty"`
+	// The digest stored on the namespace.
+	StoredDigest string `protobuf:"bytes,2,opt,name=stored_digest,json=storedDigest,proto3" json:"stored_digest,omitempty"`
+	// The digest of the refused declaration.
+	DeclaredDigest string `protobuf:"bytes,3,opt,name=declared_digest,json=declaredDigest,proto3" json:"declared_digest,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SchemaVersionConflict) Reset() {
+	*x = SchemaVersionConflict{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SchemaVersionConflict) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SchemaVersionConflict) ProtoMessage() {}
+
+func (x *SchemaVersionConflict) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SchemaVersionConflict.ProtoReflect.Descriptor instead.
+func (*SchemaVersionConflict) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *SchemaVersionConflict) GetStoredVersion() int64 {
+	if x != nil {
+		return x.StoredVersion
+	}
+	return 0
+}
+
+func (x *SchemaVersionConflict) GetStoredDigest() string {
+	if x != nil {
+		return x.StoredDigest
+	}
+	return ""
+}
+
+func (x *SchemaVersionConflict) GetDeclaredDigest() string {
+	if x != nil {
+		return x.DeclaredDigest
+	}
+	return ""
+}
+
+type EnsureSchemaRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Database the namespace is in.
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// The namespace. Required. It is created when it does not exist.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// The declaration. Required.
+	Schema *SchemaDeclaration `protobuf:"bytes,3,opt,name=schema,proto3" json:"schema,omitempty"`
+	// Delete the tables and columns the namespace has and the declaration
+	// lacks, instead of keeping them.
+	RemoveUndeclared bool `protobuf:"varint,4,opt,name=remove_undeclared,json=removeUndeclared,proto3" json:"remove_undeclared,omitempty"`
+	// Plan without writing anything: the response lists the steps and the
+	// rows that would refuse them.
+	DryRun        bool `protobuf:"varint,5,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnsureSchemaRequest) Reset() {
+	*x = EnsureSchemaRequest{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnsureSchemaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnsureSchemaRequest) ProtoMessage() {}
+
+func (x *EnsureSchemaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnsureSchemaRequest.ProtoReflect.Descriptor instead.
+func (*EnsureSchemaRequest) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *EnsureSchemaRequest) GetDatabase() string {
+	if x != nil {
+		return x.Database
+	}
+	return ""
+}
+
+func (x *EnsureSchemaRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *EnsureSchemaRequest) GetSchema() *SchemaDeclaration {
+	if x != nil {
+		return x.Schema
+	}
+	return nil
+}
+
+func (x *EnsureSchemaRequest) GetRemoveUndeclared() bool {
+	if x != nil {
+		return x.RemoveUndeclared
+	}
+	return false
+}
+
+func (x *EnsureSchemaRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+type EnsureSchemaResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Id of the change batch. Empty on a dry run and when unchanged.
+	Batch string `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	// Position of the change batch, or the head when nothing was written.
+	Cursor *Cursor `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// True when the namespace already had this version with this schema,
+	// and nothing was done.
+	Unchanged bool `protobuf:"varint,3,opt,name=unchanged,proto3" json:"unchanged,omitempty"`
+	// The namespace after the declaration; on a dry run, as it is.
+	Namespace *Namespace `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// The namespace's tables after the declaration. Unset on a dry run.
+	Tables []*Table `protobuf:"bytes,5,rep,name=tables,proto3" json:"tables,omitempty"`
+	// The steps the declaration took, or on a dry run would take, in
+	// order. Empty when unchanged.
+	Steps []*SchemaStep `protobuf:"bytes,6,rep,name=steps,proto3" json:"steps,omitempty"`
+	// On a dry run, the rows that would refuse a step, capped at 100.
+	Violations []*ConstraintViolation `protobuf:"bytes,7,rep,name=violations,proto3" json:"violations,omitempty"`
+	// On a dry run, how many rows would refuse a step, all counted.
+	ViolationCount int64 `protobuf:"varint,8,opt,name=violation_count,json=violationCount,proto3" json:"violation_count,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *EnsureSchemaResponse) Reset() {
+	*x = EnsureSchemaResponse{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnsureSchemaResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnsureSchemaResponse) ProtoMessage() {}
+
+func (x *EnsureSchemaResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnsureSchemaResponse.ProtoReflect.Descriptor instead.
+func (*EnsureSchemaResponse) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *EnsureSchemaResponse) GetBatch() string {
+	if x != nil {
+		return x.Batch
+	}
+	return ""
+}
+
+func (x *EnsureSchemaResponse) GetCursor() *Cursor {
+	if x != nil {
+		return x.Cursor
+	}
+	return nil
+}
+
+func (x *EnsureSchemaResponse) GetUnchanged() bool {
+	if x != nil {
+		return x.Unchanged
+	}
+	return false
+}
+
+func (x *EnsureSchemaResponse) GetNamespace() *Namespace {
+	if x != nil {
+		return x.Namespace
+	}
+	return nil
+}
+
+func (x *EnsureSchemaResponse) GetTables() []*Table {
+	if x != nil {
+		return x.Tables
+	}
+	return nil
+}
+
+func (x *EnsureSchemaResponse) GetSteps() []*SchemaStep {
+	if x != nil {
+		return x.Steps
+	}
+	return nil
+}
+
+func (x *EnsureSchemaResponse) GetViolations() []*ConstraintViolation {
+	if x != nil {
+		return x.Violations
+	}
+	return nil
+}
+
+func (x *EnsureSchemaResponse) GetViolationCount() int64 {
+	if x != nil {
+		return x.ViolationCount
+	}
+	return 0
 }
 
 // SchemaChange is the change batch a schema change was written as.
@@ -2744,7 +4055,7 @@ type SchemaChange struct {
 
 func (x *SchemaChange) Reset() {
 	*x = SchemaChange{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[29]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2756,7 +4067,7 @@ func (x *SchemaChange) String() string {
 func (*SchemaChange) ProtoMessage() {}
 
 func (x *SchemaChange) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[29]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2769,7 +4080,7 @@ func (x *SchemaChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchemaChange.ProtoReflect.Descriptor instead.
 func (*SchemaChange) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{29}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *SchemaChange) GetBatch() string {
@@ -2796,14 +4107,16 @@ func (x *SchemaChange) GetTable() *Table {
 type DescribeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database to describe.
-	Database      string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// Namespace to describe. Required.
+	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DescribeRequest) Reset() {
 	*x = DescribeRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[30]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2815,7 +4128,7 @@ func (x *DescribeRequest) String() string {
 func (*DescribeRequest) ProtoMessage() {}
 
 func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[30]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2828,7 +4141,7 @@ func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
 func (*DescribeRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{30}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *DescribeRequest) GetDatabase() string {
@@ -2838,22 +4151,32 @@ func (x *DescribeRequest) GetDatabase() string {
 	return ""
 }
 
+func (x *DescribeRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type DescribeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The database's tables.
+	// The namespace's tables.
 	Tables []*Table `protobuf:"bytes,1,rep,name=tables,proto3" json:"tables,omitempty"`
-	// The CREATE VIEW statements of the views Query runs against, for
-	// agents writing SQL.
+	// The CREATE VIEW statements of the views of the namespace's tables
+	// that Query runs against, for agents writing SQL.
 	QuerySchema string `protobuf:"bytes,2,opt,name=query_schema,json=querySchema,proto3" json:"query_schema,omitempty"`
 	// The state the catalog was read at.
-	Cursor        *Cursor `protobuf:"bytes,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	Cursor *Cursor `protobuf:"bytes,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// The namespace. Unset when it does not exist yet; tables is then
+	// empty.
+	Namespace     *Namespace `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DescribeResponse) Reset() {
 	*x = DescribeResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[31]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2865,7 +4188,7 @@ func (x *DescribeResponse) String() string {
 func (*DescribeResponse) ProtoMessage() {}
 
 func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[31]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2878,7 +4201,7 @@ func (x *DescribeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeResponse.ProtoReflect.Descriptor instead.
 func (*DescribeResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{31}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *DescribeResponse) GetTables() []*Table {
@@ -2902,6 +4225,139 @@ func (x *DescribeResponse) GetCursor() *Cursor {
 	return nil
 }
 
+func (x *DescribeResponse) GetNamespace() *Namespace {
+	if x != nil {
+		return x.Namespace
+	}
+	return nil
+}
+
+type UpdateNamespaceRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Database the namespace is in.
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// The namespace. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Whether people may edit the namespace's schema.
+	SchemaEditable bool `protobuf:"varint,3,opt,name=schema_editable,json=schemaEditable,proto3" json:"schema_editable,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *UpdateNamespaceRequest) Reset() {
+	*x = UpdateNamespaceRequest{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateNamespaceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateNamespaceRequest) ProtoMessage() {}
+
+func (x *UpdateNamespaceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateNamespaceRequest.ProtoReflect.Descriptor instead.
+func (*UpdateNamespaceRequest) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *UpdateNamespaceRequest) GetDatabase() string {
+	if x != nil {
+		return x.Database
+	}
+	return ""
+}
+
+func (x *UpdateNamespaceRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *UpdateNamespaceRequest) GetSchemaEditable() bool {
+	if x != nil {
+		return x.SchemaEditable
+	}
+	return false
+}
+
+type UpdateNamespaceResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Id of the change batch. Empty when the flag was already set so.
+	Batch string `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	// Position of the change batch, or the head when nothing was written.
+	Cursor *Cursor `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// The namespace after the change.
+	Namespace     *Namespace `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateNamespaceResponse) Reset() {
+	*x = UpdateNamespaceResponse{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateNamespaceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateNamespaceResponse) ProtoMessage() {}
+
+func (x *UpdateNamespaceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateNamespaceResponse.ProtoReflect.Descriptor instead.
+func (*UpdateNamespaceResponse) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *UpdateNamespaceResponse) GetBatch() string {
+	if x != nil {
+		return x.Batch
+	}
+	return ""
+}
+
+func (x *UpdateNamespaceResponse) GetCursor() *Cursor {
+	if x != nil {
+		return x.Cursor
+	}
+	return nil
+}
+
+func (x *UpdateNamespaceResponse) GetNamespace() *Namespace {
+	if x != nil {
+		return x.Namespace
+	}
+	return nil
+}
+
 type CreateTableRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database to add the table to.
@@ -2909,15 +4365,22 @@ type CreateTableRequest struct {
 	// Display name of the new table.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The table's initial columns. Ids and SQL names are assigned by the
-	// server, so id and sql_name are ignored.
-	Columns       []*Column `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
+	// server, so id and sql_name are ignored. A column's key is used when
+	// it is set, and made from its name otherwise.
+	Columns []*Column `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
+	// Namespace to create the table in. Required.
+	Namespace string `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Key of the new table. Empty has the service make one from the name.
+	// Refused with already_exists when another table of the namespace
+	// holds or reserves it.
+	Key           string `protobuf:"bytes,5,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateTableRequest) Reset() {
 	*x = CreateTableRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[32]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2929,7 +4392,7 @@ func (x *CreateTableRequest) String() string {
 func (*CreateTableRequest) ProtoMessage() {}
 
 func (x *CreateTableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[32]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2942,7 +4405,7 @@ func (x *CreateTableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTableRequest.ProtoReflect.Descriptor instead.
 func (*CreateTableRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{32}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CreateTableRequest) GetDatabase() string {
@@ -2966,6 +4429,20 @@ func (x *CreateTableRequest) GetColumns() []*Column {
 	return nil
 }
 
+func (x *CreateTableRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *CreateTableRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
 type CreateTableResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the change batch.
@@ -2980,7 +4457,7 @@ type CreateTableResponse struct {
 
 func (x *CreateTableResponse) Reset() {
 	*x = CreateTableResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[33]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2992,7 +4469,7 @@ func (x *CreateTableResponse) String() string {
 func (*CreateTableResponse) ProtoMessage() {}
 
 func (x *CreateTableResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[33]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3005,7 +4482,7 @@ func (x *CreateTableResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTableResponse.ProtoReflect.Descriptor instead.
 func (*CreateTableResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{33}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CreateTableResponse) GetBatch() string {
@@ -3033,21 +4510,23 @@ type UpdateTableRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table to change.
+	// Id or key of the table to change.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
 	// New display name. Empty leaves the name unchanged.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// Id of the new summary column, which must be a column of the table
+	// Id or key of the new summary column, which must be a column of the table
 	// that Summarize can summarise. Unset leaves the summary column
 	// unchanged; empty sets none.
 	SummaryColumn *string `protobuf:"bytes,4,opt,name=summary_column,json=summaryColumn,proto3,oneof" json:"summary_column,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateTableRequest) Reset() {
 	*x = UpdateTableRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[34]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3059,7 +4538,7 @@ func (x *UpdateTableRequest) String() string {
 func (*UpdateTableRequest) ProtoMessage() {}
 
 func (x *UpdateTableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[34]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3072,7 +4551,7 @@ func (x *UpdateTableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTableRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTableRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{34}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *UpdateTableRequest) GetDatabase() string {
@@ -3103,6 +4582,13 @@ func (x *UpdateTableRequest) GetSummaryColumn() string {
 	return ""
 }
 
+func (x *UpdateTableRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type UpdateTableResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the change batch.
@@ -3117,7 +4603,7 @@ type UpdateTableResponse struct {
 
 func (x *UpdateTableResponse) Reset() {
 	*x = UpdateTableResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[35]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3129,7 +4615,7 @@ func (x *UpdateTableResponse) String() string {
 func (*UpdateTableResponse) ProtoMessage() {}
 
 func (x *UpdateTableResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[35]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3142,7 +4628,7 @@ func (x *UpdateTableResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTableResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTableResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{35}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *UpdateTableResponse) GetBatch() string {
@@ -3170,15 +4656,17 @@ type DeleteTableRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table to delete.
-	Table         string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
+	// Id or key of the table to delete.
+	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeleteTableRequest) Reset() {
 	*x = DeleteTableRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[36]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3190,7 +4678,7 @@ func (x *DeleteTableRequest) String() string {
 func (*DeleteTableRequest) ProtoMessage() {}
 
 func (x *DeleteTableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[36]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3203,7 +4691,7 @@ func (x *DeleteTableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTableRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTableRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{36}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *DeleteTableRequest) GetDatabase() string {
@@ -3220,6 +4708,13 @@ func (x *DeleteTableRequest) GetTable() string {
 	return ""
 }
 
+func (x *DeleteTableRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type DeleteTableResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the change batch.
@@ -3232,7 +4727,7 @@ type DeleteTableResponse struct {
 
 func (x *DeleteTableResponse) Reset() {
 	*x = DeleteTableResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[37]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3244,7 +4739,7 @@ func (x *DeleteTableResponse) String() string {
 func (*DeleteTableResponse) ProtoMessage() {}
 
 func (x *DeleteTableResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[37]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3257,7 +4752,7 @@ func (x *DeleteTableResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTableResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTableResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{37}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *DeleteTableResponse) GetBatch() string {
@@ -3278,17 +4773,22 @@ type AddColumnRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table to add the column to.
+	// Id or key of the table to add the column to.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
-	// The new column. Its id and sql_name are assigned by the server.
-	Column        *Column `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
+	// The new column. Its id and sql_name are assigned by the server. Its
+	// key is used when it is set, and made from its name otherwise;
+	// refused with already_exists when another column of the table holds
+	// or reserves it.
+	Column *Column `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AddColumnRequest) Reset() {
 	*x = AddColumnRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[38]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3300,7 +4800,7 @@ func (x *AddColumnRequest) String() string {
 func (*AddColumnRequest) ProtoMessage() {}
 
 func (x *AddColumnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[38]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3313,7 +4813,7 @@ func (x *AddColumnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddColumnRequest.ProtoReflect.Descriptor instead.
 func (*AddColumnRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{38}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AddColumnRequest) GetDatabase() string {
@@ -3337,6 +4837,13 @@ func (x *AddColumnRequest) GetColumn() *Column {
 	return nil
 }
 
+func (x *AddColumnRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type AddColumnResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the change batch.
@@ -3351,7 +4858,7 @@ type AddColumnResponse struct {
 
 func (x *AddColumnResponse) Reset() {
 	*x = AddColumnResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[39]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3363,7 +4870,7 @@ func (x *AddColumnResponse) String() string {
 func (*AddColumnResponse) ProtoMessage() {}
 
 func (x *AddColumnResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[39]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3376,7 +4883,7 @@ func (x *AddColumnResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddColumnResponse.ProtoReflect.Descriptor instead.
 func (*AddColumnResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{39}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *AddColumnResponse) GetBatch() string {
@@ -3404,18 +4911,21 @@ type UpdateColumnRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table the column is in.
+	// Id or key of the table the column is in.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
-	// The column as it should be, matched on its id. type and sql_name are
-	// ignored.
-	Column        *Column `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
+	// The column as it should be, matched on its id, or on its key when id
+	// is empty. type, sql_name and required are ignored, and so is key
+	// when id is set: a key never changes. SetRequired changes required.
+	Column *Column `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateColumnRequest) Reset() {
 	*x = UpdateColumnRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[40]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3427,7 +4937,7 @@ func (x *UpdateColumnRequest) String() string {
 func (*UpdateColumnRequest) ProtoMessage() {}
 
 func (x *UpdateColumnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[40]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3440,7 +4950,7 @@ func (x *UpdateColumnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateColumnRequest.ProtoReflect.Descriptor instead.
 func (*UpdateColumnRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{40}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *UpdateColumnRequest) GetDatabase() string {
@@ -3464,6 +4974,13 @@ func (x *UpdateColumnRequest) GetColumn() *Column {
 	return nil
 }
 
+func (x *UpdateColumnRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type UpdateColumnResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the change batch.
@@ -3478,7 +4995,7 @@ type UpdateColumnResponse struct {
 
 func (x *UpdateColumnResponse) Reset() {
 	*x = UpdateColumnResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[41]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3490,7 +5007,7 @@ func (x *UpdateColumnResponse) String() string {
 func (*UpdateColumnResponse) ProtoMessage() {}
 
 func (x *UpdateColumnResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[41]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3503,7 +5020,7 @@ func (x *UpdateColumnResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateColumnResponse.ProtoReflect.Descriptor instead.
 func (*UpdateColumnResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{41}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *UpdateColumnResponse) GetBatch() string {
@@ -3531,9 +5048,9 @@ type ChangeColumnTypeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table the column is in.
+	// Id or key of the table the column is in.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
-	// Id of the column to convert.
+	// Id or key of the column to convert.
 	Column string `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
 	// The new type.
 	Type ColumnType `protobuf:"varint,4,opt,name=type,proto3,enum=elephant.tables.v1.ColumnType" json:"type,omitempty"`
@@ -3544,14 +5061,16 @@ type ChangeColumnTypeRequest struct {
 	// convert.
 	Options []string `protobuf:"bytes,5,rep,name=options,proto3" json:"options,omitempty"`
 	// Report what would fail to convert without writing anything.
-	DryRun        bool `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	DryRun bool `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ChangeColumnTypeRequest) Reset() {
 	*x = ChangeColumnTypeRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[42]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3563,7 +5082,7 @@ func (x *ChangeColumnTypeRequest) String() string {
 func (*ChangeColumnTypeRequest) ProtoMessage() {}
 
 func (x *ChangeColumnTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[42]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3576,7 +5095,7 @@ func (x *ChangeColumnTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeColumnTypeRequest.ProtoReflect.Descriptor instead.
 func (*ChangeColumnTypeRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{42}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ChangeColumnTypeRequest) GetDatabase() string {
@@ -3621,6 +5140,13 @@ func (x *ChangeColumnTypeRequest) GetDryRun() bool {
 	return false
 }
 
+func (x *ChangeColumnTypeRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type ChangeColumnTypeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Cells that converted.
@@ -3636,7 +5162,7 @@ type ChangeColumnTypeResponse struct {
 
 func (x *ChangeColumnTypeResponse) Reset() {
 	*x = ChangeColumnTypeResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[43]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3648,7 +5174,7 @@ func (x *ChangeColumnTypeResponse) String() string {
 func (*ChangeColumnTypeResponse) ProtoMessage() {}
 
 func (x *ChangeColumnTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[43]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3661,7 +5187,7 @@ func (x *ChangeColumnTypeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeColumnTypeResponse.ProtoReflect.Descriptor instead.
 func (*ChangeColumnTypeResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{43}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ChangeColumnTypeResponse) GetConverted() int64 {
@@ -3689,17 +5215,19 @@ type DeleteColumnRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table the column is in.
+	// Id or key of the table the column is in.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
-	// Id of the column to delete.
-	Column        string `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
+	// Id or key of the column to delete.
+	Column string `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeleteColumnRequest) Reset() {
 	*x = DeleteColumnRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[44]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3711,7 +5239,7 @@ func (x *DeleteColumnRequest) String() string {
 func (*DeleteColumnRequest) ProtoMessage() {}
 
 func (x *DeleteColumnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[44]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3724,7 +5252,7 @@ func (x *DeleteColumnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteColumnRequest.ProtoReflect.Descriptor instead.
 func (*DeleteColumnRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{44}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DeleteColumnRequest) GetDatabase() string {
@@ -3748,6 +5276,13 @@ func (x *DeleteColumnRequest) GetColumn() string {
 	return ""
 }
 
+func (x *DeleteColumnRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type DeleteColumnResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the change batch.
@@ -3762,7 +5297,7 @@ type DeleteColumnResponse struct {
 
 func (x *DeleteColumnResponse) Reset() {
 	*x = DeleteColumnResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[45]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3774,7 +5309,7 @@ func (x *DeleteColumnResponse) String() string {
 func (*DeleteColumnResponse) ProtoMessage() {}
 
 func (x *DeleteColumnResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[45]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3787,7 +5322,7 @@ func (x *DeleteColumnResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteColumnResponse.ProtoReflect.Descriptor instead.
 func (*DeleteColumnResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{45}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *DeleteColumnResponse) GetBatch() string {
@@ -3811,11 +5346,497 @@ func (x *DeleteColumnResponse) GetTable() *Table {
 	return nil
 }
 
+type SetRequiredRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Database the table is in.
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Id or key of the table the column is in.
+	Table string `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
+	// Id or key of the column.
+	Column string `protobuf:"bytes,4,opt,name=column,proto3" json:"column,omitempty"`
+	// Whether the column refuses empty cells.
+	Required bool `protobuf:"varint,5,opt,name=required,proto3" json:"required,omitempty"`
+	// Report the rows that would refuse it without writing anything.
+	DryRun        bool `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetRequiredRequest) Reset() {
+	*x = SetRequiredRequest{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetRequiredRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetRequiredRequest) ProtoMessage() {}
+
+func (x *SetRequiredRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetRequiredRequest.ProtoReflect.Descriptor instead.
+func (*SetRequiredRequest) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *SetRequiredRequest) GetDatabase() string {
+	if x != nil {
+		return x.Database
+	}
+	return ""
+}
+
+func (x *SetRequiredRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *SetRequiredRequest) GetTable() string {
+	if x != nil {
+		return x.Table
+	}
+	return ""
+}
+
+func (x *SetRequiredRequest) GetColumn() string {
+	if x != nil {
+		return x.Column
+	}
+	return ""
+}
+
+func (x *SetRequiredRequest) GetRequired() bool {
+	if x != nil {
+		return x.Required
+	}
+	return false
+}
+
+func (x *SetRequiredRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+type SetRequiredResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Id of the change batch. Empty on a dry run, and when the column
+	// already was so.
+	Batch string `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	// Position of the change batch, or the head when nothing was written.
+	Cursor *Cursor `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// The table after the change. Unset on a dry run.
+	Table *Table `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
+	// On a dry run, the rows with no value in the column, capped at 100.
+	Violations []*ConstraintViolation `protobuf:"bytes,4,rep,name=violations,proto3" json:"violations,omitempty"`
+	// On a dry run, how many rows have no value in the column.
+	ViolationCount int64 `protobuf:"varint,5,opt,name=violation_count,json=violationCount,proto3" json:"violation_count,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SetRequiredResponse) Reset() {
+	*x = SetRequiredResponse{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetRequiredResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetRequiredResponse) ProtoMessage() {}
+
+func (x *SetRequiredResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetRequiredResponse.ProtoReflect.Descriptor instead.
+func (*SetRequiredResponse) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *SetRequiredResponse) GetBatch() string {
+	if x != nil {
+		return x.Batch
+	}
+	return ""
+}
+
+func (x *SetRequiredResponse) GetCursor() *Cursor {
+	if x != nil {
+		return x.Cursor
+	}
+	return nil
+}
+
+func (x *SetRequiredResponse) GetTable() *Table {
+	if x != nil {
+		return x.Table
+	}
+	return nil
+}
+
+func (x *SetRequiredResponse) GetViolations() []*ConstraintViolation {
+	if x != nil {
+		return x.Violations
+	}
+	return nil
+}
+
+func (x *SetRequiredResponse) GetViolationCount() int64 {
+	if x != nil {
+		return x.ViolationCount
+	}
+	return 0
+}
+
+type AddIndexRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Database the table is in.
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Id or key of the table.
+	Table string `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
+	// The unique constraint or index. Its id is assigned by the server;
+	// its columns are ids or keys, at most 8 and each once. Its key is
+	// made from the columns' keys when empty, and refused with
+	// already_exists when another index of the table holds it. A table
+	// cannot have two indexes over the same columns in the same order
+	// with the same unique flag: that is invalid_argument.
+	Index *Index `protobuf:"bytes,4,opt,name=index,proto3" json:"index,omitempty"`
+	// Report the rows that would refuse a unique constraint without
+	// writing anything.
+	DryRun        bool `protobuf:"varint,5,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddIndexRequest) Reset() {
+	*x = AddIndexRequest{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddIndexRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddIndexRequest) ProtoMessage() {}
+
+func (x *AddIndexRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddIndexRequest.ProtoReflect.Descriptor instead.
+func (*AddIndexRequest) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *AddIndexRequest) GetDatabase() string {
+	if x != nil {
+		return x.Database
+	}
+	return ""
+}
+
+func (x *AddIndexRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *AddIndexRequest) GetTable() string {
+	if x != nil {
+		return x.Table
+	}
+	return ""
+}
+
+func (x *AddIndexRequest) GetIndex() *Index {
+	if x != nil {
+		return x.Index
+	}
+	return nil
+}
+
+func (x *AddIndexRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+type AddIndexResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Id of the change batch. Empty on a dry run.
+	Batch string `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	// Position of the change batch.
+	Cursor *Cursor `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// The table after the change. Unset on a dry run.
+	Table *Table `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
+	// Id of the new index. Empty on a dry run.
+	Index string `protobuf:"bytes,4,opt,name=index,proto3" json:"index,omitempty"`
+	// On a dry run of a unique constraint, the rows that share values
+	// with an earlier row, capped at 100, each naming that row as
+	// existing_row.
+	Violations []*ConstraintViolation `protobuf:"bytes,5,rep,name=violations,proto3" json:"violations,omitempty"`
+	// On a dry run, how many rows share values with an earlier row.
+	ViolationCount int64 `protobuf:"varint,6,opt,name=violation_count,json=violationCount,proto3" json:"violation_count,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *AddIndexResponse) Reset() {
+	*x = AddIndexResponse{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddIndexResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddIndexResponse) ProtoMessage() {}
+
+func (x *AddIndexResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddIndexResponse.ProtoReflect.Descriptor instead.
+func (*AddIndexResponse) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *AddIndexResponse) GetBatch() string {
+	if x != nil {
+		return x.Batch
+	}
+	return ""
+}
+
+func (x *AddIndexResponse) GetCursor() *Cursor {
+	if x != nil {
+		return x.Cursor
+	}
+	return nil
+}
+
+func (x *AddIndexResponse) GetTable() *Table {
+	if x != nil {
+		return x.Table
+	}
+	return nil
+}
+
+func (x *AddIndexResponse) GetIndex() string {
+	if x != nil {
+		return x.Index
+	}
+	return ""
+}
+
+func (x *AddIndexResponse) GetViolations() []*ConstraintViolation {
+	if x != nil {
+		return x.Violations
+	}
+	return nil
+}
+
+func (x *AddIndexResponse) GetViolationCount() int64 {
+	if x != nil {
+		return x.ViolationCount
+	}
+	return 0
+}
+
+type DeleteIndexRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Database the table is in.
+	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Id or key of the table.
+	Table string `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
+	// Id or key of the unique constraint or index.
+	Index         string `protobuf:"bytes,4,opt,name=index,proto3" json:"index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteIndexRequest) Reset() {
+	*x = DeleteIndexRequest{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteIndexRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteIndexRequest) ProtoMessage() {}
+
+func (x *DeleteIndexRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteIndexRequest.ProtoReflect.Descriptor instead.
+func (*DeleteIndexRequest) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *DeleteIndexRequest) GetDatabase() string {
+	if x != nil {
+		return x.Database
+	}
+	return ""
+}
+
+func (x *DeleteIndexRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *DeleteIndexRequest) GetTable() string {
+	if x != nil {
+		return x.Table
+	}
+	return ""
+}
+
+func (x *DeleteIndexRequest) GetIndex() string {
+	if x != nil {
+		return x.Index
+	}
+	return ""
+}
+
+type DeleteIndexResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Id of the change batch.
+	Batch string `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	// Position of the change batch.
+	Cursor *Cursor `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// The table after the change.
+	Table         *Table `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteIndexResponse) Reset() {
+	*x = DeleteIndexResponse{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteIndexResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteIndexResponse) ProtoMessage() {}
+
+func (x *DeleteIndexResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteIndexResponse.ProtoReflect.Descriptor instead.
+func (*DeleteIndexResponse) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *DeleteIndexResponse) GetBatch() string {
+	if x != nil {
+		return x.Batch
+	}
+	return ""
+}
+
+func (x *DeleteIndexResponse) GetCursor() *Cursor {
+	if x != nil {
+		return x.Cursor
+	}
+	return nil
+}
+
+func (x *DeleteIndexResponse) GetTable() *Table {
+	if x != nil {
+		return x.Table
+	}
+	return nil
+}
+
 type ListRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table to read.
+	// Id or key of the table to read.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
 	// Conditions every row must meet.
 	Filters []*Filter `protobuf:"bytes,3,rep,name=filters,proto3" json:"filters,omitempty"`
@@ -3831,15 +5852,18 @@ type ListRequest struct {
 	// order was rebalanced since the token's page or the change log no
 	// longer reaches back to it.
 	PageToken string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	// Ids of the columns to return. Empty returns all of them.
-	Columns       []string `protobuf:"bytes,7,rep,name=columns,proto3" json:"columns,omitempty"`
+	// Ids or keys of the columns to return. Empty returns all of them.
+	// Rows key their cells by column id either way.
+	Columns []string `protobuf:"bytes,7,rep,name=columns,proto3" json:"columns,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListRequest) Reset() {
 	*x = ListRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[46]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3851,7 +5875,7 @@ func (x *ListRequest) String() string {
 func (*ListRequest) ProtoMessage() {}
 
 func (x *ListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[46]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3864,7 +5888,7 @@ func (x *ListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRequest.ProtoReflect.Descriptor instead.
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{46}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ListRequest) GetDatabase() string {
@@ -3916,6 +5940,13 @@ func (x *ListRequest) GetColumns() []string {
 	return nil
 }
 
+func (x *ListRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type ListResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The page of rows.
@@ -3930,7 +5961,7 @@ type ListResponse struct {
 
 func (x *ListResponse) Reset() {
 	*x = ListResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[47]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3942,7 +5973,7 @@ func (x *ListResponse) String() string {
 func (*ListResponse) ProtoMessage() {}
 
 func (x *ListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[47]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3955,7 +5986,7 @@ func (x *ListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListResponse.ProtoReflect.Descriptor instead.
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{47}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ListResponse) GetRows() []*Row {
@@ -3982,7 +6013,7 @@ func (x *ListResponse) GetCursor() *Cursor {
 // CellWrite writes one cell.
 type CellWrite struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Id of the column to write.
+	// Id or key of the column to write.
 	Column string `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
 	// The value to write.
 	Value *Value `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
@@ -3997,7 +6028,7 @@ type CellWrite struct {
 
 func (x *CellWrite) Reset() {
 	*x = CellWrite{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[48]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4009,7 +6040,7 @@ func (x *CellWrite) String() string {
 func (*CellWrite) ProtoMessage() {}
 
 func (x *CellWrite) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[48]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4022,7 +6053,7 @@ func (x *CellWrite) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CellWrite.ProtoReflect.Descriptor instead.
 func (*CellWrite) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{48}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *CellWrite) GetColumn() string {
@@ -4062,7 +6093,7 @@ type RowInsert struct {
 
 func (x *RowInsert) Reset() {
 	*x = RowInsert{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[49]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4074,7 +6105,7 @@ func (x *RowInsert) String() string {
 func (*RowInsert) ProtoMessage() {}
 
 func (x *RowInsert) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[49]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4087,7 +6118,7 @@ func (x *RowInsert) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RowInsert.ProtoReflect.Descriptor instead.
 func (*RowInsert) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{49}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *RowInsert) GetClientRef() string {
@@ -4124,7 +6155,7 @@ type RowUpdate struct {
 
 func (x *RowUpdate) Reset() {
 	*x = RowUpdate{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[50]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4136,7 +6167,7 @@ func (x *RowUpdate) String() string {
 func (*RowUpdate) ProtoMessage() {}
 
 func (x *RowUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[50]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4149,7 +6180,7 @@ func (x *RowUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RowUpdate.ProtoReflect.Descriptor instead.
 func (*RowUpdate) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{50}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *RowUpdate) GetRow() int64 {
@@ -4181,7 +6212,7 @@ type RowMove struct {
 
 func (x *RowMove) Reset() {
 	*x = RowMove{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[51]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4193,7 +6224,7 @@ func (x *RowMove) String() string {
 func (*RowMove) ProtoMessage() {}
 
 func (x *RowMove) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[51]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4206,7 +6237,7 @@ func (x *RowMove) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RowMove.ProtoReflect.Descriptor instead.
 func (*RowMove) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{51}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *RowMove) GetRow() int64 {
@@ -4246,7 +6277,7 @@ type Mutation struct {
 
 func (x *Mutation) Reset() {
 	*x = Mutation{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[52]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4258,7 +6289,7 @@ func (x *Mutation) String() string {
 func (*Mutation) ProtoMessage() {}
 
 func (x *Mutation) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[52]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4271,7 +6302,7 @@ func (x *Mutation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Mutation.ProtoReflect.Descriptor instead.
 func (*Mutation) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{52}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *Mutation) GetOp() isMutation_Op {
@@ -4353,21 +6384,23 @@ type MutateRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table to change.
+	// Id or key of the table to change.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
 	// The operations, applied in order in one transaction and one change
 	// batch.
 	Mutations []*Mutation `protobuf:"bytes,3,rep,name=mutations,proto3" json:"mutations,omitempty"`
 	// Fail every operation on any conflict. By default conflicting
 	// operations are skipped and the rest apply.
-	Atomic        bool `protobuf:"varint,4,opt,name=atomic,proto3" json:"atomic,omitempty"`
+	Atomic bool `protobuf:"varint,4,opt,name=atomic,proto3" json:"atomic,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MutateRequest) Reset() {
 	*x = MutateRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[53]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4379,7 +6412,7 @@ func (x *MutateRequest) String() string {
 func (*MutateRequest) ProtoMessage() {}
 
 func (x *MutateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[53]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4392,7 +6425,7 @@ func (x *MutateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateRequest.ProtoReflect.Descriptor instead.
 func (*MutateRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{53}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *MutateRequest) GetDatabase() string {
@@ -4423,6 +6456,13 @@ func (x *MutateRequest) GetAtomic() bool {
 	return false
 }
 
+func (x *MutateRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 // MutationResult is the outcome of one operation.
 type MutationResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -4436,6 +6476,7 @@ type MutationResult struct {
 	//	*MutationResult_Row
 	//	*MutationResult_Conflict
 	//	*MutationResult_Error
+	//	*MutationResult_Violation
 	Result isMutationResult_Result `protobuf_oneof:"result"`
 	// client_ref of the RowInsert, echoed back.
 	ClientRef     string `protobuf:"bytes,4,opt,name=client_ref,json=clientRef,proto3" json:"client_ref,omitempty"`
@@ -4445,7 +6486,7 @@ type MutationResult struct {
 
 func (x *MutationResult) Reset() {
 	*x = MutationResult{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[54]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4457,7 +6498,7 @@ func (x *MutationResult) String() string {
 func (*MutationResult) ProtoMessage() {}
 
 func (x *MutationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[54]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4470,7 +6511,7 @@ func (x *MutationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutationResult.ProtoReflect.Descriptor instead.
 func (*MutationResult) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{54}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *MutationResult) GetIndex() int32 {
@@ -4514,6 +6555,15 @@ func (x *MutationResult) GetError() string {
 	return ""
 }
 
+func (x *MutationResult) GetViolation() *ConstraintViolation {
+	if x != nil {
+		if x, ok := x.Result.(*MutationResult_Violation); ok {
+			return x.Violation
+		}
+	}
+	return nil
+}
+
 func (x *MutationResult) GetClientRef() string {
 	if x != nil {
 		return x.ClientRef
@@ -4541,11 +6591,19 @@ type MutationResult_Error struct {
 	Error string `protobuf:"bytes,5,opt,name=error,proto3,oneof"`
 }
 
+type MutationResult_Violation struct {
+	// The operation would have left a required column empty or broken a
+	// unique constraint, and was not applied.
+	Violation *ConstraintViolation `protobuf:"bytes,6,opt,name=violation,proto3,oneof"`
+}
+
 func (*MutationResult_Row) isMutationResult_Result() {}
 
 func (*MutationResult_Conflict) isMutationResult_Result() {}
 
 func (*MutationResult_Error) isMutationResult_Result() {}
+
+func (*MutationResult_Violation) isMutationResult_Result() {}
 
 type MutateResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -4561,7 +6619,7 @@ type MutateResponse struct {
 
 func (x *MutateResponse) Reset() {
 	*x = MutateResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[55]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4573,7 +6631,7 @@ func (x *MutateResponse) String() string {
 func (*MutateResponse) ProtoMessage() {}
 
 func (x *MutateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[55]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4586,7 +6644,7 @@ func (x *MutateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateResponse.ProtoReflect.Descriptor instead.
 func (*MutateResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{55}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *MutateResponse) GetBatch() string {
@@ -4615,14 +6673,17 @@ type UndoRequest struct {
 	// Database the batch was written to.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// Id of the change batch to undo.
-	Batch         string `protobuf:"bytes,2,opt,name=batch,proto3" json:"batch,omitempty"`
+	Batch string `protobuf:"bytes,2,opt,name=batch,proto3" json:"batch,omitempty"`
+	// Namespace the batch is in. Required. The undo is a batch in the same
+	// namespace.
+	Namespace     string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UndoRequest) Reset() {
 	*x = UndoRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[56]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4634,7 +6695,7 @@ func (x *UndoRequest) String() string {
 func (*UndoRequest) ProtoMessage() {}
 
 func (x *UndoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[56]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4647,7 +6708,7 @@ func (x *UndoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UndoRequest.ProtoReflect.Descriptor instead.
 func (*UndoRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{56}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *UndoRequest) GetDatabase() string {
@@ -4660,6 +6721,13 @@ func (x *UndoRequest) GetDatabase() string {
 func (x *UndoRequest) GetBatch() string {
 	if x != nil {
 		return x.Batch
+	}
+	return ""
+}
+
+func (x *UndoRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
 	}
 	return ""
 }
@@ -4678,7 +6746,7 @@ type UndoResponse struct {
 
 func (x *UndoResponse) Reset() {
 	*x = UndoResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[57]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4690,7 +6758,7 @@ func (x *UndoResponse) String() string {
 func (*UndoResponse) ProtoMessage() {}
 
 func (x *UndoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[57]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4703,7 +6771,7 @@ func (x *UndoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UndoResponse.ProtoReflect.Descriptor instead.
 func (*UndoResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{57}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *UndoResponse) GetBatch() string {
@@ -4737,14 +6805,23 @@ type QueryRequest struct {
 	Params []*Value `protobuf:"bytes,3,rep,name=params,proto3" json:"params,omitempty"`
 	// Maximum rows to return; clamped to the server's row cap. 0 is the
 	// server default.
-	Limit         int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Namespace to scope the statement to, optional. With one, the
+	// statement sees only that namespace's views, each named by its
+	// table's sql_name alone, and only that namespace's rows of the
+	// catalog tables _tables and _columns. The prefixed view names and
+	// other namespaces' rows are out of its reach. A namespace that does
+	// not exist yet has no views. Without one, the statement sees every
+	// namespace's views under <namespace>__<sql_name> and the whole
+	// catalog, and can join across namespaces.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *QueryRequest) Reset() {
 	*x = QueryRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[58]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4756,7 +6833,7 @@ func (x *QueryRequest) String() string {
 func (*QueryRequest) ProtoMessage() {}
 
 func (x *QueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[58]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4769,7 +6846,7 @@ func (x *QueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRequest.ProtoReflect.Descriptor instead.
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{58}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *QueryRequest) GetDatabase() string {
@@ -4800,6 +6877,13 @@ func (x *QueryRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *QueryRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 // QueryColumn is a column of a query result.
 type QueryColumn struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -4814,7 +6898,7 @@ type QueryColumn struct {
 
 func (x *QueryColumn) Reset() {
 	*x = QueryColumn{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[59]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4826,7 +6910,7 @@ func (x *QueryColumn) String() string {
 func (*QueryColumn) ProtoMessage() {}
 
 func (x *QueryColumn) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[59]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4839,7 +6923,7 @@ func (x *QueryColumn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryColumn.ProtoReflect.Descriptor instead.
 func (*QueryColumn) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{59}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *QueryColumn) GetName() string {
@@ -4867,7 +6951,7 @@ type QueryRow struct {
 
 func (x *QueryRow) Reset() {
 	*x = QueryRow{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[60]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4879,7 +6963,7 @@ func (x *QueryRow) String() string {
 func (*QueryRow) ProtoMessage() {}
 
 func (x *QueryRow) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[60]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4892,7 +6976,7 @@ func (x *QueryRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRow.ProtoReflect.Descriptor instead.
 func (*QueryRow) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{60}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *QueryRow) GetValues() []*Value {
@@ -4918,7 +7002,7 @@ type QueryResponse struct {
 
 func (x *QueryResponse) Reset() {
 	*x = QueryResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[61]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4930,7 +7014,7 @@ func (x *QueryResponse) String() string {
 func (*QueryResponse) ProtoMessage() {}
 
 func (x *QueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[61]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4943,7 +7027,7 @@ func (x *QueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResponse.ProtoReflect.Descriptor instead.
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{61}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *QueryResponse) GetColumns() []*QueryColumn {
@@ -4986,9 +7070,9 @@ type Change struct {
 	// Subject that made the change: a user or an agent.
 	Actor string `protobuf:"bytes,4,opt,name=actor,proto3" json:"actor,omitempty"`
 	// The operation: row_insert, row_update, row_delete, row_move, one of
-	// table_* and column_*, import or restore.
+	// table_* and column_*, namespace_update, import or restore.
 	Op string `protobuf:"bytes,5,opt,name=op,proto3" json:"op,omitempty"`
-	// Id of the table it touched.
+	// Id of the table it touched. Empty for a namespace_update.
 	Table string `protobuf:"bytes,6,opt,name=table,proto3" json:"table,omitempty"`
 	// Id of the row it touched, for row operations.
 	Row int64 `protobuf:"varint,7,opt,name=row,proto3" json:"row,omitempty"`
@@ -5007,14 +7091,18 @@ type Change struct {
 	Via string `protobuf:"bytes,13,opt,name=via,proto3" json:"via,omitempty"`
 	// True for the summary of a large batch, which is sent instead of a
 	// change per cell: re-read the table.
-	Reload        bool `protobuf:"varint,14,opt,name=reload,proto3" json:"reload,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Reload bool `protobuf:"varint,14,opt,name=reload,proto3" json:"reload,omitempty"`
+	// The namespace of the change's batch.
+	Namespace string `protobuf:"bytes,15,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// The namespace after the change, for a namespace_update.
+	NamespaceState *Namespace `protobuf:"bytes,16,opt,name=namespace_state,json=namespaceState,proto3" json:"namespace_state,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Change) Reset() {
 	*x = Change{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[62]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5026,7 +7114,7 @@ func (x *Change) String() string {
 func (*Change) ProtoMessage() {}
 
 func (x *Change) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[62]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5039,7 +7127,7 @@ func (x *Change) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Change.ProtoReflect.Descriptor instead.
 func (*Change) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{62}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *Change) GetCursor() *Cursor {
@@ -5140,6 +7228,20 @@ func (x *Change) GetReload() bool {
 	return false
 }
 
+func (x *Change) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *Change) GetNamespaceState() *Namespace {
+	if x != nil {
+		return x.NamespaceState
+	}
+	return nil
+}
+
 type ChangesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database to read the change log of.
@@ -5148,14 +7250,17 @@ type ChangesRequest struct {
 	After *Cursor `protobuf:"bytes,2,opt,name=after,proto3" json:"after,omitempty"`
 	// Maximum changes to return; clamped server-side. 0 is the server
 	// default.
-	Limit         int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Namespace to read the changes of. Required. Changes of other
+	// namespaces are skipped.
+	Namespace     string `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ChangesRequest) Reset() {
 	*x = ChangesRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[63]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5167,7 +7272,7 @@ func (x *ChangesRequest) String() string {
 func (*ChangesRequest) ProtoMessage() {}
 
 func (x *ChangesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[63]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5180,7 +7285,7 @@ func (x *ChangesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangesRequest.ProtoReflect.Descriptor instead.
 func (*ChangesRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{63}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *ChangesRequest) GetDatabase() string {
@@ -5204,20 +7309,32 @@ func (x *ChangesRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ChangesRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type ChangesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The changes, oldest first.
+	// The changes of the namespace, oldest first.
 	Changes []*Change `protobuf:"bytes,1,rep,name=changes,proto3" json:"changes,omitempty"`
 	// True when the cursor cannot be continued from, for the reasons a
 	// Watch ends with cursor_invalid. Reload and start over.
 	CursorInvalid bool `protobuf:"varint,2,opt,name=cursor_invalid,json=cursorInvalid,proto3" json:"cursor_invalid,omitempty"`
+	// How far the read reached: the last change returned when the limit
+	// was reached, else the head the log was read at, past the changes of
+	// other namespaces. Read on with it as after. Unset with
+	// cursor_invalid.
+	Cursor        *Cursor `protobuf:"bytes,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ChangesResponse) Reset() {
 	*x = ChangesResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[64]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5229,7 +7346,7 @@ func (x *ChangesResponse) String() string {
 func (*ChangesResponse) ProtoMessage() {}
 
 func (x *ChangesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[64]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5242,7 +7359,7 @@ func (x *ChangesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangesResponse.ProtoReflect.Descriptor instead.
 func (*ChangesResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{64}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ChangesResponse) GetChanges() []*Change {
@@ -5259,23 +7376,36 @@ func (x *ChangesResponse) GetCursorInvalid() bool {
 	return false
 }
 
+func (x *ChangesResponse) GetCursor() *Cursor {
+	if x != nil {
+		return x.Cursor
+	}
+	return nil
+}
+
 type WatchRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database to watch.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
 	// Stream changes after this cursor.
 	After *Cursor `protobuf:"bytes,2,opt,name=after,proto3" json:"after,omitempty"`
-	// Ids of the tables to stream changes for. Empty streams all of them.
+	// Ids or keys of the tables to stream changes for. Empty streams all
+	// of the namespace's. Keys are resolved when the stream opens; a key
+	// no table holds then matches nothing.
 	Tables []string `protobuf:"bytes,3,rep,name=tables,proto3" json:"tables,omitempty"`
 	// This client's initial presence.
-	Presence      *Presence `protobuf:"bytes,4,opt,name=presence,proto3" json:"presence,omitempty"`
+	Presence *Presence `protobuf:"bytes,4,opt,name=presence,proto3" json:"presence,omitempty"`
+	// Namespace to watch. Required. The stream carries the changes,
+	// suggestions and presence of this namespace only; heartbeats carry
+	// the database's cursors.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WatchRequest) Reset() {
 	*x = WatchRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[65]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5287,7 +7417,7 @@ func (x *WatchRequest) String() string {
 func (*WatchRequest) ProtoMessage() {}
 
 func (x *WatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[65]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5300,7 +7430,7 @@ func (x *WatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchRequest.ProtoReflect.Descriptor instead.
 func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{65}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *WatchRequest) GetDatabase() string {
@@ -5331,7 +7461,16 @@ func (x *WatchRequest) GetPresence() *Presence {
 	return nil
 }
 
-// Presence is where a client is looking or editing.
+func (x *WatchRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+// Presence is where a client is looking or editing. It is relayed to
+// the other clients as it was sent: its table and column are not
+// resolved, so clients agree among themselves to send ids.
 type Presence struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the table.
@@ -5348,7 +7487,7 @@ type Presence struct {
 
 func (x *Presence) Reset() {
 	*x = Presence{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[66]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5360,7 +7499,7 @@ func (x *Presence) String() string {
 func (*Presence) ProtoMessage() {}
 
 func (x *Presence) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[66]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5373,7 +7512,7 @@ func (x *Presence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Presence.ProtoReflect.Descriptor instead.
 func (*Presence) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{66}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *Presence) GetTable() string {
@@ -5421,7 +7560,7 @@ type PresenceUpdate struct {
 
 func (x *PresenceUpdate) Reset() {
 	*x = PresenceUpdate{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[67]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5433,7 +7572,7 @@ func (x *PresenceUpdate) String() string {
 func (*PresenceUpdate) ProtoMessage() {}
 
 func (x *PresenceUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[67]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5446,7 +7585,7 @@ func (x *PresenceUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PresenceUpdate.ProtoReflect.Descriptor instead.
 func (*PresenceUpdate) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{67}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *PresenceUpdate) GetSession() string {
@@ -5491,7 +7630,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[68]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5503,7 +7642,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[68]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5516,7 +7655,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{68}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *Heartbeat) GetHead() *Cursor {
@@ -5544,7 +7683,7 @@ type Hello struct {
 
 func (x *Hello) Reset() {
 	*x = Hello{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[69]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5556,7 +7695,7 @@ func (x *Hello) String() string {
 func (*Hello) ProtoMessage() {}
 
 func (x *Hello) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[69]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5569,7 +7708,7 @@ func (x *Hello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Hello.ProtoReflect.Descriptor instead.
 func (*Hello) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{69}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *Hello) GetSession() string {
@@ -5597,7 +7736,7 @@ type WatchResponse struct {
 
 func (x *WatchResponse) Reset() {
 	*x = WatchResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[70]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5609,7 +7748,7 @@ func (x *WatchResponse) String() string {
 func (*WatchResponse) ProtoMessage() {}
 
 func (x *WatchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[70]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5622,7 +7761,7 @@ func (x *WatchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchResponse.ProtoReflect.Descriptor instead.
 func (*WatchResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{70}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *WatchResponse) GetMsg() isWatchResponse_Msg {
@@ -5699,8 +7838,8 @@ type WatchResponse_Heartbeat struct {
 type WatchResponse_Suggestion struct {
 	// A suggestion that was made, applied, dismissed or expired. One too
 	// large for the stream to carry whole comes as a notice: only its
-	// id, database, table, agent, state, resolved_by, created and
-	// expires are set, and its mutations are empty, which those of a
+	// id, database, namespace, table, agent, state, resolved_by, created
+	// and expires are set, and its mutations are empty, which those of a
 	// suggestion never are. ListSuggestions reads an open one whole.
 	Suggestion *Suggestion `protobuf:"bytes,4,opt,name=suggestion,proto3,oneof"`
 }
@@ -5724,23 +7863,25 @@ type SummarizeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table to summarise.
+	// Id or key of the table to summarise.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
-	// Id of the column to summarise. Empty summarises the table's
+	// Id or key of the column to summarise. Empty summarises the table's
 	// summary_column.
 	Column string `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
 	// Conditions every counted row must meet.
 	Filters []*Filter `protobuf:"bytes,4,rep,name=filters,proto3" json:"filters,omitempty"`
 	// Maximum number of buckets; clamped server-side. 0 is the server
 	// default.
-	MaxBuckets    int32 `protobuf:"varint,5,opt,name=max_buckets,json=maxBuckets,proto3" json:"max_buckets,omitempty"`
+	MaxBuckets int32 `protobuf:"varint,5,opt,name=max_buckets,json=maxBuckets,proto3" json:"max_buckets,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,6,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SummarizeRequest) Reset() {
 	*x = SummarizeRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[71]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5752,7 +7893,7 @@ func (x *SummarizeRequest) String() string {
 func (*SummarizeRequest) ProtoMessage() {}
 
 func (x *SummarizeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[71]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5765,7 +7906,7 @@ func (x *SummarizeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SummarizeRequest.ProtoReflect.Descriptor instead.
 func (*SummarizeRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{71}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *SummarizeRequest) GetDatabase() string {
@@ -5803,6 +7944,13 @@ func (x *SummarizeRequest) GetMaxBuckets() int32 {
 	return 0
 }
 
+func (x *SummarizeRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 // SummaryBucket is one bar of a summary: the rows holding one value, or
 // the rows in one range.
 type SummaryBucket struct {
@@ -5820,7 +7968,7 @@ type SummaryBucket struct {
 
 func (x *SummaryBucket) Reset() {
 	*x = SummaryBucket{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[72]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5832,7 +7980,7 @@ func (x *SummaryBucket) String() string {
 func (*SummaryBucket) ProtoMessage() {}
 
 func (x *SummaryBucket) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[72]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5845,7 +7993,7 @@ func (x *SummaryBucket) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SummaryBucket.ProtoReflect.Descriptor instead.
 func (*SummaryBucket) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{72}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *SummaryBucket) GetValue() *Value {
@@ -5902,7 +8050,7 @@ type SummarizeResponse struct {
 
 func (x *SummarizeResponse) Reset() {
 	*x = SummarizeResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[73]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5914,7 +8062,7 @@ func (x *SummarizeResponse) String() string {
 func (*SummarizeResponse) ProtoMessage() {}
 
 func (x *SummarizeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[73]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5927,7 +8075,7 @@ func (x *SummarizeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SummarizeResponse.ProtoReflect.Descriptor instead.
 func (*SummarizeResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{73}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *SummarizeResponse) GetColumn() string {
@@ -6014,7 +8162,7 @@ type UpdatePresenceRequest struct {
 
 func (x *UpdatePresenceRequest) Reset() {
 	*x = UpdatePresenceRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[74]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6026,7 +8174,7 @@ func (x *UpdatePresenceRequest) String() string {
 func (*UpdatePresenceRequest) ProtoMessage() {}
 
 func (x *UpdatePresenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[74]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6039,7 +8187,7 @@ func (x *UpdatePresenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePresenceRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePresenceRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{74}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *UpdatePresenceRequest) GetDatabase() string {
@@ -6071,7 +8219,7 @@ type UpdatePresenceResponse struct {
 
 func (x *UpdatePresenceResponse) Reset() {
 	*x = UpdatePresenceResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[75]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6083,7 +8231,7 @@ func (x *UpdatePresenceResponse) String() string {
 func (*UpdatePresenceResponse) ProtoMessage() {}
 
 func (x *UpdatePresenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[75]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6096,27 +8244,30 @@ func (x *UpdatePresenceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePresenceResponse.ProtoReflect.Descriptor instead.
 func (*UpdatePresenceResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{75}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{96}
 }
 
 type SuggestRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the table is in.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Id of the table the suggestion changes.
+	// Id or key of the table the suggestion changes.
 	Table string `protobuf:"bytes,2,opt,name=table,proto3" json:"table,omitempty"`
 	// The proposed operations. Every CellWrite of a RowUpdate must set
-	// expected; those of a RowInsert need not.
+	// expected; those of a RowInsert need not. Columns may be named by
+	// key; the suggestion stores and returns them by id.
 	Mutations []*Mutation `protobuf:"bytes,3,rep,name=mutations,proto3" json:"mutations,omitempty"`
 	// A short rationale, shown to the editor deciding on it.
-	Rationale     string `protobuf:"bytes,4,opt,name=rationale,proto3" json:"rationale,omitempty"`
+	Rationale string `protobuf:"bytes,4,opt,name=rationale,proto3" json:"rationale,omitempty"`
+	// Namespace the table is in. Required.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SuggestRequest) Reset() {
 	*x = SuggestRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[76]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6128,7 +8279,7 @@ func (x *SuggestRequest) String() string {
 func (*SuggestRequest) ProtoMessage() {}
 
 func (x *SuggestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[76]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6141,7 +8292,7 @@ func (x *SuggestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuggestRequest.ProtoReflect.Descriptor instead.
 func (*SuggestRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{76}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *SuggestRequest) GetDatabase() string {
@@ -6172,6 +8323,13 @@ func (x *SuggestRequest) GetRationale() string {
 	return ""
 }
 
+func (x *SuggestRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type SuggestResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The new suggestion.
@@ -6182,7 +8340,7 @@ type SuggestResponse struct {
 
 func (x *SuggestResponse) Reset() {
 	*x = SuggestResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[77]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6194,7 +8352,7 @@ func (x *SuggestResponse) String() string {
 func (*SuggestResponse) ProtoMessage() {}
 
 func (x *SuggestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[77]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6207,7 +8365,7 @@ func (x *SuggestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuggestResponse.ProtoReflect.Descriptor instead.
 func (*SuggestResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{77}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *SuggestResponse) GetSuggestion() *Suggestion {
@@ -6240,14 +8398,17 @@ type Suggestion struct {
 	Created *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created,proto3" json:"created,omitempty"`
 	// When an open suggestion expires. Expiry is read from this time, so
 	// it holds for a database no pod has open.
-	Expires       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=expires,proto3" json:"expires,omitempty"`
+	Expires *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=expires,proto3" json:"expires,omitempty"`
+	// Namespace of the table the suggestion changes. Applying it is a
+	// batch in this namespace.
+	Namespace     string `protobuf:"bytes,11,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Suggestion) Reset() {
 	*x = Suggestion{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[78]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6259,7 +8420,7 @@ func (x *Suggestion) String() string {
 func (*Suggestion) ProtoMessage() {}
 
 func (x *Suggestion) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[78]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6272,7 +8433,7 @@ func (x *Suggestion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Suggestion.ProtoReflect.Descriptor instead.
 func (*Suggestion) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{78}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *Suggestion) GetId() string {
@@ -6345,6 +8506,13 @@ func (x *Suggestion) GetExpires() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Suggestion) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type ResolveSuggestionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database the suggestion is for.
@@ -6354,14 +8522,16 @@ type ResolveSuggestionRequest struct {
 	// True to apply the suggestion, false to dismiss it.
 	Apply bool `protobuf:"varint,3,opt,name=apply,proto3" json:"apply,omitempty"`
 	// As in MutateRequest: fail every operation on any conflict.
-	Atomic        bool `protobuf:"varint,4,opt,name=atomic,proto3" json:"atomic,omitempty"`
+	Atomic bool `protobuf:"varint,4,opt,name=atomic,proto3" json:"atomic,omitempty"`
+	// Namespace the suggestion is in. Required.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ResolveSuggestionRequest) Reset() {
 	*x = ResolveSuggestionRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[79]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6373,7 +8543,7 @@ func (x *ResolveSuggestionRequest) String() string {
 func (*ResolveSuggestionRequest) ProtoMessage() {}
 
 func (x *ResolveSuggestionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[79]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6386,7 +8556,7 @@ func (x *ResolveSuggestionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSuggestionRequest.ProtoReflect.Descriptor instead.
 func (*ResolveSuggestionRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{79}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *ResolveSuggestionRequest) GetDatabase() string {
@@ -6417,6 +8587,13 @@ func (x *ResolveSuggestionRequest) GetAtomic() bool {
 	return false
 }
 
+func (x *ResolveSuggestionRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type ResolveSuggestionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The suggestion after resolving it.
@@ -6430,7 +8607,7 @@ type ResolveSuggestionResponse struct {
 
 func (x *ResolveSuggestionResponse) Reset() {
 	*x = ResolveSuggestionResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[80]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6442,7 +8619,7 @@ func (x *ResolveSuggestionResponse) String() string {
 func (*ResolveSuggestionResponse) ProtoMessage() {}
 
 func (x *ResolveSuggestionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[80]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6455,7 +8632,7 @@ func (x *ResolveSuggestionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSuggestionResponse.ProtoReflect.Descriptor instead.
 func (*ResolveSuggestionResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{80}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *ResolveSuggestionResponse) GetSuggestion() *Suggestion {
@@ -6476,15 +8653,18 @@ type ListSuggestionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Database to list suggestions for.
 	Database string `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
-	// Ids of the tables to list suggestions for. Empty lists all of them.
-	Tables        []string `protobuf:"bytes,2,rep,name=tables,proto3" json:"tables,omitempty"`
+	// Ids or keys of the tables to list suggestions for. Empty lists all
+	// of the namespace's.
+	Tables []string `protobuf:"bytes,2,rep,name=tables,proto3" json:"tables,omitempty"`
+	// Namespace to list suggestions for. Required.
+	Namespace     string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListSuggestionsRequest) Reset() {
 	*x = ListSuggestionsRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[81]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6496,7 +8676,7 @@ func (x *ListSuggestionsRequest) String() string {
 func (*ListSuggestionsRequest) ProtoMessage() {}
 
 func (x *ListSuggestionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[81]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6509,7 +8689,7 @@ func (x *ListSuggestionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuggestionsRequest.ProtoReflect.Descriptor instead.
 func (*ListSuggestionsRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{81}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *ListSuggestionsRequest) GetDatabase() string {
@@ -6526,6 +8706,13 @@ func (x *ListSuggestionsRequest) GetTables() []string {
 	return nil
 }
 
+func (x *ListSuggestionsRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type ListSuggestionsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The open suggestions.
@@ -6536,7 +8723,7 @@ type ListSuggestionsResponse struct {
 
 func (x *ListSuggestionsResponse) Reset() {
 	*x = ListSuggestionsResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[82]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6548,7 +8735,7 @@ func (x *ListSuggestionsResponse) String() string {
 func (*ListSuggestionsResponse) ProtoMessage() {}
 
 func (x *ListSuggestionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[82]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6561,7 +8748,7 @@ func (x *ListSuggestionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuggestionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSuggestionsResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{82}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *ListSuggestionsResponse) GetSuggestions() []*Suggestion {
@@ -6608,7 +8795,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[83]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6620,7 +8807,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[83]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6633,7 +8820,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{83}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *Snapshot) GetId() string {
@@ -6730,7 +8917,7 @@ type CreateSnapshotRequest struct {
 
 func (x *CreateSnapshotRequest) Reset() {
 	*x = CreateSnapshotRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[84]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6742,7 +8929,7 @@ func (x *CreateSnapshotRequest) String() string {
 func (*CreateSnapshotRequest) ProtoMessage() {}
 
 func (x *CreateSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[84]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6755,7 +8942,7 @@ func (x *CreateSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*CreateSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{84}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *CreateSnapshotRequest) GetDatabase() string {
@@ -6796,7 +8983,7 @@ type CreateSnapshotResponse struct {
 
 func (x *CreateSnapshotResponse) Reset() {
 	*x = CreateSnapshotResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[85]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6808,7 +8995,7 @@ func (x *CreateSnapshotResponse) String() string {
 func (*CreateSnapshotResponse) ProtoMessage() {}
 
 func (x *CreateSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[85]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6821,7 +9008,7 @@ func (x *CreateSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*CreateSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{85}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *CreateSnapshotResponse) GetSnapshot() *Snapshot {
@@ -6841,7 +9028,7 @@ type GetSnapshotRequest struct {
 
 func (x *GetSnapshotRequest) Reset() {
 	*x = GetSnapshotRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[86]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6853,7 +9040,7 @@ func (x *GetSnapshotRequest) String() string {
 func (*GetSnapshotRequest) ProtoMessage() {}
 
 func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[86]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6866,7 +9053,7 @@ func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{86}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *GetSnapshotRequest) GetId() string {
@@ -6880,7 +9067,8 @@ type GetSnapshotResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The snapshot.
 	Snapshot *Snapshot `protobuf:"bytes,1,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
-	// The snapshot's catalog, read without opening the file.
+	// The snapshot's catalog, read without opening the file: the tables of
+	// every namespace, each naming its namespace.
 	Tables []*Table `protobuf:"bytes,2,rep,name=tables,proto3" json:"tables,omitempty"`
 	// Short-lived URL to download the snapshot file from. Never handed to
 	// distribution.
@@ -6891,7 +9079,7 @@ type GetSnapshotResponse struct {
 
 func (x *GetSnapshotResponse) Reset() {
 	*x = GetSnapshotResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[87]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6903,7 +9091,7 @@ func (x *GetSnapshotResponse) String() string {
 func (*GetSnapshotResponse) ProtoMessage() {}
 
 func (x *GetSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[87]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6916,7 +9104,7 @@ func (x *GetSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*GetSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{87}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *GetSnapshotResponse) GetSnapshot() *Snapshot {
@@ -6953,7 +9141,7 @@ type ListSnapshotsRequest struct {
 
 func (x *ListSnapshotsRequest) Reset() {
 	*x = ListSnapshotsRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[88]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6965,7 +9153,7 @@ func (x *ListSnapshotsRequest) String() string {
 func (*ListSnapshotsRequest) ProtoMessage() {}
 
 func (x *ListSnapshotsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[88]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6978,7 +9166,7 @@ func (x *ListSnapshotsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSnapshotsRequest.ProtoReflect.Descriptor instead.
 func (*ListSnapshotsRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{88}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *ListSnapshotsRequest) GetDatabase() string {
@@ -7007,7 +9195,7 @@ type ListSnapshotsResponse struct {
 
 func (x *ListSnapshotsResponse) Reset() {
 	*x = ListSnapshotsResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[89]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7019,7 +9207,7 @@ func (x *ListSnapshotsResponse) String() string {
 func (*ListSnapshotsResponse) ProtoMessage() {}
 
 func (x *ListSnapshotsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[89]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7032,7 +9220,7 @@ func (x *ListSnapshotsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSnapshotsResponse.ProtoReflect.Descriptor instead.
 func (*ListSnapshotsResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{89}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *ListSnapshotsResponse) GetSnapshots() []*Snapshot {
@@ -7054,7 +9242,7 @@ type TableSelection struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the table.
 	Table string `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
-	// Ids of the columns to publish, in output order.
+	// Ids or keys of the columns to publish, in output order.
 	Columns []string `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
 	// Conditions every published row must meet.
 	Filters []*Filter `protobuf:"bytes,3,rep,name=filters,proto3" json:"filters,omitempty"`
@@ -7069,7 +9257,7 @@ type TableSelection struct {
 
 func (x *TableSelection) Reset() {
 	*x = TableSelection{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[90]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7081,7 +9269,7 @@ func (x *TableSelection) String() string {
 func (*TableSelection) ProtoMessage() {}
 
 func (x *TableSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[90]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7094,7 +9282,7 @@ func (x *TableSelection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableSelection.ProtoReflect.Descriptor instead.
 func (*TableSelection) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{90}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *TableSelection) GetTable() string {
@@ -7144,7 +9332,7 @@ type PublicationSpec struct {
 
 func (x *PublicationSpec) Reset() {
 	*x = PublicationSpec{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[91]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7156,7 +9344,7 @@ func (x *PublicationSpec) String() string {
 func (*PublicationSpec) ProtoMessage() {}
 
 func (x *PublicationSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[91]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7169,7 +9357,7 @@ func (x *PublicationSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicationSpec.ProtoReflect.Descriptor instead.
 func (*PublicationSpec) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{91}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *PublicationSpec) GetTables() []*TableSelection {
@@ -7194,7 +9382,7 @@ type PublishRequest struct {
 
 func (x *PublishRequest) Reset() {
 	*x = PublishRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[92]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7206,7 +9394,7 @@ func (x *PublishRequest) String() string {
 func (*PublishRequest) ProtoMessage() {}
 
 func (x *PublishRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[92]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7219,7 +9407,7 @@ func (x *PublishRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishRequest.ProtoReflect.Descriptor instead.
 func (*PublishRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{92}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *PublishRequest) GetDatabase() string {
@@ -7253,7 +9441,7 @@ type PublishResponse struct {
 
 func (x *PublishResponse) Reset() {
 	*x = PublishResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[93]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7265,7 +9453,7 @@ func (x *PublishResponse) String() string {
 func (*PublishResponse) ProtoMessage() {}
 
 func (x *PublishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[93]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7278,7 +9466,7 @@ func (x *PublishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishResponse.ProtoReflect.Descriptor instead.
 func (*PublishResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{93}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *PublishResponse) GetPublication() *Publication {
@@ -7316,7 +9504,7 @@ type Publication struct {
 
 func (x *Publication) Reset() {
 	*x = Publication{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[94]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7328,7 +9516,7 @@ func (x *Publication) String() string {
 func (*Publication) ProtoMessage() {}
 
 func (x *Publication) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[94]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7341,7 +9529,7 @@ func (x *Publication) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Publication.ProtoReflect.Descriptor instead.
 func (*Publication) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{94}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *Publication) GetId() string {
@@ -7410,7 +9598,7 @@ type GetPublicationRequest struct {
 
 func (x *GetPublicationRequest) Reset() {
 	*x = GetPublicationRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[95]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7422,7 +9610,7 @@ func (x *GetPublicationRequest) String() string {
 func (*GetPublicationRequest) ProtoMessage() {}
 
 func (x *GetPublicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[95]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7435,7 +9623,7 @@ func (x *GetPublicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublicationRequest.ProtoReflect.Descriptor instead.
 func (*GetPublicationRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{95}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *GetPublicationRequest) GetId() string {
@@ -7461,7 +9649,7 @@ type GetPublicationResponse struct {
 
 func (x *GetPublicationResponse) Reset() {
 	*x = GetPublicationResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[96]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7473,7 +9661,7 @@ func (x *GetPublicationResponse) String() string {
 func (*GetPublicationResponse) ProtoMessage() {}
 
 func (x *GetPublicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[96]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7486,7 +9674,7 @@ func (x *GetPublicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublicationResponse.ProtoReflect.Descriptor instead.
 func (*GetPublicationResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{96}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *GetPublicationResponse) GetPublication() *Publication {
@@ -7535,7 +9723,7 @@ type CreateUploadRequest struct {
 
 func (x *CreateUploadRequest) Reset() {
 	*x = CreateUploadRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[97]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7547,7 +9735,7 @@ func (x *CreateUploadRequest) String() string {
 func (*CreateUploadRequest) ProtoMessage() {}
 
 func (x *CreateUploadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[97]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7560,7 +9748,7 @@ func (x *CreateUploadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUploadRequest.ProtoReflect.Descriptor instead.
 func (*CreateUploadRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{97}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *CreateUploadRequest) GetFilename() string {
@@ -7603,7 +9791,7 @@ type CreateUploadResponse struct {
 
 func (x *CreateUploadResponse) Reset() {
 	*x = CreateUploadResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[98]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7615,7 +9803,7 @@ func (x *CreateUploadResponse) String() string {
 func (*CreateUploadResponse) ProtoMessage() {}
 
 func (x *CreateUploadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[98]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7628,7 +9816,7 @@ func (x *CreateUploadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUploadResponse.ProtoReflect.Descriptor instead.
 func (*CreateUploadResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{98}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *CreateUploadResponse) GetUpload() string {
@@ -7656,14 +9844,19 @@ type AnalyzeRequest struct {
 	SourceDatabase string `protobuf:"bytes,3,opt,name=source_database,json=sourceDatabase,proto3" json:"source_database,omitempty"`
 	// The point in source_database's history to import from. Unset imports
 	// its current state.
-	SourceAt      *PointInTime `protobuf:"bytes,4,opt,name=source_at,json=sourceAt,proto3" json:"source_at,omitempty"`
+	SourceAt *PointInTime `protobuf:"bytes,4,opt,name=source_at,json=sourceAt,proto3" json:"source_at,omitempty"`
+	// The namespace of the target the plan imports into. Required. New
+	// tables are created in it, and every existing table a candidate
+	// targets must be in it. The tables of every namespace of
+	// source_database are candidates.
+	Namespace     string `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AnalyzeRequest) Reset() {
 	*x = AnalyzeRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[99]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7675,7 +9868,7 @@ func (x *AnalyzeRequest) String() string {
 func (*AnalyzeRequest) ProtoMessage() {}
 
 func (x *AnalyzeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[99]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7688,7 +9881,7 @@ func (x *AnalyzeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzeRequest.ProtoReflect.Descriptor instead.
 func (*AnalyzeRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{99}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *AnalyzeRequest) GetUpload() string {
@@ -7719,6 +9912,13 @@ func (x *AnalyzeRequest) GetSourceAt() *PointInTime {
 	return nil
 }
 
+func (x *AnalyzeRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type AnalyzeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The import plan, to adjust and pass to Apply.
@@ -7729,7 +9929,7 @@ type AnalyzeResponse struct {
 
 func (x *AnalyzeResponse) Reset() {
 	*x = AnalyzeResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[100]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7741,7 +9941,7 @@ func (x *AnalyzeResponse) String() string {
 func (*AnalyzeResponse) ProtoMessage() {}
 
 func (x *AnalyzeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[100]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7754,7 +9954,7 @@ func (x *AnalyzeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzeResponse.ProtoReflect.Descriptor instead.
 func (*AnalyzeResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{100}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *AnalyzeResponse) GetPlan() *ImportPlan {
@@ -7772,7 +9972,10 @@ type ImportColumn struct {
 	SourceName string `protobuf:"bytes,1,opt,name=source_name,json=sourceName,proto3" json:"source_name,omitempty"`
 	// Position of the column in the source, from 0.
 	SourceIndex int32 `protobuf:"varint,2,opt,name=source_index,json=sourceIndex,proto3" json:"source_index,omitempty"`
-	// The proposed column: its name and type.
+	// The proposed column: its name and type. A new column's required
+	// flag is honoured: an imported row that leaves it empty is refused
+	// and reported as a failure, and a new required column of a table
+	// that already has rows refuses the whole import.
 	Column *Column `protobuf:"bytes,3,opt,name=column,proto3" json:"column,omitempty"`
 	// Non-empty cells in the source column.
 	Cells int32 `protobuf:"varint,4,opt,name=cells,proto3" json:"cells,omitempty"`
@@ -7780,8 +9983,9 @@ type ImportColumn struct {
 	CellsFitting int32 `protobuf:"varint,5,opt,name=cells_fitting,json=cellsFitting,proto3" json:"cells_fitting,omitempty"`
 	// A few sample values from the source column.
 	Samples []string `protobuf:"bytes,6,rep,name=samples,proto3" json:"samples,omitempty"`
-	// Id of the existing column to import into. Empty creates a new
-	// column.
+	// Id or key of the existing column to import into. Empty creates a new
+	// column, with column's key when it is set, and one made from its name
+	// otherwise.
 	TargetColumn string `protobuf:"bytes,7,opt,name=target_column,json=targetColumn,proto3" json:"target_column,omitempty"`
 	// True to leave the column out of the import.
 	Skip          bool `protobuf:"varint,8,opt,name=skip,proto3" json:"skip,omitempty"`
@@ -7791,7 +9995,7 @@ type ImportColumn struct {
 
 func (x *ImportColumn) Reset() {
 	*x = ImportColumn{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[101]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7803,7 +10007,7 @@ func (x *ImportColumn) String() string {
 func (*ImportColumn) ProtoMessage() {}
 
 func (x *ImportColumn) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[101]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7816,7 +10020,7 @@ func (x *ImportColumn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportColumn.ProtoReflect.Descriptor instead.
 func (*ImportColumn) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{101}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *ImportColumn) GetSourceName() string {
@@ -7897,7 +10101,7 @@ type DiffSummary struct {
 
 func (x *DiffSummary) Reset() {
 	*x = DiffSummary{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[102]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7909,7 +10113,7 @@ func (x *DiffSummary) String() string {
 func (*DiffSummary) ProtoMessage() {}
 
 func (x *DiffSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[102]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7922,7 +10126,7 @@ func (x *DiffSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiffSummary.ProtoReflect.Descriptor instead.
 func (*DiffSummary) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{102}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *DiffSummary) GetRowsInserted() int64 {
@@ -7986,9 +10190,10 @@ type ImportCandidate struct {
 	Mode ImportMode `protobuf:"varint,5,opt,name=mode,proto3,enum=elephant.tables.v1.ImportMode" json:"mode,omitempty"`
 	// Display name of the new table, for IMPORT_MODE_NEW_TABLE.
 	TableName string `protobuf:"bytes,6,opt,name=table_name,json=tableName,proto3" json:"table_name,omitempty"`
-	// Id of the existing table to import into, for the other modes.
+	// Id or key of the existing table to import into, for the other modes.
 	TargetTable string `protobuf:"bytes,7,opt,name=target_table,json=targetTable,proto3" json:"target_table,omitempty"`
-	// Ids of the columns rows are matched on, for IMPORT_MODE_UPSERT_ROWS.
+	// Ids or keys of the columns rows are matched on, for
+	// IMPORT_MODE_UPSERT_ROWS.
 	// In a round trip, rows are matched on their row ids.
 	KeyColumns []string `protobuf:"bytes,8,rep,name=key_columns,json=keyColumns,proto3" json:"key_columns,omitempty"`
 	// Delete rows missing from the source, for IMPORT_MODE_UPSERT_ROWS.
@@ -7998,14 +10203,18 @@ type ImportCandidate struct {
 	// What the analysis noticed, for a person to read.
 	Warnings []string `protobuf:"bytes,11,rep,name=warnings,proto3" json:"warnings,omitempty"`
 	// What the import would do, computed at the plan's base cursor.
-	Preview       *DiffSummary `protobuf:"bytes,12,opt,name=preview,proto3" json:"preview,omitempty"`
+	Preview *DiffSummary `protobuf:"bytes,12,opt,name=preview,proto3" json:"preview,omitempty"`
+	// Key of the new table, for IMPORT_MODE_NEW_TABLE. Empty has the
+	// service make one from table_name. A key another table of the
+	// namespace holds or reserves fails the import.
+	TableKey      string `protobuf:"bytes,13,opt,name=table_key,json=tableKey,proto3" json:"table_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ImportCandidate) Reset() {
 	*x = ImportCandidate{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[103]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8017,7 +10226,7 @@ func (x *ImportCandidate) String() string {
 func (*ImportCandidate) ProtoMessage() {}
 
 func (x *ImportCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[103]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8030,7 +10239,7 @@ func (x *ImportCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportCandidate.ProtoReflect.Descriptor instead.
 func (*ImportCandidate) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{103}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *ImportCandidate) GetId() string {
@@ -8117,6 +10326,13 @@ func (x *ImportCandidate) GetPreview() *DiffSummary {
 	return nil
 }
 
+func (x *ImportCandidate) GetTableKey() string {
+	if x != nil {
+		return x.TableKey
+	}
+	return ""
+}
+
 // RoundTrip identifies a file exported by this service, which an import
 // maps back exactly, as a three-way merge against the base.
 type RoundTrip struct {
@@ -8131,7 +10347,7 @@ type RoundTrip struct {
 
 func (x *RoundTrip) Reset() {
 	*x = RoundTrip{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[104]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8143,7 +10359,7 @@ func (x *RoundTrip) String() string {
 func (*RoundTrip) ProtoMessage() {}
 
 func (x *RoundTrip) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[104]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8156,7 +10372,7 @@ func (x *RoundTrip) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoundTrip.ProtoReflect.Descriptor instead.
 func (*RoundTrip) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{104}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *RoundTrip) GetDatabase() string {
@@ -8194,13 +10410,16 @@ type ImportPlan struct {
 	// Confirms the use of IMPORT_MODE_REPLACE_ROWS, which Apply refuses
 	// without it.
 	ConfirmReplace bool `protobuf:"varint,7,opt,name=confirm_replace,json=confirmReplace,proto3" json:"confirm_replace,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The namespace of the target the plan imports into, from
+	// AnalyzeRequest. The import is one batch in it.
+	Namespace     string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ImportPlan) Reset() {
 	*x = ImportPlan{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[105]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8212,7 +10431,7 @@ func (x *ImportPlan) String() string {
 func (*ImportPlan) ProtoMessage() {}
 
 func (x *ImportPlan) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[105]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8225,7 +10444,7 @@ func (x *ImportPlan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportPlan.ProtoReflect.Descriptor instead.
 func (*ImportPlan) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{105}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *ImportPlan) GetUpload() string {
@@ -8277,6 +10496,13 @@ func (x *ImportPlan) GetConfirmReplace() bool {
 	return false
 }
 
+func (x *ImportPlan) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type ApplyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The plan to apply, as returned by Analyze and adjusted.
@@ -8287,7 +10513,7 @@ type ApplyRequest struct {
 
 func (x *ApplyRequest) Reset() {
 	*x = ApplyRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[106]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8299,7 +10525,7 @@ func (x *ApplyRequest) String() string {
 func (*ApplyRequest) ProtoMessage() {}
 
 func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[106]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8312,7 +10538,7 @@ func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyRequest.ProtoReflect.Descriptor instead.
 func (*ApplyRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{106}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *ApplyRequest) GetPlan() *ImportPlan {
@@ -8332,7 +10558,7 @@ type ApplyResponse struct {
 
 func (x *ApplyResponse) Reset() {
 	*x = ApplyResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[107]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8344,7 +10570,7 @@ func (x *ApplyResponse) String() string {
 func (*ApplyResponse) ProtoMessage() {}
 
 func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[107]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8357,7 +10583,7 @@ func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResponse.ProtoReflect.Descriptor instead.
 func (*ApplyResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{107}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *ApplyResponse) GetJob() *ImportJob {
@@ -8377,7 +10603,7 @@ type GetJobRequest struct {
 
 func (x *GetJobRequest) Reset() {
 	*x = GetJobRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[108]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8389,7 +10615,7 @@ func (x *GetJobRequest) String() string {
 func (*GetJobRequest) ProtoMessage() {}
 
 func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[108]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8402,7 +10628,7 @@ func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobRequest.ProtoReflect.Descriptor instead.
 func (*GetJobRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{108}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *GetJobRequest) GetJob() string {
@@ -8422,7 +10648,7 @@ type GetJobResponse struct {
 
 func (x *GetJobResponse) Reset() {
 	*x = GetJobResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[109]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8434,7 +10660,7 @@ func (x *GetJobResponse) String() string {
 func (*GetJobResponse) ProtoMessage() {}
 
 func (x *GetJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[109]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8447,7 +10673,7 @@ func (x *GetJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResponse.ProtoReflect.Descriptor instead.
 func (*GetJobResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{109}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *GetJobResponse) GetJob() *ImportJob {
@@ -8477,14 +10703,17 @@ type ImportJob struct {
 	// Cells that did not convert, by source coordinates.
 	Failures []*CellError `protobuf:"bytes,8,rep,name=failures,proto3" json:"failures,omitempty"`
 	// Why the job failed, for a person to read. Set when state is failed.
-	Error         string `protobuf:"bytes,9,opt,name=error,proto3" json:"error,omitempty"`
+	Error string `protobuf:"bytes,9,opt,name=error,proto3" json:"error,omitempty"`
+	// Namespace the import writes to, the plan's: batch is in it, so an
+	// Undo of the import names it.
+	Namespace     string `protobuf:"bytes,10,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ImportJob) Reset() {
 	*x = ImportJob{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[110]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8496,7 +10725,7 @@ func (x *ImportJob) String() string {
 func (*ImportJob) ProtoMessage() {}
 
 func (x *ImportJob) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[110]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8509,7 +10738,7 @@ func (x *ImportJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportJob.ProtoReflect.Descriptor instead.
 func (*ImportJob) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{110}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *ImportJob) GetJob() string {
@@ -8575,17 +10804,32 @@ func (x *ImportJob) GetError() string {
 	return ""
 }
 
+func (x *ImportJob) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 type WatchEventsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Resume after this event id. 0 starts from the oldest retained event.
-	After         int64 `protobuf:"varint,1,opt,name=after,proto3" json:"after,omitempty"`
+	After int64 `protobuf:"varint,1,opt,name=after,proto3" json:"after,omitempty"`
+	// Namespace to follow. Required. The stream carries the events of this
+	// namespace, and the events that concern a whole database, which carry
+	// no namespace: database_created, forked, published, recovered,
+	// deleted and undeleted, and a schema_changed for changes that left
+	// the change log before they became events, whose namespace is not
+	// known. Events of other namespaces are withheld, and position passes
+	// over them.
+	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WatchEventsRequest) Reset() {
 	*x = WatchEventsRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[111]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8597,7 +10841,7 @@ func (x *WatchEventsRequest) String() string {
 func (*WatchEventsRequest) ProtoMessage() {}
 
 func (x *WatchEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[111]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8610,7 +10854,7 @@ func (x *WatchEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchEventsRequest.ProtoReflect.Descriptor instead.
 func (*WatchEventsRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{111}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *WatchEventsRequest) GetAfter() int64 {
@@ -8618,6 +10862,13 @@ func (x *WatchEventsRequest) GetAfter() int64 {
 		return x.After
 	}
 	return 0
+}
+
+func (x *WatchEventsRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
 }
 
 type WatchEventsResponse struct {
@@ -8638,7 +10889,7 @@ type WatchEventsResponse struct {
 
 func (x *WatchEventsResponse) Reset() {
 	*x = WatchEventsResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[112]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8650,7 +10901,7 @@ func (x *WatchEventsResponse) String() string {
 func (*WatchEventsResponse) ProtoMessage() {}
 
 func (x *WatchEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[112]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8663,7 +10914,7 @@ func (x *WatchEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchEventsResponse.ProtoReflect.Descriptor instead.
 func (*WatchEventsResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{112}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *WatchEventsResponse) GetEvent() *Event {
@@ -8688,7 +10939,8 @@ type Event struct {
 	// What happened: database_created, schema_changed, data_changed,
 	// imported, restored, recovered, forked, published, deleted or
 	// undeleted. data_changed is debounced and carries the latest cursor.
-	// restored is a database restored in place to an earlier point.
+	// restored is a database, or one namespace of it, restored in place to
+	// an earlier point, one event per namespace the restore changed.
 	// recovered follows a RecoverDatabase, after which cursors from the
 	// skipped epochs are invalid. deleted is a database archived with its
 	// deleted owning document, and undeleted the database live again,
@@ -8704,14 +10956,19 @@ type Event struct {
 	// Id of the snapshot involved, for published and restored.
 	Snapshot string `protobuf:"bytes,6,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	// When the event was logged.
-	Created       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created,proto3" json:"created,omitempty"`
+	Created *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created,proto3" json:"created,omitempty"`
+	// The namespace the event is in: the namespace of the batch for
+	// schema_changed, data_changed, imported and restored, which are
+	// debounced and logged per namespace. Empty for an event that concerns
+	// the whole database.
+	Namespace     string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[113]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8723,7 +10980,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[113]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8736,7 +10993,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{113}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *Event) GetId() int64 {
@@ -8788,6 +11045,13 @@ func (x *Event) GetCreated() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Event) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
 var File_elephant_tables_v1_service_proto protoreflect.FileDescriptor
 
 const file_elephant_tables_v1_service_proto_rawDesc = "" +
@@ -8820,7 +11084,12 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"unresolved\"0\n" +
 	"\x06Cursor\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x12\x10\n" +
-	"\x03seq\x18\x02 \x01(\x03R\x03seq\"\xe1\x01\n" +
+	"\x03seq\x18\x02 \x01(\x03R\x03seq\"\x94\x01\n" +
+	"\tNamespace\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
+	"\x0fschema_editable\x18\x02 \x01(\bR\x0eschemaEditable\x12%\n" +
+	"\x0eschema_version\x18\x03 \x01(\x03R\rschemaVersion\x12#\n" +
+	"\rschema_digest\x18\x04 \x01(\tR\fschemaDigest\"\x8f\x02\n" +
 	"\x06Column\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
@@ -8829,14 +11098,37 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06format\x18\x05 \x01(\tR\x06format\x12\x18\n" +
 	"\aoptions\x18\x06 \x03(\tR\aoptions\x12\x1a\n" +
 	"\bposition\x18\a \x01(\x05R\bposition\x12\x16\n" +
-	"\x06hidden\x18\b \x01(\bR\x06hidden\"\xc0\x01\n" +
+	"\x06hidden\x18\b \x01(\bR\x06hidden\x12\x10\n" +
+	"\x03key\x18\t \x01(\tR\x03key\x12\x1a\n" +
+	"\brequired\x18\n" +
+	" \x01(\bR\brequired\"[\n" +
+	"\x05Index\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x18\n" +
+	"\acolumns\x18\x03 \x03(\tR\acolumns\x12\x16\n" +
+	"\x06unique\x18\x04 \x01(\bR\x06unique\"\xa8\x01\n" +
+	"\x13ConstraintViolation\x12\x14\n" +
+	"\x05table\x18\x01 \x01(\tR\x05table\x12\x16\n" +
+	"\x06column\x18\x02 \x01(\tR\x06column\x12\x14\n" +
+	"\x05index\x18\x03 \x01(\tR\x05index\x12\x10\n" +
+	"\x03row\x18\x04 \x01(\x03R\x03row\x12!\n" +
+	"\fexisting_row\x18\x05 \x01(\x03R\vexistingRow\x12\x18\n" +
+	"\amessage\x18\x06 \x01(\tR\amessage\"u\n" +
+	"\x14ConstraintViolations\x12G\n" +
+	"\n" +
+	"violations\x18\x01 \x03(\v2'.elephant.tables.v1.ConstraintViolationR\n" +
+	"violations\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x03R\x05count\"\xa5\x02\n" +
 	"\x05Table\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
 	"\bsql_name\x18\x03 \x01(\tR\asqlName\x124\n" +
 	"\acolumns\x18\x04 \x03(\v2\x1a.elephant.tables.v1.ColumnR\acolumns\x12\x1b\n" +
 	"\trow_count\x18\x05 \x01(\x03R\browCount\x12%\n" +
-	"\x0esummary_column\x18\x06 \x01(\tR\rsummaryColumn\"\xb6\x01\n" +
+	"\x0esummary_column\x18\x06 \x01(\tR\rsummaryColumn\x12\x1c\n" +
+	"\tnamespace\x18\a \x01(\tR\tnamespace\x12\x10\n" +
+	"\x03key\x18\b \x01(\tR\x03key\x123\n" +
+	"\aindexes\x18\t \x03(\v2\x19.elephant.tables.v1.IndexR\aindexes\"\xb6\x01\n" +
 	"\x03Row\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x10\n" +
 	"\x03ord\x18\x02 \x01(\tR\x03ord\x128\n" +
@@ -8873,16 +11165,18 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06column\x18\x01 \x01(\tR\x06column\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\x8a\x03\n" +
+	"descending\"\xa4\x03\n" +
 	"\fDatabaseInfo\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12%\n" +
 	"\x0eowner_document\x18\x02 \x01(\tR\rownerDocument\x12'\n" +
 	"\x0fparent_database\x18\x03 \x01(\tR\x0eparentDatabase\x12?\n" +
 	"\rparent_cursor\x18\x04 \x01(\v2\x1a.elephant.tables.v1.CursorR\fparentCursor\x12.\n" +
 	"\x04head\x18\x05 \x01(\v2\x1a.elephant.tables.v1.CursorR\x04head\x124\n" +
-	"\adurable\x18\x06 \x01(\v2\x1a.elephant.tables.v1.CursorR\adurable\x121\n" +
-	"\x06tables\x18\a \x03(\v2\x19.elephant.tables.v1.TableR\x06tables\x124\n" +
-	"\acreated\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\acreated\">\n" +
+	"\adurable\x18\x06 \x01(\v2\x1a.elephant.tables.v1.CursorR\adurable\x124\n" +
+	"\acreated\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12=\n" +
+	"\n" +
+	"namespaces\x18\t \x03(\v2\x1d.elephant.tables.v1.NamespaceR\n" +
+	"namespacesJ\x04\b\a\x10\bR\x06tables\">\n" +
 	"\x15CreateDatabaseRequest\x12%\n" +
 	"\x0eowner_document\x18\x01 \x01(\tR\rownerDocument\"N\n" +
 	"\x16CreateDatabaseResponse\x124\n" +
@@ -8911,21 +11205,25 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x02at\x18\x02 \x01(\v2\x1f.elephant.tables.v1.PointInTimeR\x02at\x12%\n" +
 	"\x0eowner_document\x18\x03 \x01(\tR\rownerDocument\"D\n" +
 	"\fForkResponse\x124\n" +
-	"\x04info\x18\x01 \x01(\v2 .elephant.tables.v1.DatabaseInfoR\x04info\"\x8e\x01\n" +
+	"\x04info\x18\x01 \x01(\v2 .elephant.tables.v1.DatabaseInfoR\x04info\"\xac\x01\n" +
 	"\x0eRestoreRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12/\n" +
 	"\x02at\x18\x02 \x01(\v2\x1f.elephant.tables.v1.PointInTimeR\x02at\x12\x16\n" +
 	"\x06tables\x18\x03 \x03(\tR\x06tables\x12\x17\n" +
-	"\adry_run\x18\x04 \x01(\bR\x06dryRun\"\xc5\x02\n" +
-	"\x0fRestoreResponse\x12\x14\n" +
-	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
+	"\adry_run\x18\x04 \x01(\bR\x06dryRun\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"\xfa\x02\n" +
+	"\x0fRestoreResponse\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12#\n" +
 	"\rcells_changed\x18\x03 \x01(\x03R\fcellsChanged\x12#\n" +
 	"\rrows_inserted\x18\x04 \x01(\x03R\frowsInserted\x12!\n" +
 	"\frows_deleted\x18\x05 \x01(\x03R\vrowsDeleted\x12+\n" +
 	"\x11changes_discarded\x18\x06 \x01(\x03R\x10changesDiscarded\x12)\n" +
 	"\x10discarded_actors\x18\a \x03(\tR\x0fdiscardedActors\x12#\n" +
-	"\rrestore_point\x18\b \x01(\tR\frestorePoint\"\x88\x01\n" +
+	"\rrestore_point\x18\b \x01(\tR\frestorePoint\x12<\n" +
+	"\abatches\x18\t \x03(\v2\".elephant.tables.v1.NamespaceBatchR\abatchesJ\x04\b\x01\x10\x02R\x05batch\"D\n" +
+	"\x0eNamespaceBatch\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05batch\x18\x02 \x01(\tR\x05batch\"\x88\x01\n" +
 	"\x0eHistoryRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12.\n" +
 	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
@@ -8948,76 +11246,183 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x04info\x18\x01 \x01(\v2 .elephant.tables.v1.DatabaseInfoR\x04info\"3\n" +
 	"\x15DeleteDatabaseRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\"\x18\n" +
-	"\x16DeleteDatabaseResponse\"\x89\x01\n" +
+	"\x16DeleteDatabaseResponse\"\x91\x01\n" +
+	"\x11SchemaDeclaration\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x03R\aversion\x12'\n" +
+	"\x0fschema_editable\x18\x02 \x01(\bR\x0eschemaEditable\x129\n" +
+	"\x06tables\x18\x03 \x03(\v2!.elephant.tables.v1.DeclaredTableR\x06tables\"\xd7\x01\n" +
+	"\rDeclaredTable\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12<\n" +
+	"\acolumns\x18\x03 \x03(\v2\".elephant.tables.v1.DeclaredColumnR\acolumns\x12;\n" +
+	"\aindexes\x18\x04 \x03(\v2!.elephant.tables.v1.DeclaredIndexR\aindexes\x12%\n" +
+	"\x0esummary_column\x18\x05 \x01(\tR\rsummaryColumn\"\xd0\x01\n" +
+	"\x0eDeclaredColumn\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x122\n" +
+	"\x04type\x18\x03 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\x12\x16\n" +
+	"\x06format\x18\x04 \x01(\tR\x06format\x12\x18\n" +
+	"\aoptions\x18\x05 \x03(\tR\aoptions\x12\x16\n" +
+	"\x06hidden\x18\x06 \x01(\bR\x06hidden\x12\x1a\n" +
+	"\brequired\x18\a \x01(\bR\brequired\"S\n" +
+	"\rDeclaredIndex\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x18\n" +
+	"\acolumns\x18\x02 \x03(\tR\acolumns\x12\x16\n" +
+	"\x06unique\x18\x03 \x01(\bR\x06unique\"\xaa\x01\n" +
+	"\n" +
+	"SchemaStep\x126\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\".elephant.tables.v1.SchemaStepKindR\x04kind\x12\x14\n" +
+	"\x05table\x18\x02 \x01(\tR\x05table\x12\x16\n" +
+	"\x06column\x18\x03 \x01(\tR\x06column\x12\x14\n" +
+	"\x05index\x18\x04 \x01(\tR\x05index\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\"\x8c\x01\n" +
+	"\x15SchemaVersionConflict\x12%\n" +
+	"\x0estored_version\x18\x01 \x01(\x03R\rstoredVersion\x12#\n" +
+	"\rstored_digest\x18\x02 \x01(\tR\fstoredDigest\x12'\n" +
+	"\x0fdeclared_digest\x18\x03 \x01(\tR\x0edeclaredDigest\"\xd4\x01\n" +
+	"\x13EnsureSchemaRequest\x12\x1a\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12=\n" +
+	"\x06schema\x18\x03 \x01(\v2%.elephant.tables.v1.SchemaDeclarationR\x06schema\x12+\n" +
+	"\x11remove_undeclared\x18\x04 \x01(\bR\x10removeUndeclared\x12\x17\n" +
+	"\adry_run\x18\x05 \x01(\bR\x06dryRun\"\x96\x03\n" +
+	"\x14EnsureSchemaResponse\x12\x14\n" +
+	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
+	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12\x1c\n" +
+	"\tunchanged\x18\x03 \x01(\bR\tunchanged\x12;\n" +
+	"\tnamespace\x18\x04 \x01(\v2\x1d.elephant.tables.v1.NamespaceR\tnamespace\x121\n" +
+	"\x06tables\x18\x05 \x03(\v2\x19.elephant.tables.v1.TableR\x06tables\x124\n" +
+	"\x05steps\x18\x06 \x03(\v2\x1e.elephant.tables.v1.SchemaStepR\x05steps\x12G\n" +
+	"\n" +
+	"violations\x18\a \x03(\v2'.elephant.tables.v1.ConstraintViolationR\n" +
+	"violations\x12'\n" +
+	"\x0fviolation_count\x18\b \x01(\x03R\x0eviolationCount\"\x89\x01\n" +
 	"\fSchemaChange\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
-	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"-\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"K\n" +
 	"\x0fDescribeRequest\x12\x1a\n" +
-	"\bdatabase\x18\x01 \x01(\tR\bdatabase\"\x9c\x01\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xd9\x01\n" +
 	"\x10DescribeResponse\x121\n" +
 	"\x06tables\x18\x01 \x03(\v2\x19.elephant.tables.v1.TableR\x06tables\x12!\n" +
 	"\fquery_schema\x18\x02 \x01(\tR\vquerySchema\x122\n" +
-	"\x06cursor\x18\x03 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\"z\n" +
+	"\x06cursor\x18\x03 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12;\n" +
+	"\tnamespace\x18\x04 \x01(\v2\x1d.elephant.tables.v1.NamespaceR\tnamespace\"{\n" +
+	"\x16UpdateNamespaceRequest\x12\x1a\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12'\n" +
+	"\x0fschema_editable\x18\x03 \x01(\bR\x0eschemaEditable\"\xa0\x01\n" +
+	"\x17UpdateNamespaceResponse\x12\x14\n" +
+	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
+	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12;\n" +
+	"\tnamespace\x18\x03 \x01(\v2\x1d.elephant.tables.v1.NamespaceR\tnamespace\"\xaa\x01\n" +
 	"\x12CreateTableRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
-	"\acolumns\x18\x03 \x03(\v2\x1a.elephant.tables.v1.ColumnR\acolumns\"\x90\x01\n" +
+	"\acolumns\x18\x03 \x03(\v2\x1a.elephant.tables.v1.ColumnR\acolumns\x12\x1c\n" +
+	"\tnamespace\x18\x04 \x01(\tR\tnamespace\x12\x10\n" +
+	"\x03key\x18\x05 \x01(\tR\x03key\"\x90\x01\n" +
 	"\x13CreateTableResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
-	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\x99\x01\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\xb7\x01\n" +
 	"\x12UpdateTableRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12*\n" +
-	"\x0esummary_column\x18\x04 \x01(\tH\x00R\rsummaryColumn\x88\x01\x01B\x11\n" +
+	"\x0esummary_column\x18\x04 \x01(\tH\x00R\rsummaryColumn\x88\x01\x01\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespaceB\x11\n" +
 	"\x0f_summary_column\"\x90\x01\n" +
 	"\x13UpdateTableResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
-	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"F\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"d\n" +
 	"\x12DeleteTableRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
-	"\x05table\x18\x02 \x01(\tR\x05table\"_\n" +
+	"\x05table\x18\x02 \x01(\tR\x05table\x12\x1c\n" +
+	"\tnamespace\x18\x03 \x01(\tR\tnamespace\"_\n" +
 	"\x13DeleteTableResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
-	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\"x\n" +
+	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\"\x96\x01\n" +
 	"\x10AddColumnRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x122\n" +
-	"\x06column\x18\x03 \x01(\v2\x1a.elephant.tables.v1.ColumnR\x06column\"\x8e\x01\n" +
+	"\x06column\x18\x03 \x01(\v2\x1a.elephant.tables.v1.ColumnR\x06column\x12\x1c\n" +
+	"\tnamespace\x18\x04 \x01(\tR\tnamespace\"\x8e\x01\n" +
 	"\x11AddColumnResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
-	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"{\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\x99\x01\n" +
 	"\x13UpdateColumnRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x122\n" +
-	"\x06column\x18\x03 \x01(\v2\x1a.elephant.tables.v1.ColumnR\x06column\"\x91\x01\n" +
+	"\x06column\x18\x03 \x01(\v2\x1a.elephant.tables.v1.ColumnR\x06column\x12\x1c\n" +
+	"\tnamespace\x18\x04 \x01(\tR\tnamespace\"\x91\x01\n" +
 	"\x14UpdateColumnResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
-	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\xca\x01\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\xe8\x01\n" +
 	"\x17ChangeColumnTypeRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12\x16\n" +
 	"\x06column\x18\x03 \x01(\tR\x06column\x122\n" +
 	"\x04type\x18\x04 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\x12\x18\n" +
 	"\aoptions\x18\x05 \x03(\tR\aoptions\x12\x17\n" +
-	"\adry_run\x18\x06 \x01(\bR\x06dryRun\"\xad\x01\n" +
+	"\adry_run\x18\x06 \x01(\bR\x06dryRun\x12\x1c\n" +
+	"\tnamespace\x18\a \x01(\tR\tnamespace\"\xad\x01\n" +
 	"\x18ChangeColumnTypeResponse\x12\x1c\n" +
 	"\tconverted\x18\x01 \x01(\x03R\tconverted\x129\n" +
 	"\bfailures\x18\x02 \x03(\v2\x1d.elephant.tables.v1.CellErrorR\bfailures\x128\n" +
-	"\x06result\x18\x03 \x01(\v2 .elephant.tables.v1.SchemaChangeR\x06result\"_\n" +
+	"\x06result\x18\x03 \x01(\v2 .elephant.tables.v1.SchemaChangeR\x06result\"}\n" +
 	"\x13DeleteColumnRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12\x16\n" +
-	"\x06column\x18\x03 \x01(\tR\x06column\"\x91\x01\n" +
+	"\x06column\x18\x03 \x01(\tR\x06column\x12\x1c\n" +
+	"\tnamespace\x18\x04 \x01(\tR\tnamespace\"\x91\x01\n" +
 	"\x14DeleteColumnResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
-	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\xf2\x01\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\xb1\x01\n" +
+	"\x12SetRequiredRequest\x12\x1a\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05table\x18\x03 \x01(\tR\x05table\x12\x16\n" +
+	"\x06column\x18\x04 \x01(\tR\x06column\x12\x1a\n" +
+	"\brequired\x18\x05 \x01(\bR\brequired\x12\x17\n" +
+	"\adry_run\x18\x06 \x01(\bR\x06dryRun\"\x82\x02\n" +
+	"\x13SetRequiredResponse\x12\x14\n" +
+	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
+	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\x12G\n" +
+	"\n" +
+	"violations\x18\x04 \x03(\v2'.elephant.tables.v1.ConstraintViolationR\n" +
+	"violations\x12'\n" +
+	"\x0fviolation_count\x18\x05 \x01(\x03R\x0eviolationCount\"\xab\x01\n" +
+	"\x0fAddIndexRequest\x12\x1a\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05table\x18\x03 \x01(\tR\x05table\x12/\n" +
+	"\x05index\x18\x04 \x01(\v2\x19.elephant.tables.v1.IndexR\x05index\x12\x17\n" +
+	"\adry_run\x18\x05 \x01(\bR\x06dryRun\"\x95\x02\n" +
+	"\x10AddIndexResponse\x12\x14\n" +
+	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
+	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\x12\x14\n" +
+	"\x05index\x18\x04 \x01(\tR\x05index\x12G\n" +
+	"\n" +
+	"violations\x18\x05 \x03(\v2'.elephant.tables.v1.ConstraintViolationR\n" +
+	"violations\x12'\n" +
+	"\x0fviolation_count\x18\x06 \x01(\x03R\x0eviolationCount\"z\n" +
+	"\x12DeleteIndexRequest\x12\x1a\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05table\x18\x03 \x01(\tR\x05table\x12\x14\n" +
+	"\x05index\x18\x04 \x01(\tR\x05index\"\x90\x01\n" +
+	"\x13DeleteIndexResponse\x12\x14\n" +
+	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
+	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\x90\x02\n" +
 	"\vListRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x124\n" +
@@ -9026,7 +11431,8 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x06 \x01(\tR\tpageToken\x12\x18\n" +
-	"\acolumns\x18\a \x03(\tR\acolumns\"\x97\x01\n" +
+	"\acolumns\x18\a \x03(\tR\acolumns\x12\x1c\n" +
+	"\tnamespace\x18\b \x01(\tR\tnamespace\"\x97\x01\n" +
 	"\fListResponse\x12+\n" +
 	"\x04rows\x18\x01 \x03(\v2\x17.elephant.tables.v1.RowR\x04rows\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x122\n" +
@@ -9053,36 +11459,40 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06update\x18\x02 \x01(\v2\x1d.elephant.tables.v1.RowUpdateH\x00R\x06update\x12\x18\n" +
 	"\x06delete\x18\x03 \x01(\x03H\x00R\x06delete\x121\n" +
 	"\x04move\x18\x04 \x01(\v2\x1b.elephant.tables.v1.RowMoveH\x00R\x04moveB\x04\n" +
-	"\x02op\"\x95\x01\n" +
+	"\x02op\"\xb3\x01\n" +
 	"\rMutateRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12:\n" +
 	"\tmutations\x18\x03 \x03(\v2\x1c.elephant.tables.v1.MutationR\tmutations\x12\x16\n" +
-	"\x06atomic\x18\x04 \x01(\bR\x06atomic\"\xbb\x01\n" +
+	"\x06atomic\x18\x04 \x01(\bR\x06atomic\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"\x84\x02\n" +
 	"\x0eMutationResult\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x12\n" +
 	"\x03row\x18\x02 \x01(\x03H\x00R\x03row\x12>\n" +
 	"\bconflict\x18\x03 \x01(\v2 .elephant.tables.v1.CellConflictH\x00R\bconflict\x12\x16\n" +
-	"\x05error\x18\x05 \x01(\tH\x00R\x05error\x12\x1d\n" +
+	"\x05error\x18\x05 \x01(\tH\x00R\x05error\x12G\n" +
+	"\tviolation\x18\x06 \x01(\v2'.elephant.tables.v1.ConstraintViolationH\x00R\tviolation\x12\x1d\n" +
 	"\n" +
 	"client_ref\x18\x04 \x01(\tR\tclientRefB\b\n" +
 	"\x06result\"\x98\x01\n" +
 	"\x0eMutateResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12<\n" +
-	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"?\n" +
+	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"]\n" +
 	"\vUndoRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
-	"\x05batch\x18\x02 \x01(\tR\x05batch\"\x96\x01\n" +
+	"\x05batch\x18\x02 \x01(\tR\x05batch\x12\x1c\n" +
+	"\tnamespace\x18\x03 \x01(\tR\tnamespace\"\x96\x01\n" +
 	"\fUndoResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12<\n" +
-	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"\x85\x01\n" +
+	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"\xa3\x01\n" +
 	"\fQueryRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x10\n" +
 	"\x03sql\x18\x02 \x01(\tR\x03sql\x121\n" +
 	"\x06params\x18\x03 \x03(\v2\x19.elephant.tables.v1.ValueR\x06params\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\"U\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"U\n" +
 	"\vQueryColumn\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\"=\n" +
@@ -9092,7 +11502,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\acolumns\x18\x01 \x03(\v2\x1f.elephant.tables.v1.QueryColumnR\acolumns\x120\n" +
 	"\x04rows\x18\x02 \x03(\v2\x1c.elephant.tables.v1.QueryRowR\x04rows\x12\x1c\n" +
 	"\ttruncated\x18\x03 \x01(\bR\ttruncated\x122\n" +
-	"\x06cursor\x18\x04 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\"\xda\x03\n" +
+	"\x06cursor\x18\x04 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\"\xc0\x04\n" +
 	"\x06Change\x122\n" +
 	"\x06cursor\x18\x01 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12\x14\n" +
 	"\x05batch\x18\x02 \x01(\tR\x05batch\x12*\n" +
@@ -9109,19 +11519,24 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\vtable_state\x18\f \x01(\v2\x19.elephant.tables.v1.TableR\n" +
 	"tableState\x12\x10\n" +
 	"\x03via\x18\r \x01(\tR\x03via\x12\x16\n" +
-	"\x06reload\x18\x0e \x01(\bR\x06reload\"t\n" +
+	"\x06reload\x18\x0e \x01(\bR\x06reload\x12\x1c\n" +
+	"\tnamespace\x18\x0f \x01(\tR\tnamespace\x12F\n" +
+	"\x0fnamespace_state\x18\x10 \x01(\v2\x1d.elephant.tables.v1.NamespaceR\x0enamespaceState\"\x92\x01\n" +
 	"\x0eChangesRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x120\n" +
 	"\x05after\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x05after\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"n\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x1c\n" +
+	"\tnamespace\x18\x04 \x01(\tR\tnamespace\"\xa2\x01\n" +
 	"\x0fChangesResponse\x124\n" +
 	"\achanges\x18\x01 \x03(\v2\x1a.elephant.tables.v1.ChangeR\achanges\x12%\n" +
-	"\x0ecursor_invalid\x18\x02 \x01(\bR\rcursorInvalid\"\xae\x01\n" +
+	"\x0ecursor_invalid\x18\x02 \x01(\bR\rcursorInvalid\x122\n" +
+	"\x06cursor\x18\x03 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\"\xcc\x01\n" +
 	"\fWatchRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x120\n" +
 	"\x05after\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x05after\x12\x16\n" +
 	"\x06tables\x18\x03 \x03(\tR\x06tables\x128\n" +
-	"\bpresence\x18\x04 \x01(\v2\x1c.elephant.tables.v1.PresenceR\bpresence\"d\n" +
+	"\bpresence\x18\x04 \x01(\v2\x1c.elephant.tables.v1.PresenceR\bpresence\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"d\n" +
 	"\bPresence\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\tR\x05table\x12\x10\n" +
 	"\x03row\x18\x02 \x01(\x03R\x03row\x12\x16\n" +
@@ -9145,14 +11560,15 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"suggestion\x18\x04 \x01(\v2\x1e.elephant.tables.v1.SuggestionH\x00R\n" +
 	"suggestion\x121\n" +
 	"\x05hello\x18\x05 \x01(\v2\x19.elephant.tables.v1.HelloH\x00R\x05helloB\x05\n" +
-	"\x03msg\"\xb3\x01\n" +
+	"\x03msg\"\xd1\x01\n" +
 	"\x10SummarizeRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12\x16\n" +
 	"\x06column\x18\x03 \x01(\tR\x06column\x124\n" +
 	"\afilters\x18\x04 \x03(\v2\x1a.elephant.tables.v1.FilterR\afilters\x12\x1f\n" +
 	"\vmax_buckets\x18\x05 \x01(\x05R\n" +
-	"maxBuckets\"\x87\x01\n" +
+	"maxBuckets\x12\x1c\n" +
+	"\tnamespace\x18\x06 \x01(\tR\tnamespace\"\x87\x01\n" +
 	"\rSummaryBucket\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.elephant.tables.v1.ValueR\x05value\x12/\n" +
 	"\x05upper\x18\x02 \x01(\v2\x19.elephant.tables.v1.ValueR\x05upper\x12\x14\n" +
@@ -9173,16 +11589,17 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x18\n" +
 	"\asession\x18\x02 \x01(\tR\asession\x128\n" +
 	"\bpresence\x18\x03 \x01(\v2\x1c.elephant.tables.v1.PresenceR\bpresence\"\x18\n" +
-	"\x16UpdatePresenceResponse\"\x9c\x01\n" +
+	"\x16UpdatePresenceResponse\"\xba\x01\n" +
 	"\x0eSuggestRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12:\n" +
 	"\tmutations\x18\x03 \x03(\v2\x1c.elephant.tables.v1.MutationR\tmutations\x12\x1c\n" +
-	"\trationale\x18\x04 \x01(\tR\trationale\"Q\n" +
+	"\trationale\x18\x04 \x01(\tR\trationale\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"Q\n" +
 	"\x0fSuggestResponse\x12>\n" +
 	"\n" +
 	"suggestion\x18\x01 \x01(\v2\x1e.elephant.tables.v1.SuggestionR\n" +
-	"suggestion\"\x86\x03\n" +
+	"suggestion\"\xa4\x03\n" +
 	"\n" +
 	"Suggestion\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
@@ -9196,22 +11613,25 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"resolvedBy\x124\n" +
 	"\acreated\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x124\n" +
 	"\aexpires\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\aexpires\"\x84\x01\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\aexpires\x12\x1c\n" +
+	"\tnamespace\x18\v \x01(\tR\tnamespace\"\xa2\x01\n" +
 	"\x18ResolveSuggestionRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\x02 \x01(\tR\n" +
 	"suggestion\x12\x14\n" +
 	"\x05apply\x18\x03 \x01(\bR\x05apply\x12\x16\n" +
-	"\x06atomic\x18\x04 \x01(\bR\x06atomic\"\x97\x01\n" +
+	"\x06atomic\x18\x04 \x01(\bR\x06atomic\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"\x97\x01\n" +
 	"\x19ResolveSuggestionResponse\x12>\n" +
 	"\n" +
 	"suggestion\x18\x01 \x01(\v2\x1e.elephant.tables.v1.SuggestionR\n" +
 	"suggestion\x12:\n" +
-	"\x06result\x18\x02 \x01(\v2\".elephant.tables.v1.MutateResponseR\x06result\"L\n" +
+	"\x06result\x18\x02 \x01(\v2\".elephant.tables.v1.MutateResponseR\x06result\"j\n" +
 	"\x16ListSuggestionsRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x16\n" +
-	"\x06tables\x18\x02 \x03(\tR\x06tables\"[\n" +
+	"\x06tables\x18\x02 \x03(\tR\x06tables\x12\x1c\n" +
+	"\tnamespace\x18\x03 \x01(\tR\tnamespace\"[\n" +
 	"\x17ListSuggestionsResponse\x12@\n" +
 	"\vsuggestions\x18\x01 \x03(\v2\x1e.elephant.tables.v1.SuggestionR\vsuggestions\"\xa7\x03\n" +
 	"\bSnapshot\x12\x0e\n" +
@@ -9285,12 +11705,13 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x04size\x18\x04 \x01(\x03R\x04size\"G\n" +
 	"\x14CreateUploadResponse\x12\x16\n" +
 	"\x06upload\x18\x01 \x01(\tR\x06upload\x12\x17\n" +
-	"\aput_url\x18\x02 \x01(\tR\x06putUrl\"\xab\x01\n" +
+	"\aput_url\x18\x02 \x01(\tR\x06putUrl\"\xc9\x01\n" +
 	"\x0eAnalyzeRequest\x12\x16\n" +
 	"\x06upload\x18\x01 \x01(\tR\x06upload\x12\x1a\n" +
 	"\bdatabase\x18\x02 \x01(\tR\bdatabase\x12'\n" +
 	"\x0fsource_database\x18\x03 \x01(\tR\x0esourceDatabase\x12<\n" +
-	"\tsource_at\x18\x04 \x01(\v2\x1f.elephant.tables.v1.PointInTimeR\bsourceAt\"E\n" +
+	"\tsource_at\x18\x04 \x01(\v2\x1f.elephant.tables.v1.PointInTimeR\bsourceAt\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"E\n" +
 	"\x0fAnalyzeResponse\x122\n" +
 	"\x04plan\x18\x01 \x01(\v2\x1e.elephant.tables.v1.ImportPlanR\x04plan\"\x94\x02\n" +
 	"\fImportColumn\x12\x1f\n" +
@@ -9309,7 +11730,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\frows_deleted\x18\x03 \x01(\x03R\vrowsDeleted\x12#\n" +
 	"\rcells_changed\x18\x04 \x01(\x03R\fcellsChanged\x12\x1c\n" +
 	"\tconflicts\x18\x05 \x01(\x03R\tconflicts\x123\n" +
-	"\x16rows_edited_since_base\x18\x06 \x01(\x03R\x13rowsEditedSinceBase\"\xdd\x03\n" +
+	"\x16rows_edited_since_base\x18\x06 \x01(\x03R\x13rowsEditedSinceBase\"\xfa\x03\n" +
 	"\x0fImportCandidate\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x122\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x1e.elephant.tables.v1.SourceKindR\x04kind\x12\x16\n" +
@@ -9326,10 +11747,11 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\acolumns\x18\n" +
 	" \x03(\v2 .elephant.tables.v1.ImportColumnR\acolumns\x12\x1a\n" +
 	"\bwarnings\x18\v \x03(\tR\bwarnings\x129\n" +
-	"\apreview\x18\f \x01(\v2\x1f.elephant.tables.v1.DiffSummaryR\apreview\"W\n" +
+	"\apreview\x18\f \x01(\v2\x1f.elephant.tables.v1.DiffSummaryR\apreview\x12\x1b\n" +
+	"\ttable_key\x18\r \x01(\tR\btableKey\"W\n" +
 	"\tRoundTrip\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12.\n" +
-	"\x04base\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x04base\"\xcd\x02\n" +
+	"\x04base\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x04base\"\xeb\x02\n" +
 	"\n" +
 	"ImportPlan\x12\x16\n" +
 	"\x06upload\x18\x01 \x01(\tR\x06upload\x12\x1a\n" +
@@ -9341,7 +11763,8 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"candidates\x18\x05 \x03(\v2#.elephant.tables.v1.ImportCandidateR\n" +
 	"candidates\x12/\n" +
 	"\x13overwrite_conflicts\x18\x06 \x01(\bR\x12overwriteConflicts\x12'\n" +
-	"\x0fconfirm_replace\x18\a \x01(\bR\x0econfirmReplace\"B\n" +
+	"\x0fconfirm_replace\x18\a \x01(\bR\x0econfirmReplace\x12\x1c\n" +
+	"\tnamespace\x18\b \x01(\tR\tnamespace\"B\n" +
 	"\fApplyRequest\x122\n" +
 	"\x04plan\x18\x01 \x01(\v2\x1e.elephant.tables.v1.ImportPlanR\x04plan\"@\n" +
 	"\rApplyResponse\x12/\n" +
@@ -9349,7 +11772,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\rGetJobRequest\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\"A\n" +
 	"\x0eGetJobResponse\x12/\n" +
-	"\x03job\x18\x01 \x01(\v2\x1d.elephant.tables.v1.ImportJobR\x03job\"\xe5\x02\n" +
+	"\x03job\x18\x01 \x01(\v2\x1d.elephant.tables.v1.ImportJobR\x03job\"\x83\x03\n" +
 	"\tImportJob\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x1a\n" +
@@ -9359,12 +11782,15 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\aapplied\x18\x06 \x01(\v2\x1f.elephant.tables.v1.DiffSummaryR\aapplied\x12>\n" +
 	"\tconflicts\x18\a \x03(\v2 .elephant.tables.v1.CellConflictR\tconflicts\x129\n" +
 	"\bfailures\x18\b \x03(\v2\x1d.elephant.tables.v1.CellErrorR\bfailures\x12\x14\n" +
-	"\x05error\x18\t \x01(\tR\x05error\"*\n" +
+	"\x05error\x18\t \x01(\tR\x05error\x12\x1c\n" +
+	"\tnamespace\x18\n" +
+	" \x01(\tR\tnamespace\"H\n" +
 	"\x12WatchEventsRequest\x12\x14\n" +
-	"\x05after\x18\x01 \x01(\x03R\x05after\"b\n" +
+	"\x05after\x18\x01 \x01(\x03R\x05after\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"b\n" +
 	"\x13WatchEventsResponse\x12/\n" +
 	"\x05event\x18\x01 \x01(\v2\x19.elephant.tables.v1.EventR\x05event\x12\x1a\n" +
-	"\bposition\x18\x02 \x01(\x03R\bposition\"\xf4\x01\n" +
+	"\bposition\x18\x02 \x01(\x03R\bposition\"\x92\x02\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x1a\n" +
@@ -9372,7 +11798,8 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x0eowner_document\x18\x04 \x01(\tR\rownerDocument\x122\n" +
 	"\x06cursor\x18\x05 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12\x1a\n" +
 	"\bsnapshot\x18\x06 \x01(\tR\bsnapshot\x124\n" +
-	"\acreated\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\acreated*\xbc\x02\n" +
+	"\acreated\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12\x1c\n" +
+	"\tnamespace\x18\b \x01(\tR\tnamespace*\xbc\x02\n" +
 	"\n" +
 	"ColumnType\x12\x1b\n" +
 	"\x17COLUMN_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -9387,7 +11814,22 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x18COLUMN_TYPE_MULTI_CHOICE\x10\t\x12\x1c\n" +
 	"\x18COLUMN_TYPE_DOCUMENT_REF\x10\n" +
 	"\x12\x14\n" +
-	"\x10COLUMN_TYPE_JSON\x10\v*\xaa\x01\n" +
+	"\x10COLUMN_TYPE_JSON\x10\v*\xda\x03\n" +
+	"\x0eSchemaStepKind\x12 \n" +
+	"\x1cSCHEMA_STEP_KIND_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dSCHEMA_STEP_KIND_CREATE_TABLE\x10\x01\x12!\n" +
+	"\x1dSCHEMA_STEP_KIND_UPDATE_TABLE\x10\x02\x12!\n" +
+	"\x1dSCHEMA_STEP_KIND_DELETE_TABLE\x10\x03\x12\x1f\n" +
+	"\x1bSCHEMA_STEP_KIND_KEEP_TABLE\x10\x04\x12\x1f\n" +
+	"\x1bSCHEMA_STEP_KIND_ADD_COLUMN\x10\x05\x12\"\n" +
+	"\x1eSCHEMA_STEP_KIND_UPDATE_COLUMN\x10\x06\x12'\n" +
+	"#SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE\x10\a\x12\"\n" +
+	"\x1eSCHEMA_STEP_KIND_DELETE_COLUMN\x10\b\x12 \n" +
+	"\x1cSCHEMA_STEP_KIND_KEEP_COLUMN\x10\t\x12\x1e\n" +
+	"\x1aSCHEMA_STEP_KIND_ADD_INDEX\x10\n" +
+	"\x12!\n" +
+	"\x1dSCHEMA_STEP_KIND_DELETE_INDEX\x10\v\x12%\n" +
+	"!SCHEMA_STEP_KIND_UPDATE_NAMESPACE\x10\f*\xaa\x01\n" +
 	"\x0fSuggestionState\x12 \n" +
 	"\x1cSUGGESTION_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15SUGGESTION_STATE_OPEN\x10\x01\x12\x1c\n" +
@@ -9428,16 +11870,21 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\aRestore\x12\".elephant.tables.v1.RestoreRequest\x1a#.elephant.tables.v1.RestoreResponse\x12R\n" +
 	"\aHistory\x12\".elephant.tables.v1.HistoryRequest\x1a#.elephant.tables.v1.HistoryResponse\x12j\n" +
 	"\x0fRecoverDatabase\x12*.elephant.tables.v1.RecoverDatabaseRequest\x1a+.elephant.tables.v1.RecoverDatabaseResponse\x12g\n" +
-	"\x0eDeleteDatabase\x12).elephant.tables.v1.DeleteDatabaseRequest\x1a*.elephant.tables.v1.DeleteDatabaseResponse2\x95\x06\n" +
+	"\x0eDeleteDatabase\x12).elephant.tables.v1.DeleteDatabaseRequest\x1a*.elephant.tables.v1.DeleteDatabaseResponse2\xfb\t\n" +
 	"\rSchemaService\x12U\n" +
-	"\bDescribe\x12#.elephant.tables.v1.DescribeRequest\x1a$.elephant.tables.v1.DescribeResponse\x12^\n" +
+	"\bDescribe\x12#.elephant.tables.v1.DescribeRequest\x1a$.elephant.tables.v1.DescribeResponse\x12j\n" +
+	"\x0fUpdateNamespace\x12*.elephant.tables.v1.UpdateNamespaceRequest\x1a+.elephant.tables.v1.UpdateNamespaceResponse\x12^\n" +
 	"\vCreateTable\x12&.elephant.tables.v1.CreateTableRequest\x1a'.elephant.tables.v1.CreateTableResponse\x12^\n" +
 	"\vUpdateTable\x12&.elephant.tables.v1.UpdateTableRequest\x1a'.elephant.tables.v1.UpdateTableResponse\x12^\n" +
 	"\vDeleteTable\x12&.elephant.tables.v1.DeleteTableRequest\x1a'.elephant.tables.v1.DeleteTableResponse\x12X\n" +
 	"\tAddColumn\x12$.elephant.tables.v1.AddColumnRequest\x1a%.elephant.tables.v1.AddColumnResponse\x12a\n" +
 	"\fUpdateColumn\x12'.elephant.tables.v1.UpdateColumnRequest\x1a(.elephant.tables.v1.UpdateColumnResponse\x12m\n" +
 	"\x10ChangeColumnType\x12+.elephant.tables.v1.ChangeColumnTypeRequest\x1a,.elephant.tables.v1.ChangeColumnTypeResponse\x12a\n" +
-	"\fDeleteColumn\x12'.elephant.tables.v1.DeleteColumnRequest\x1a(.elephant.tables.v1.DeleteColumnResponse2\xdb\a\n" +
+	"\fDeleteColumn\x12'.elephant.tables.v1.DeleteColumnRequest\x1a(.elephant.tables.v1.DeleteColumnResponse\x12^\n" +
+	"\vSetRequired\x12&.elephant.tables.v1.SetRequiredRequest\x1a'.elephant.tables.v1.SetRequiredResponse\x12U\n" +
+	"\bAddIndex\x12#.elephant.tables.v1.AddIndexRequest\x1a$.elephant.tables.v1.AddIndexResponse\x12^\n" +
+	"\vDeleteIndex\x12&.elephant.tables.v1.DeleteIndexRequest\x1a'.elephant.tables.v1.DeleteIndexResponse\x12a\n" +
+	"\fEnsureSchema\x12'.elephant.tables.v1.EnsureSchemaRequest\x1a(.elephant.tables.v1.EnsureSchemaResponse2\xdb\a\n" +
 	"\vDataService\x12I\n" +
 	"\x04List\x12\x1f.elephant.tables.v1.ListRequest\x1a .elephant.tables.v1.ListResponse\x12O\n" +
 	"\x06Mutate\x12!.elephant.tables.v1.MutateRequest\x1a\".elephant.tables.v1.MutateResponse\x12I\n" +
@@ -9476,362 +11923,423 @@ func file_elephant_tables_v1_service_proto_rawDescGZIP() []byte {
 	return file_elephant_tables_v1_service_proto_rawDescData
 }
 
-var file_elephant_tables_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_elephant_tables_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 115)
+var file_elephant_tables_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_elephant_tables_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 136)
 var file_elephant_tables_v1_service_proto_goTypes = []any{
 	(ColumnType)(0),                   // 0: elephant.tables.v1.ColumnType
-	(SuggestionState)(0),              // 1: elephant.tables.v1.SuggestionState
-	(SnapshotPurpose)(0),              // 2: elephant.tables.v1.SnapshotPurpose
-	(ExportFormat)(0),                 // 3: elephant.tables.v1.ExportFormat
-	(SourceKind)(0),                   // 4: elephant.tables.v1.SourceKind
-	(ImportMode)(0),                   // 5: elephant.tables.v1.ImportMode
-	(*Value)(nil),                     // 6: elephant.tables.v1.Value
-	(*StringList)(nil),                // 7: elephant.tables.v1.StringList
-	(*DocumentRef)(nil),               // 8: elephant.tables.v1.DocumentRef
-	(*Cursor)(nil),                    // 9: elephant.tables.v1.Cursor
-	(*Column)(nil),                    // 10: elephant.tables.v1.Column
-	(*Table)(nil),                     // 11: elephant.tables.v1.Table
-	(*Row)(nil),                       // 12: elephant.tables.v1.Row
-	(*CellConflict)(nil),              // 13: elephant.tables.v1.CellConflict
-	(*CellError)(nil),                 // 14: elephant.tables.v1.CellError
-	(*PointInTime)(nil),               // 15: elephant.tables.v1.PointInTime
-	(*Filter)(nil),                    // 16: elephant.tables.v1.Filter
-	(*Sort)(nil),                      // 17: elephant.tables.v1.Sort
-	(*DatabaseInfo)(nil),              // 18: elephant.tables.v1.DatabaseInfo
-	(*CreateDatabaseRequest)(nil),     // 19: elephant.tables.v1.CreateDatabaseRequest
-	(*CreateDatabaseResponse)(nil),    // 20: elephant.tables.v1.CreateDatabaseResponse
-	(*GetDatabaseRequest)(nil),        // 21: elephant.tables.v1.GetDatabaseRequest
-	(*GetDatabaseResponse)(nil),       // 22: elephant.tables.v1.GetDatabaseResponse
-	(*DatabaseRecovery)(nil),          // 23: elephant.tables.v1.DatabaseRecovery
-	(*ForkRequest)(nil),               // 24: elephant.tables.v1.ForkRequest
-	(*ForkResponse)(nil),              // 25: elephant.tables.v1.ForkResponse
-	(*RestoreRequest)(nil),            // 26: elephant.tables.v1.RestoreRequest
-	(*RestoreResponse)(nil),           // 27: elephant.tables.v1.RestoreResponse
-	(*HistoryRequest)(nil),            // 28: elephant.tables.v1.HistoryRequest
-	(*RestorePoint)(nil),              // 29: elephant.tables.v1.RestorePoint
-	(*HistoryResponse)(nil),           // 30: elephant.tables.v1.HistoryResponse
-	(*RecoverDatabaseRequest)(nil),    // 31: elephant.tables.v1.RecoverDatabaseRequest
-	(*RecoverDatabaseResponse)(nil),   // 32: elephant.tables.v1.RecoverDatabaseResponse
-	(*DeleteDatabaseRequest)(nil),     // 33: elephant.tables.v1.DeleteDatabaseRequest
-	(*DeleteDatabaseResponse)(nil),    // 34: elephant.tables.v1.DeleteDatabaseResponse
-	(*SchemaChange)(nil),              // 35: elephant.tables.v1.SchemaChange
-	(*DescribeRequest)(nil),           // 36: elephant.tables.v1.DescribeRequest
-	(*DescribeResponse)(nil),          // 37: elephant.tables.v1.DescribeResponse
-	(*CreateTableRequest)(nil),        // 38: elephant.tables.v1.CreateTableRequest
-	(*CreateTableResponse)(nil),       // 39: elephant.tables.v1.CreateTableResponse
-	(*UpdateTableRequest)(nil),        // 40: elephant.tables.v1.UpdateTableRequest
-	(*UpdateTableResponse)(nil),       // 41: elephant.tables.v1.UpdateTableResponse
-	(*DeleteTableRequest)(nil),        // 42: elephant.tables.v1.DeleteTableRequest
-	(*DeleteTableResponse)(nil),       // 43: elephant.tables.v1.DeleteTableResponse
-	(*AddColumnRequest)(nil),          // 44: elephant.tables.v1.AddColumnRequest
-	(*AddColumnResponse)(nil),         // 45: elephant.tables.v1.AddColumnResponse
-	(*UpdateColumnRequest)(nil),       // 46: elephant.tables.v1.UpdateColumnRequest
-	(*UpdateColumnResponse)(nil),      // 47: elephant.tables.v1.UpdateColumnResponse
-	(*ChangeColumnTypeRequest)(nil),   // 48: elephant.tables.v1.ChangeColumnTypeRequest
-	(*ChangeColumnTypeResponse)(nil),  // 49: elephant.tables.v1.ChangeColumnTypeResponse
-	(*DeleteColumnRequest)(nil),       // 50: elephant.tables.v1.DeleteColumnRequest
-	(*DeleteColumnResponse)(nil),      // 51: elephant.tables.v1.DeleteColumnResponse
-	(*ListRequest)(nil),               // 52: elephant.tables.v1.ListRequest
-	(*ListResponse)(nil),              // 53: elephant.tables.v1.ListResponse
-	(*CellWrite)(nil),                 // 54: elephant.tables.v1.CellWrite
-	(*RowInsert)(nil),                 // 55: elephant.tables.v1.RowInsert
-	(*RowUpdate)(nil),                 // 56: elephant.tables.v1.RowUpdate
-	(*RowMove)(nil),                   // 57: elephant.tables.v1.RowMove
-	(*Mutation)(nil),                  // 58: elephant.tables.v1.Mutation
-	(*MutateRequest)(nil),             // 59: elephant.tables.v1.MutateRequest
-	(*MutationResult)(nil),            // 60: elephant.tables.v1.MutationResult
-	(*MutateResponse)(nil),            // 61: elephant.tables.v1.MutateResponse
-	(*UndoRequest)(nil),               // 62: elephant.tables.v1.UndoRequest
-	(*UndoResponse)(nil),              // 63: elephant.tables.v1.UndoResponse
-	(*QueryRequest)(nil),              // 64: elephant.tables.v1.QueryRequest
-	(*QueryColumn)(nil),               // 65: elephant.tables.v1.QueryColumn
-	(*QueryRow)(nil),                  // 66: elephant.tables.v1.QueryRow
-	(*QueryResponse)(nil),             // 67: elephant.tables.v1.QueryResponse
-	(*Change)(nil),                    // 68: elephant.tables.v1.Change
-	(*ChangesRequest)(nil),            // 69: elephant.tables.v1.ChangesRequest
-	(*ChangesResponse)(nil),           // 70: elephant.tables.v1.ChangesResponse
-	(*WatchRequest)(nil),              // 71: elephant.tables.v1.WatchRequest
-	(*Presence)(nil),                  // 72: elephant.tables.v1.Presence
-	(*PresenceUpdate)(nil),            // 73: elephant.tables.v1.PresenceUpdate
-	(*Heartbeat)(nil),                 // 74: elephant.tables.v1.Heartbeat
-	(*Hello)(nil),                     // 75: elephant.tables.v1.Hello
-	(*WatchResponse)(nil),             // 76: elephant.tables.v1.WatchResponse
-	(*SummarizeRequest)(nil),          // 77: elephant.tables.v1.SummarizeRequest
-	(*SummaryBucket)(nil),             // 78: elephant.tables.v1.SummaryBucket
-	(*SummarizeResponse)(nil),         // 79: elephant.tables.v1.SummarizeResponse
-	(*UpdatePresenceRequest)(nil),     // 80: elephant.tables.v1.UpdatePresenceRequest
-	(*UpdatePresenceResponse)(nil),    // 81: elephant.tables.v1.UpdatePresenceResponse
-	(*SuggestRequest)(nil),            // 82: elephant.tables.v1.SuggestRequest
-	(*SuggestResponse)(nil),           // 83: elephant.tables.v1.SuggestResponse
-	(*Suggestion)(nil),                // 84: elephant.tables.v1.Suggestion
-	(*ResolveSuggestionRequest)(nil),  // 85: elephant.tables.v1.ResolveSuggestionRequest
-	(*ResolveSuggestionResponse)(nil), // 86: elephant.tables.v1.ResolveSuggestionResponse
-	(*ListSuggestionsRequest)(nil),    // 87: elephant.tables.v1.ListSuggestionsRequest
-	(*ListSuggestionsResponse)(nil),   // 88: elephant.tables.v1.ListSuggestionsResponse
-	(*Snapshot)(nil),                  // 89: elephant.tables.v1.Snapshot
-	(*CreateSnapshotRequest)(nil),     // 90: elephant.tables.v1.CreateSnapshotRequest
-	(*CreateSnapshotResponse)(nil),    // 91: elephant.tables.v1.CreateSnapshotResponse
-	(*GetSnapshotRequest)(nil),        // 92: elephant.tables.v1.GetSnapshotRequest
-	(*GetSnapshotResponse)(nil),       // 93: elephant.tables.v1.GetSnapshotResponse
-	(*ListSnapshotsRequest)(nil),      // 94: elephant.tables.v1.ListSnapshotsRequest
-	(*ListSnapshotsResponse)(nil),     // 95: elephant.tables.v1.ListSnapshotsResponse
-	(*TableSelection)(nil),            // 96: elephant.tables.v1.TableSelection
-	(*PublicationSpec)(nil),           // 97: elephant.tables.v1.PublicationSpec
-	(*PublishRequest)(nil),            // 98: elephant.tables.v1.PublishRequest
-	(*PublishResponse)(nil),           // 99: elephant.tables.v1.PublishResponse
-	(*Publication)(nil),               // 100: elephant.tables.v1.Publication
-	(*GetPublicationRequest)(nil),     // 101: elephant.tables.v1.GetPublicationRequest
-	(*GetPublicationResponse)(nil),    // 102: elephant.tables.v1.GetPublicationResponse
-	(*CreateUploadRequest)(nil),       // 103: elephant.tables.v1.CreateUploadRequest
-	(*CreateUploadResponse)(nil),      // 104: elephant.tables.v1.CreateUploadResponse
-	(*AnalyzeRequest)(nil),            // 105: elephant.tables.v1.AnalyzeRequest
-	(*AnalyzeResponse)(nil),           // 106: elephant.tables.v1.AnalyzeResponse
-	(*ImportColumn)(nil),              // 107: elephant.tables.v1.ImportColumn
-	(*DiffSummary)(nil),               // 108: elephant.tables.v1.DiffSummary
-	(*ImportCandidate)(nil),           // 109: elephant.tables.v1.ImportCandidate
-	(*RoundTrip)(nil),                 // 110: elephant.tables.v1.RoundTrip
-	(*ImportPlan)(nil),                // 111: elephant.tables.v1.ImportPlan
-	(*ApplyRequest)(nil),              // 112: elephant.tables.v1.ApplyRequest
-	(*ApplyResponse)(nil),             // 113: elephant.tables.v1.ApplyResponse
-	(*GetJobRequest)(nil),             // 114: elephant.tables.v1.GetJobRequest
-	(*GetJobResponse)(nil),            // 115: elephant.tables.v1.GetJobResponse
-	(*ImportJob)(nil),                 // 116: elephant.tables.v1.ImportJob
-	(*WatchEventsRequest)(nil),        // 117: elephant.tables.v1.WatchEventsRequest
-	(*WatchEventsResponse)(nil),       // 118: elephant.tables.v1.WatchEventsResponse
-	(*Event)(nil),                     // 119: elephant.tables.v1.Event
-	nil,                               // 120: elephant.tables.v1.Row.CellsEntry
-	(*timestamppb.Timestamp)(nil),     // 121: google.protobuf.Timestamp
+	(SchemaStepKind)(0),               // 1: elephant.tables.v1.SchemaStepKind
+	(SuggestionState)(0),              // 2: elephant.tables.v1.SuggestionState
+	(SnapshotPurpose)(0),              // 3: elephant.tables.v1.SnapshotPurpose
+	(ExportFormat)(0),                 // 4: elephant.tables.v1.ExportFormat
+	(SourceKind)(0),                   // 5: elephant.tables.v1.SourceKind
+	(ImportMode)(0),                   // 6: elephant.tables.v1.ImportMode
+	(*Value)(nil),                     // 7: elephant.tables.v1.Value
+	(*StringList)(nil),                // 8: elephant.tables.v1.StringList
+	(*DocumentRef)(nil),               // 9: elephant.tables.v1.DocumentRef
+	(*Cursor)(nil),                    // 10: elephant.tables.v1.Cursor
+	(*Namespace)(nil),                 // 11: elephant.tables.v1.Namespace
+	(*Column)(nil),                    // 12: elephant.tables.v1.Column
+	(*Index)(nil),                     // 13: elephant.tables.v1.Index
+	(*ConstraintViolation)(nil),       // 14: elephant.tables.v1.ConstraintViolation
+	(*ConstraintViolations)(nil),      // 15: elephant.tables.v1.ConstraintViolations
+	(*Table)(nil),                     // 16: elephant.tables.v1.Table
+	(*Row)(nil),                       // 17: elephant.tables.v1.Row
+	(*CellConflict)(nil),              // 18: elephant.tables.v1.CellConflict
+	(*CellError)(nil),                 // 19: elephant.tables.v1.CellError
+	(*PointInTime)(nil),               // 20: elephant.tables.v1.PointInTime
+	(*Filter)(nil),                    // 21: elephant.tables.v1.Filter
+	(*Sort)(nil),                      // 22: elephant.tables.v1.Sort
+	(*DatabaseInfo)(nil),              // 23: elephant.tables.v1.DatabaseInfo
+	(*CreateDatabaseRequest)(nil),     // 24: elephant.tables.v1.CreateDatabaseRequest
+	(*CreateDatabaseResponse)(nil),    // 25: elephant.tables.v1.CreateDatabaseResponse
+	(*GetDatabaseRequest)(nil),        // 26: elephant.tables.v1.GetDatabaseRequest
+	(*GetDatabaseResponse)(nil),       // 27: elephant.tables.v1.GetDatabaseResponse
+	(*DatabaseRecovery)(nil),          // 28: elephant.tables.v1.DatabaseRecovery
+	(*ForkRequest)(nil),               // 29: elephant.tables.v1.ForkRequest
+	(*ForkResponse)(nil),              // 30: elephant.tables.v1.ForkResponse
+	(*RestoreRequest)(nil),            // 31: elephant.tables.v1.RestoreRequest
+	(*RestoreResponse)(nil),           // 32: elephant.tables.v1.RestoreResponse
+	(*NamespaceBatch)(nil),            // 33: elephant.tables.v1.NamespaceBatch
+	(*HistoryRequest)(nil),            // 34: elephant.tables.v1.HistoryRequest
+	(*RestorePoint)(nil),              // 35: elephant.tables.v1.RestorePoint
+	(*HistoryResponse)(nil),           // 36: elephant.tables.v1.HistoryResponse
+	(*RecoverDatabaseRequest)(nil),    // 37: elephant.tables.v1.RecoverDatabaseRequest
+	(*RecoverDatabaseResponse)(nil),   // 38: elephant.tables.v1.RecoverDatabaseResponse
+	(*DeleteDatabaseRequest)(nil),     // 39: elephant.tables.v1.DeleteDatabaseRequest
+	(*DeleteDatabaseResponse)(nil),    // 40: elephant.tables.v1.DeleteDatabaseResponse
+	(*SchemaDeclaration)(nil),         // 41: elephant.tables.v1.SchemaDeclaration
+	(*DeclaredTable)(nil),             // 42: elephant.tables.v1.DeclaredTable
+	(*DeclaredColumn)(nil),            // 43: elephant.tables.v1.DeclaredColumn
+	(*DeclaredIndex)(nil),             // 44: elephant.tables.v1.DeclaredIndex
+	(*SchemaStep)(nil),                // 45: elephant.tables.v1.SchemaStep
+	(*SchemaVersionConflict)(nil),     // 46: elephant.tables.v1.SchemaVersionConflict
+	(*EnsureSchemaRequest)(nil),       // 47: elephant.tables.v1.EnsureSchemaRequest
+	(*EnsureSchemaResponse)(nil),      // 48: elephant.tables.v1.EnsureSchemaResponse
+	(*SchemaChange)(nil),              // 49: elephant.tables.v1.SchemaChange
+	(*DescribeRequest)(nil),           // 50: elephant.tables.v1.DescribeRequest
+	(*DescribeResponse)(nil),          // 51: elephant.tables.v1.DescribeResponse
+	(*UpdateNamespaceRequest)(nil),    // 52: elephant.tables.v1.UpdateNamespaceRequest
+	(*UpdateNamespaceResponse)(nil),   // 53: elephant.tables.v1.UpdateNamespaceResponse
+	(*CreateTableRequest)(nil),        // 54: elephant.tables.v1.CreateTableRequest
+	(*CreateTableResponse)(nil),       // 55: elephant.tables.v1.CreateTableResponse
+	(*UpdateTableRequest)(nil),        // 56: elephant.tables.v1.UpdateTableRequest
+	(*UpdateTableResponse)(nil),       // 57: elephant.tables.v1.UpdateTableResponse
+	(*DeleteTableRequest)(nil),        // 58: elephant.tables.v1.DeleteTableRequest
+	(*DeleteTableResponse)(nil),       // 59: elephant.tables.v1.DeleteTableResponse
+	(*AddColumnRequest)(nil),          // 60: elephant.tables.v1.AddColumnRequest
+	(*AddColumnResponse)(nil),         // 61: elephant.tables.v1.AddColumnResponse
+	(*UpdateColumnRequest)(nil),       // 62: elephant.tables.v1.UpdateColumnRequest
+	(*UpdateColumnResponse)(nil),      // 63: elephant.tables.v1.UpdateColumnResponse
+	(*ChangeColumnTypeRequest)(nil),   // 64: elephant.tables.v1.ChangeColumnTypeRequest
+	(*ChangeColumnTypeResponse)(nil),  // 65: elephant.tables.v1.ChangeColumnTypeResponse
+	(*DeleteColumnRequest)(nil),       // 66: elephant.tables.v1.DeleteColumnRequest
+	(*DeleteColumnResponse)(nil),      // 67: elephant.tables.v1.DeleteColumnResponse
+	(*SetRequiredRequest)(nil),        // 68: elephant.tables.v1.SetRequiredRequest
+	(*SetRequiredResponse)(nil),       // 69: elephant.tables.v1.SetRequiredResponse
+	(*AddIndexRequest)(nil),           // 70: elephant.tables.v1.AddIndexRequest
+	(*AddIndexResponse)(nil),          // 71: elephant.tables.v1.AddIndexResponse
+	(*DeleteIndexRequest)(nil),        // 72: elephant.tables.v1.DeleteIndexRequest
+	(*DeleteIndexResponse)(nil),       // 73: elephant.tables.v1.DeleteIndexResponse
+	(*ListRequest)(nil),               // 74: elephant.tables.v1.ListRequest
+	(*ListResponse)(nil),              // 75: elephant.tables.v1.ListResponse
+	(*CellWrite)(nil),                 // 76: elephant.tables.v1.CellWrite
+	(*RowInsert)(nil),                 // 77: elephant.tables.v1.RowInsert
+	(*RowUpdate)(nil),                 // 78: elephant.tables.v1.RowUpdate
+	(*RowMove)(nil),                   // 79: elephant.tables.v1.RowMove
+	(*Mutation)(nil),                  // 80: elephant.tables.v1.Mutation
+	(*MutateRequest)(nil),             // 81: elephant.tables.v1.MutateRequest
+	(*MutationResult)(nil),            // 82: elephant.tables.v1.MutationResult
+	(*MutateResponse)(nil),            // 83: elephant.tables.v1.MutateResponse
+	(*UndoRequest)(nil),               // 84: elephant.tables.v1.UndoRequest
+	(*UndoResponse)(nil),              // 85: elephant.tables.v1.UndoResponse
+	(*QueryRequest)(nil),              // 86: elephant.tables.v1.QueryRequest
+	(*QueryColumn)(nil),               // 87: elephant.tables.v1.QueryColumn
+	(*QueryRow)(nil),                  // 88: elephant.tables.v1.QueryRow
+	(*QueryResponse)(nil),             // 89: elephant.tables.v1.QueryResponse
+	(*Change)(nil),                    // 90: elephant.tables.v1.Change
+	(*ChangesRequest)(nil),            // 91: elephant.tables.v1.ChangesRequest
+	(*ChangesResponse)(nil),           // 92: elephant.tables.v1.ChangesResponse
+	(*WatchRequest)(nil),              // 93: elephant.tables.v1.WatchRequest
+	(*Presence)(nil),                  // 94: elephant.tables.v1.Presence
+	(*PresenceUpdate)(nil),            // 95: elephant.tables.v1.PresenceUpdate
+	(*Heartbeat)(nil),                 // 96: elephant.tables.v1.Heartbeat
+	(*Hello)(nil),                     // 97: elephant.tables.v1.Hello
+	(*WatchResponse)(nil),             // 98: elephant.tables.v1.WatchResponse
+	(*SummarizeRequest)(nil),          // 99: elephant.tables.v1.SummarizeRequest
+	(*SummaryBucket)(nil),             // 100: elephant.tables.v1.SummaryBucket
+	(*SummarizeResponse)(nil),         // 101: elephant.tables.v1.SummarizeResponse
+	(*UpdatePresenceRequest)(nil),     // 102: elephant.tables.v1.UpdatePresenceRequest
+	(*UpdatePresenceResponse)(nil),    // 103: elephant.tables.v1.UpdatePresenceResponse
+	(*SuggestRequest)(nil),            // 104: elephant.tables.v1.SuggestRequest
+	(*SuggestResponse)(nil),           // 105: elephant.tables.v1.SuggestResponse
+	(*Suggestion)(nil),                // 106: elephant.tables.v1.Suggestion
+	(*ResolveSuggestionRequest)(nil),  // 107: elephant.tables.v1.ResolveSuggestionRequest
+	(*ResolveSuggestionResponse)(nil), // 108: elephant.tables.v1.ResolveSuggestionResponse
+	(*ListSuggestionsRequest)(nil),    // 109: elephant.tables.v1.ListSuggestionsRequest
+	(*ListSuggestionsResponse)(nil),   // 110: elephant.tables.v1.ListSuggestionsResponse
+	(*Snapshot)(nil),                  // 111: elephant.tables.v1.Snapshot
+	(*CreateSnapshotRequest)(nil),     // 112: elephant.tables.v1.CreateSnapshotRequest
+	(*CreateSnapshotResponse)(nil),    // 113: elephant.tables.v1.CreateSnapshotResponse
+	(*GetSnapshotRequest)(nil),        // 114: elephant.tables.v1.GetSnapshotRequest
+	(*GetSnapshotResponse)(nil),       // 115: elephant.tables.v1.GetSnapshotResponse
+	(*ListSnapshotsRequest)(nil),      // 116: elephant.tables.v1.ListSnapshotsRequest
+	(*ListSnapshotsResponse)(nil),     // 117: elephant.tables.v1.ListSnapshotsResponse
+	(*TableSelection)(nil),            // 118: elephant.tables.v1.TableSelection
+	(*PublicationSpec)(nil),           // 119: elephant.tables.v1.PublicationSpec
+	(*PublishRequest)(nil),            // 120: elephant.tables.v1.PublishRequest
+	(*PublishResponse)(nil),           // 121: elephant.tables.v1.PublishResponse
+	(*Publication)(nil),               // 122: elephant.tables.v1.Publication
+	(*GetPublicationRequest)(nil),     // 123: elephant.tables.v1.GetPublicationRequest
+	(*GetPublicationResponse)(nil),    // 124: elephant.tables.v1.GetPublicationResponse
+	(*CreateUploadRequest)(nil),       // 125: elephant.tables.v1.CreateUploadRequest
+	(*CreateUploadResponse)(nil),      // 126: elephant.tables.v1.CreateUploadResponse
+	(*AnalyzeRequest)(nil),            // 127: elephant.tables.v1.AnalyzeRequest
+	(*AnalyzeResponse)(nil),           // 128: elephant.tables.v1.AnalyzeResponse
+	(*ImportColumn)(nil),              // 129: elephant.tables.v1.ImportColumn
+	(*DiffSummary)(nil),               // 130: elephant.tables.v1.DiffSummary
+	(*ImportCandidate)(nil),           // 131: elephant.tables.v1.ImportCandidate
+	(*RoundTrip)(nil),                 // 132: elephant.tables.v1.RoundTrip
+	(*ImportPlan)(nil),                // 133: elephant.tables.v1.ImportPlan
+	(*ApplyRequest)(nil),              // 134: elephant.tables.v1.ApplyRequest
+	(*ApplyResponse)(nil),             // 135: elephant.tables.v1.ApplyResponse
+	(*GetJobRequest)(nil),             // 136: elephant.tables.v1.GetJobRequest
+	(*GetJobResponse)(nil),            // 137: elephant.tables.v1.GetJobResponse
+	(*ImportJob)(nil),                 // 138: elephant.tables.v1.ImportJob
+	(*WatchEventsRequest)(nil),        // 139: elephant.tables.v1.WatchEventsRequest
+	(*WatchEventsResponse)(nil),       // 140: elephant.tables.v1.WatchEventsResponse
+	(*Event)(nil),                     // 141: elephant.tables.v1.Event
+	nil,                               // 142: elephant.tables.v1.Row.CellsEntry
+	(*timestamppb.Timestamp)(nil),     // 143: google.protobuf.Timestamp
 }
 var file_elephant_tables_v1_service_proto_depIdxs = []int32{
-	7,   // 0: elephant.tables.v1.Value.multi_choice:type_name -> elephant.tables.v1.StringList
-	8,   // 1: elephant.tables.v1.Value.document:type_name -> elephant.tables.v1.DocumentRef
+	8,   // 0: elephant.tables.v1.Value.multi_choice:type_name -> elephant.tables.v1.StringList
+	9,   // 1: elephant.tables.v1.Value.document:type_name -> elephant.tables.v1.DocumentRef
 	0,   // 2: elephant.tables.v1.Column.type:type_name -> elephant.tables.v1.ColumnType
-	10,  // 3: elephant.tables.v1.Table.columns:type_name -> elephant.tables.v1.Column
-	120, // 4: elephant.tables.v1.Row.cells:type_name -> elephant.tables.v1.Row.CellsEntry
-	6,   // 5: elephant.tables.v1.CellConflict.current:type_name -> elephant.tables.v1.Value
-	6,   // 6: elephant.tables.v1.CellConflict.proposed:type_name -> elephant.tables.v1.Value
-	9,   // 7: elephant.tables.v1.CellConflict.changed_at:type_name -> elephant.tables.v1.Cursor
-	121, // 8: elephant.tables.v1.PointInTime.time:type_name -> google.protobuf.Timestamp
-	6,   // 9: elephant.tables.v1.Filter.values:type_name -> elephant.tables.v1.Value
-	9,   // 10: elephant.tables.v1.DatabaseInfo.parent_cursor:type_name -> elephant.tables.v1.Cursor
-	9,   // 11: elephant.tables.v1.DatabaseInfo.head:type_name -> elephant.tables.v1.Cursor
-	9,   // 12: elephant.tables.v1.DatabaseInfo.durable:type_name -> elephant.tables.v1.Cursor
-	11,  // 13: elephant.tables.v1.DatabaseInfo.tables:type_name -> elephant.tables.v1.Table
-	121, // 14: elephant.tables.v1.DatabaseInfo.created:type_name -> google.protobuf.Timestamp
-	18,  // 15: elephant.tables.v1.CreateDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
-	18,  // 16: elephant.tables.v1.GetDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
-	23,  // 17: elephant.tables.v1.GetDatabaseResponse.recovery:type_name -> elephant.tables.v1.DatabaseRecovery
-	121, // 18: elephant.tables.v1.DatabaseRecovery.lost_saved:type_name -> google.protobuf.Timestamp
-	121, // 19: elephant.tables.v1.DatabaseRecovery.offered_saved:type_name -> google.protobuf.Timestamp
-	15,  // 20: elephant.tables.v1.ForkRequest.at:type_name -> elephant.tables.v1.PointInTime
-	18,  // 21: elephant.tables.v1.ForkResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
-	15,  // 22: elephant.tables.v1.RestoreRequest.at:type_name -> elephant.tables.v1.PointInTime
-	9,   // 23: elephant.tables.v1.RestoreResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	121, // 24: elephant.tables.v1.HistoryRequest.from:type_name -> google.protobuf.Timestamp
-	121, // 25: elephant.tables.v1.HistoryRequest.to:type_name -> google.protobuf.Timestamp
-	121, // 26: elephant.tables.v1.RestorePoint.time:type_name -> google.protobuf.Timestamp
-	29,  // 27: elephant.tables.v1.HistoryResponse.points:type_name -> elephant.tables.v1.RestorePoint
-	121, // 28: elephant.tables.v1.HistoryResponse.retained_from:type_name -> google.protobuf.Timestamp
-	18,  // 29: elephant.tables.v1.RecoverDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
-	9,   // 30: elephant.tables.v1.SchemaChange.cursor:type_name -> elephant.tables.v1.Cursor
-	11,  // 31: elephant.tables.v1.SchemaChange.table:type_name -> elephant.tables.v1.Table
-	11,  // 32: elephant.tables.v1.DescribeResponse.tables:type_name -> elephant.tables.v1.Table
-	9,   // 33: elephant.tables.v1.DescribeResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	10,  // 34: elephant.tables.v1.CreateTableRequest.columns:type_name -> elephant.tables.v1.Column
-	9,   // 35: elephant.tables.v1.CreateTableResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	11,  // 36: elephant.tables.v1.CreateTableResponse.table:type_name -> elephant.tables.v1.Table
-	9,   // 37: elephant.tables.v1.UpdateTableResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	11,  // 38: elephant.tables.v1.UpdateTableResponse.table:type_name -> elephant.tables.v1.Table
-	9,   // 39: elephant.tables.v1.DeleteTableResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	10,  // 40: elephant.tables.v1.AddColumnRequest.column:type_name -> elephant.tables.v1.Column
-	9,   // 41: elephant.tables.v1.AddColumnResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	11,  // 42: elephant.tables.v1.AddColumnResponse.table:type_name -> elephant.tables.v1.Table
-	10,  // 43: elephant.tables.v1.UpdateColumnRequest.column:type_name -> elephant.tables.v1.Column
-	9,   // 44: elephant.tables.v1.UpdateColumnResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	11,  // 45: elephant.tables.v1.UpdateColumnResponse.table:type_name -> elephant.tables.v1.Table
-	0,   // 46: elephant.tables.v1.ChangeColumnTypeRequest.type:type_name -> elephant.tables.v1.ColumnType
-	14,  // 47: elephant.tables.v1.ChangeColumnTypeResponse.failures:type_name -> elephant.tables.v1.CellError
-	35,  // 48: elephant.tables.v1.ChangeColumnTypeResponse.result:type_name -> elephant.tables.v1.SchemaChange
-	9,   // 49: elephant.tables.v1.DeleteColumnResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	11,  // 50: elephant.tables.v1.DeleteColumnResponse.table:type_name -> elephant.tables.v1.Table
-	16,  // 51: elephant.tables.v1.ListRequest.filters:type_name -> elephant.tables.v1.Filter
-	17,  // 52: elephant.tables.v1.ListRequest.sort:type_name -> elephant.tables.v1.Sort
-	12,  // 53: elephant.tables.v1.ListResponse.rows:type_name -> elephant.tables.v1.Row
-	9,   // 54: elephant.tables.v1.ListResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	6,   // 55: elephant.tables.v1.CellWrite.value:type_name -> elephant.tables.v1.Value
-	6,   // 56: elephant.tables.v1.CellWrite.expected:type_name -> elephant.tables.v1.Value
-	54,  // 57: elephant.tables.v1.RowInsert.cells:type_name -> elephant.tables.v1.CellWrite
-	54,  // 58: elephant.tables.v1.RowUpdate.cells:type_name -> elephant.tables.v1.CellWrite
-	55,  // 59: elephant.tables.v1.Mutation.insert:type_name -> elephant.tables.v1.RowInsert
-	56,  // 60: elephant.tables.v1.Mutation.update:type_name -> elephant.tables.v1.RowUpdate
-	57,  // 61: elephant.tables.v1.Mutation.move:type_name -> elephant.tables.v1.RowMove
-	58,  // 62: elephant.tables.v1.MutateRequest.mutations:type_name -> elephant.tables.v1.Mutation
-	13,  // 63: elephant.tables.v1.MutationResult.conflict:type_name -> elephant.tables.v1.CellConflict
-	9,   // 64: elephant.tables.v1.MutateResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	60,  // 65: elephant.tables.v1.MutateResponse.results:type_name -> elephant.tables.v1.MutationResult
-	9,   // 66: elephant.tables.v1.UndoResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	60,  // 67: elephant.tables.v1.UndoResponse.results:type_name -> elephant.tables.v1.MutationResult
-	6,   // 68: elephant.tables.v1.QueryRequest.params:type_name -> elephant.tables.v1.Value
-	0,   // 69: elephant.tables.v1.QueryColumn.type:type_name -> elephant.tables.v1.ColumnType
-	6,   // 70: elephant.tables.v1.QueryRow.values:type_name -> elephant.tables.v1.Value
-	65,  // 71: elephant.tables.v1.QueryResponse.columns:type_name -> elephant.tables.v1.QueryColumn
-	66,  // 72: elephant.tables.v1.QueryResponse.rows:type_name -> elephant.tables.v1.QueryRow
-	9,   // 73: elephant.tables.v1.QueryResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	9,   // 74: elephant.tables.v1.Change.cursor:type_name -> elephant.tables.v1.Cursor
-	121, // 75: elephant.tables.v1.Change.at:type_name -> google.protobuf.Timestamp
-	6,   // 76: elephant.tables.v1.Change.old:type_name -> elephant.tables.v1.Value
-	6,   // 77: elephant.tables.v1.Change.new:type_name -> elephant.tables.v1.Value
-	12,  // 78: elephant.tables.v1.Change.row_state:type_name -> elephant.tables.v1.Row
-	11,  // 79: elephant.tables.v1.Change.table_state:type_name -> elephant.tables.v1.Table
-	9,   // 80: elephant.tables.v1.ChangesRequest.after:type_name -> elephant.tables.v1.Cursor
-	68,  // 81: elephant.tables.v1.ChangesResponse.changes:type_name -> elephant.tables.v1.Change
-	9,   // 82: elephant.tables.v1.WatchRequest.after:type_name -> elephant.tables.v1.Cursor
-	72,  // 83: elephant.tables.v1.WatchRequest.presence:type_name -> elephant.tables.v1.Presence
-	72,  // 84: elephant.tables.v1.PresenceUpdate.presence:type_name -> elephant.tables.v1.Presence
-	9,   // 85: elephant.tables.v1.Heartbeat.head:type_name -> elephant.tables.v1.Cursor
-	9,   // 86: elephant.tables.v1.Heartbeat.durable:type_name -> elephant.tables.v1.Cursor
-	68,  // 87: elephant.tables.v1.WatchResponse.change:type_name -> elephant.tables.v1.Change
-	73,  // 88: elephant.tables.v1.WatchResponse.presence:type_name -> elephant.tables.v1.PresenceUpdate
-	74,  // 89: elephant.tables.v1.WatchResponse.heartbeat:type_name -> elephant.tables.v1.Heartbeat
-	84,  // 90: elephant.tables.v1.WatchResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
-	75,  // 91: elephant.tables.v1.WatchResponse.hello:type_name -> elephant.tables.v1.Hello
-	16,  // 92: elephant.tables.v1.SummarizeRequest.filters:type_name -> elephant.tables.v1.Filter
-	6,   // 93: elephant.tables.v1.SummaryBucket.value:type_name -> elephant.tables.v1.Value
-	6,   // 94: elephant.tables.v1.SummaryBucket.upper:type_name -> elephant.tables.v1.Value
-	78,  // 95: elephant.tables.v1.SummarizeResponse.buckets:type_name -> elephant.tables.v1.SummaryBucket
-	6,   // 96: elephant.tables.v1.SummarizeResponse.min:type_name -> elephant.tables.v1.Value
-	6,   // 97: elephant.tables.v1.SummarizeResponse.max:type_name -> elephant.tables.v1.Value
-	6,   // 98: elephant.tables.v1.SummarizeResponse.median:type_name -> elephant.tables.v1.Value
-	9,   // 99: elephant.tables.v1.SummarizeResponse.cursor:type_name -> elephant.tables.v1.Cursor
-	72,  // 100: elephant.tables.v1.UpdatePresenceRequest.presence:type_name -> elephant.tables.v1.Presence
-	58,  // 101: elephant.tables.v1.SuggestRequest.mutations:type_name -> elephant.tables.v1.Mutation
-	84,  // 102: elephant.tables.v1.SuggestResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
-	58,  // 103: elephant.tables.v1.Suggestion.mutations:type_name -> elephant.tables.v1.Mutation
-	1,   // 104: elephant.tables.v1.Suggestion.state:type_name -> elephant.tables.v1.SuggestionState
-	121, // 105: elephant.tables.v1.Suggestion.created:type_name -> google.protobuf.Timestamp
-	121, // 106: elephant.tables.v1.Suggestion.expires:type_name -> google.protobuf.Timestamp
-	84,  // 107: elephant.tables.v1.ResolveSuggestionResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
-	61,  // 108: elephant.tables.v1.ResolveSuggestionResponse.result:type_name -> elephant.tables.v1.MutateResponse
-	84,  // 109: elephant.tables.v1.ListSuggestionsResponse.suggestions:type_name -> elephant.tables.v1.Suggestion
-	9,   // 110: elephant.tables.v1.Snapshot.cursor:type_name -> elephant.tables.v1.Cursor
-	2,   // 111: elephant.tables.v1.Snapshot.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
-	3,   // 112: elephant.tables.v1.Snapshot.format:type_name -> elephant.tables.v1.ExportFormat
-	121, // 113: elephant.tables.v1.Snapshot.created:type_name -> google.protobuf.Timestamp
-	121, // 114: elephant.tables.v1.Snapshot.expires:type_name -> google.protobuf.Timestamp
-	2,   // 115: elephant.tables.v1.CreateSnapshotRequest.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
-	3,   // 116: elephant.tables.v1.CreateSnapshotRequest.format:type_name -> elephant.tables.v1.ExportFormat
-	89,  // 117: elephant.tables.v1.CreateSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
-	89,  // 118: elephant.tables.v1.GetSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
-	11,  // 119: elephant.tables.v1.GetSnapshotResponse.tables:type_name -> elephant.tables.v1.Table
-	89,  // 120: elephant.tables.v1.ListSnapshotsResponse.snapshots:type_name -> elephant.tables.v1.Snapshot
-	16,  // 121: elephant.tables.v1.TableSelection.filters:type_name -> elephant.tables.v1.Filter
-	17,  // 122: elephant.tables.v1.TableSelection.sort:type_name -> elephant.tables.v1.Sort
-	96,  // 123: elephant.tables.v1.PublicationSpec.tables:type_name -> elephant.tables.v1.TableSelection
-	97,  // 124: elephant.tables.v1.PublishRequest.spec:type_name -> elephant.tables.v1.PublicationSpec
-	100, // 125: elephant.tables.v1.PublishResponse.publication:type_name -> elephant.tables.v1.Publication
-	121, // 126: elephant.tables.v1.Publication.created:type_name -> google.protobuf.Timestamp
-	100, // 127: elephant.tables.v1.GetPublicationResponse.publication:type_name -> elephant.tables.v1.Publication
-	97,  // 128: elephant.tables.v1.GetPublicationResponse.spec:type_name -> elephant.tables.v1.PublicationSpec
-	11,  // 129: elephant.tables.v1.GetPublicationResponse.tables:type_name -> elephant.tables.v1.Table
-	15,  // 130: elephant.tables.v1.AnalyzeRequest.source_at:type_name -> elephant.tables.v1.PointInTime
-	111, // 131: elephant.tables.v1.AnalyzeResponse.plan:type_name -> elephant.tables.v1.ImportPlan
-	10,  // 132: elephant.tables.v1.ImportColumn.column:type_name -> elephant.tables.v1.Column
-	4,   // 133: elephant.tables.v1.ImportCandidate.kind:type_name -> elephant.tables.v1.SourceKind
-	5,   // 134: elephant.tables.v1.ImportCandidate.mode:type_name -> elephant.tables.v1.ImportMode
-	107, // 135: elephant.tables.v1.ImportCandidate.columns:type_name -> elephant.tables.v1.ImportColumn
-	108, // 136: elephant.tables.v1.ImportCandidate.preview:type_name -> elephant.tables.v1.DiffSummary
-	9,   // 137: elephant.tables.v1.RoundTrip.base:type_name -> elephant.tables.v1.Cursor
-	9,   // 138: elephant.tables.v1.ImportPlan.base:type_name -> elephant.tables.v1.Cursor
-	110, // 139: elephant.tables.v1.ImportPlan.round_trip:type_name -> elephant.tables.v1.RoundTrip
-	109, // 140: elephant.tables.v1.ImportPlan.candidates:type_name -> elephant.tables.v1.ImportCandidate
-	111, // 141: elephant.tables.v1.ApplyRequest.plan:type_name -> elephant.tables.v1.ImportPlan
-	116, // 142: elephant.tables.v1.ApplyResponse.job:type_name -> elephant.tables.v1.ImportJob
-	116, // 143: elephant.tables.v1.GetJobResponse.job:type_name -> elephant.tables.v1.ImportJob
-	9,   // 144: elephant.tables.v1.ImportJob.cursor:type_name -> elephant.tables.v1.Cursor
-	108, // 145: elephant.tables.v1.ImportJob.applied:type_name -> elephant.tables.v1.DiffSummary
-	13,  // 146: elephant.tables.v1.ImportJob.conflicts:type_name -> elephant.tables.v1.CellConflict
-	14,  // 147: elephant.tables.v1.ImportJob.failures:type_name -> elephant.tables.v1.CellError
-	119, // 148: elephant.tables.v1.WatchEventsResponse.event:type_name -> elephant.tables.v1.Event
-	9,   // 149: elephant.tables.v1.Event.cursor:type_name -> elephant.tables.v1.Cursor
-	121, // 150: elephant.tables.v1.Event.created:type_name -> google.protobuf.Timestamp
-	6,   // 151: elephant.tables.v1.Row.CellsEntry.value:type_name -> elephant.tables.v1.Value
-	19,  // 152: elephant.tables.v1.DatabasesService.CreateDatabase:input_type -> elephant.tables.v1.CreateDatabaseRequest
-	21,  // 153: elephant.tables.v1.DatabasesService.GetDatabase:input_type -> elephant.tables.v1.GetDatabaseRequest
-	24,  // 154: elephant.tables.v1.DatabasesService.Fork:input_type -> elephant.tables.v1.ForkRequest
-	26,  // 155: elephant.tables.v1.DatabasesService.Restore:input_type -> elephant.tables.v1.RestoreRequest
-	28,  // 156: elephant.tables.v1.DatabasesService.History:input_type -> elephant.tables.v1.HistoryRequest
-	31,  // 157: elephant.tables.v1.DatabasesService.RecoverDatabase:input_type -> elephant.tables.v1.RecoverDatabaseRequest
-	33,  // 158: elephant.tables.v1.DatabasesService.DeleteDatabase:input_type -> elephant.tables.v1.DeleteDatabaseRequest
-	36,  // 159: elephant.tables.v1.SchemaService.Describe:input_type -> elephant.tables.v1.DescribeRequest
-	38,  // 160: elephant.tables.v1.SchemaService.CreateTable:input_type -> elephant.tables.v1.CreateTableRequest
-	40,  // 161: elephant.tables.v1.SchemaService.UpdateTable:input_type -> elephant.tables.v1.UpdateTableRequest
-	42,  // 162: elephant.tables.v1.SchemaService.DeleteTable:input_type -> elephant.tables.v1.DeleteTableRequest
-	44,  // 163: elephant.tables.v1.SchemaService.AddColumn:input_type -> elephant.tables.v1.AddColumnRequest
-	46,  // 164: elephant.tables.v1.SchemaService.UpdateColumn:input_type -> elephant.tables.v1.UpdateColumnRequest
-	48,  // 165: elephant.tables.v1.SchemaService.ChangeColumnType:input_type -> elephant.tables.v1.ChangeColumnTypeRequest
-	50,  // 166: elephant.tables.v1.SchemaService.DeleteColumn:input_type -> elephant.tables.v1.DeleteColumnRequest
-	52,  // 167: elephant.tables.v1.DataService.List:input_type -> elephant.tables.v1.ListRequest
-	59,  // 168: elephant.tables.v1.DataService.Mutate:input_type -> elephant.tables.v1.MutateRequest
-	62,  // 169: elephant.tables.v1.DataService.Undo:input_type -> elephant.tables.v1.UndoRequest
-	64,  // 170: elephant.tables.v1.DataService.Query:input_type -> elephant.tables.v1.QueryRequest
-	69,  // 171: elephant.tables.v1.DataService.Changes:input_type -> elephant.tables.v1.ChangesRequest
-	71,  // 172: elephant.tables.v1.DataService.Watch:input_type -> elephant.tables.v1.WatchRequest
-	82,  // 173: elephant.tables.v1.DataService.Suggest:input_type -> elephant.tables.v1.SuggestRequest
-	85,  // 174: elephant.tables.v1.DataService.ResolveSuggestion:input_type -> elephant.tables.v1.ResolveSuggestionRequest
-	87,  // 175: elephant.tables.v1.DataService.ListSuggestions:input_type -> elephant.tables.v1.ListSuggestionsRequest
-	77,  // 176: elephant.tables.v1.DataService.Summarize:input_type -> elephant.tables.v1.SummarizeRequest
-	80,  // 177: elephant.tables.v1.DataService.UpdatePresence:input_type -> elephant.tables.v1.UpdatePresenceRequest
-	90,  // 178: elephant.tables.v1.SnapshotsService.CreateSnapshot:input_type -> elephant.tables.v1.CreateSnapshotRequest
-	92,  // 179: elephant.tables.v1.SnapshotsService.GetSnapshot:input_type -> elephant.tables.v1.GetSnapshotRequest
-	94,  // 180: elephant.tables.v1.SnapshotsService.ListSnapshots:input_type -> elephant.tables.v1.ListSnapshotsRequest
-	98,  // 181: elephant.tables.v1.SnapshotsService.Publish:input_type -> elephant.tables.v1.PublishRequest
-	101, // 182: elephant.tables.v1.SnapshotsService.GetPublication:input_type -> elephant.tables.v1.GetPublicationRequest
-	103, // 183: elephant.tables.v1.ImportsService.CreateUpload:input_type -> elephant.tables.v1.CreateUploadRequest
-	105, // 184: elephant.tables.v1.ImportsService.Analyze:input_type -> elephant.tables.v1.AnalyzeRequest
-	112, // 185: elephant.tables.v1.ImportsService.Apply:input_type -> elephant.tables.v1.ApplyRequest
-	114, // 186: elephant.tables.v1.ImportsService.GetJob:input_type -> elephant.tables.v1.GetJobRequest
-	117, // 187: elephant.tables.v1.EventsService.WatchEvents:input_type -> elephant.tables.v1.WatchEventsRequest
-	20,  // 188: elephant.tables.v1.DatabasesService.CreateDatabase:output_type -> elephant.tables.v1.CreateDatabaseResponse
-	22,  // 189: elephant.tables.v1.DatabasesService.GetDatabase:output_type -> elephant.tables.v1.GetDatabaseResponse
-	25,  // 190: elephant.tables.v1.DatabasesService.Fork:output_type -> elephant.tables.v1.ForkResponse
-	27,  // 191: elephant.tables.v1.DatabasesService.Restore:output_type -> elephant.tables.v1.RestoreResponse
-	30,  // 192: elephant.tables.v1.DatabasesService.History:output_type -> elephant.tables.v1.HistoryResponse
-	32,  // 193: elephant.tables.v1.DatabasesService.RecoverDatabase:output_type -> elephant.tables.v1.RecoverDatabaseResponse
-	34,  // 194: elephant.tables.v1.DatabasesService.DeleteDatabase:output_type -> elephant.tables.v1.DeleteDatabaseResponse
-	37,  // 195: elephant.tables.v1.SchemaService.Describe:output_type -> elephant.tables.v1.DescribeResponse
-	39,  // 196: elephant.tables.v1.SchemaService.CreateTable:output_type -> elephant.tables.v1.CreateTableResponse
-	41,  // 197: elephant.tables.v1.SchemaService.UpdateTable:output_type -> elephant.tables.v1.UpdateTableResponse
-	43,  // 198: elephant.tables.v1.SchemaService.DeleteTable:output_type -> elephant.tables.v1.DeleteTableResponse
-	45,  // 199: elephant.tables.v1.SchemaService.AddColumn:output_type -> elephant.tables.v1.AddColumnResponse
-	47,  // 200: elephant.tables.v1.SchemaService.UpdateColumn:output_type -> elephant.tables.v1.UpdateColumnResponse
-	49,  // 201: elephant.tables.v1.SchemaService.ChangeColumnType:output_type -> elephant.tables.v1.ChangeColumnTypeResponse
-	51,  // 202: elephant.tables.v1.SchemaService.DeleteColumn:output_type -> elephant.tables.v1.DeleteColumnResponse
-	53,  // 203: elephant.tables.v1.DataService.List:output_type -> elephant.tables.v1.ListResponse
-	61,  // 204: elephant.tables.v1.DataService.Mutate:output_type -> elephant.tables.v1.MutateResponse
-	63,  // 205: elephant.tables.v1.DataService.Undo:output_type -> elephant.tables.v1.UndoResponse
-	67,  // 206: elephant.tables.v1.DataService.Query:output_type -> elephant.tables.v1.QueryResponse
-	70,  // 207: elephant.tables.v1.DataService.Changes:output_type -> elephant.tables.v1.ChangesResponse
-	76,  // 208: elephant.tables.v1.DataService.Watch:output_type -> elephant.tables.v1.WatchResponse
-	83,  // 209: elephant.tables.v1.DataService.Suggest:output_type -> elephant.tables.v1.SuggestResponse
-	86,  // 210: elephant.tables.v1.DataService.ResolveSuggestion:output_type -> elephant.tables.v1.ResolveSuggestionResponse
-	88,  // 211: elephant.tables.v1.DataService.ListSuggestions:output_type -> elephant.tables.v1.ListSuggestionsResponse
-	79,  // 212: elephant.tables.v1.DataService.Summarize:output_type -> elephant.tables.v1.SummarizeResponse
-	81,  // 213: elephant.tables.v1.DataService.UpdatePresence:output_type -> elephant.tables.v1.UpdatePresenceResponse
-	91,  // 214: elephant.tables.v1.SnapshotsService.CreateSnapshot:output_type -> elephant.tables.v1.CreateSnapshotResponse
-	93,  // 215: elephant.tables.v1.SnapshotsService.GetSnapshot:output_type -> elephant.tables.v1.GetSnapshotResponse
-	95,  // 216: elephant.tables.v1.SnapshotsService.ListSnapshots:output_type -> elephant.tables.v1.ListSnapshotsResponse
-	99,  // 217: elephant.tables.v1.SnapshotsService.Publish:output_type -> elephant.tables.v1.PublishResponse
-	102, // 218: elephant.tables.v1.SnapshotsService.GetPublication:output_type -> elephant.tables.v1.GetPublicationResponse
-	104, // 219: elephant.tables.v1.ImportsService.CreateUpload:output_type -> elephant.tables.v1.CreateUploadResponse
-	106, // 220: elephant.tables.v1.ImportsService.Analyze:output_type -> elephant.tables.v1.AnalyzeResponse
-	113, // 221: elephant.tables.v1.ImportsService.Apply:output_type -> elephant.tables.v1.ApplyResponse
-	115, // 222: elephant.tables.v1.ImportsService.GetJob:output_type -> elephant.tables.v1.GetJobResponse
-	118, // 223: elephant.tables.v1.EventsService.WatchEvents:output_type -> elephant.tables.v1.WatchEventsResponse
-	188, // [188:224] is the sub-list for method output_type
-	152, // [152:188] is the sub-list for method input_type
-	152, // [152:152] is the sub-list for extension type_name
-	152, // [152:152] is the sub-list for extension extendee
-	0,   // [0:152] is the sub-list for field type_name
+	14,  // 3: elephant.tables.v1.ConstraintViolations.violations:type_name -> elephant.tables.v1.ConstraintViolation
+	12,  // 4: elephant.tables.v1.Table.columns:type_name -> elephant.tables.v1.Column
+	13,  // 5: elephant.tables.v1.Table.indexes:type_name -> elephant.tables.v1.Index
+	142, // 6: elephant.tables.v1.Row.cells:type_name -> elephant.tables.v1.Row.CellsEntry
+	7,   // 7: elephant.tables.v1.CellConflict.current:type_name -> elephant.tables.v1.Value
+	7,   // 8: elephant.tables.v1.CellConflict.proposed:type_name -> elephant.tables.v1.Value
+	10,  // 9: elephant.tables.v1.CellConflict.changed_at:type_name -> elephant.tables.v1.Cursor
+	143, // 10: elephant.tables.v1.PointInTime.time:type_name -> google.protobuf.Timestamp
+	7,   // 11: elephant.tables.v1.Filter.values:type_name -> elephant.tables.v1.Value
+	10,  // 12: elephant.tables.v1.DatabaseInfo.parent_cursor:type_name -> elephant.tables.v1.Cursor
+	10,  // 13: elephant.tables.v1.DatabaseInfo.head:type_name -> elephant.tables.v1.Cursor
+	10,  // 14: elephant.tables.v1.DatabaseInfo.durable:type_name -> elephant.tables.v1.Cursor
+	143, // 15: elephant.tables.v1.DatabaseInfo.created:type_name -> google.protobuf.Timestamp
+	11,  // 16: elephant.tables.v1.DatabaseInfo.namespaces:type_name -> elephant.tables.v1.Namespace
+	23,  // 17: elephant.tables.v1.CreateDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
+	23,  // 18: elephant.tables.v1.GetDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
+	28,  // 19: elephant.tables.v1.GetDatabaseResponse.recovery:type_name -> elephant.tables.v1.DatabaseRecovery
+	143, // 20: elephant.tables.v1.DatabaseRecovery.lost_saved:type_name -> google.protobuf.Timestamp
+	143, // 21: elephant.tables.v1.DatabaseRecovery.offered_saved:type_name -> google.protobuf.Timestamp
+	20,  // 22: elephant.tables.v1.ForkRequest.at:type_name -> elephant.tables.v1.PointInTime
+	23,  // 23: elephant.tables.v1.ForkResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
+	20,  // 24: elephant.tables.v1.RestoreRequest.at:type_name -> elephant.tables.v1.PointInTime
+	10,  // 25: elephant.tables.v1.RestoreResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	33,  // 26: elephant.tables.v1.RestoreResponse.batches:type_name -> elephant.tables.v1.NamespaceBatch
+	143, // 27: elephant.tables.v1.HistoryRequest.from:type_name -> google.protobuf.Timestamp
+	143, // 28: elephant.tables.v1.HistoryRequest.to:type_name -> google.protobuf.Timestamp
+	143, // 29: elephant.tables.v1.RestorePoint.time:type_name -> google.protobuf.Timestamp
+	35,  // 30: elephant.tables.v1.HistoryResponse.points:type_name -> elephant.tables.v1.RestorePoint
+	143, // 31: elephant.tables.v1.HistoryResponse.retained_from:type_name -> google.protobuf.Timestamp
+	23,  // 32: elephant.tables.v1.RecoverDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
+	42,  // 33: elephant.tables.v1.SchemaDeclaration.tables:type_name -> elephant.tables.v1.DeclaredTable
+	43,  // 34: elephant.tables.v1.DeclaredTable.columns:type_name -> elephant.tables.v1.DeclaredColumn
+	44,  // 35: elephant.tables.v1.DeclaredTable.indexes:type_name -> elephant.tables.v1.DeclaredIndex
+	0,   // 36: elephant.tables.v1.DeclaredColumn.type:type_name -> elephant.tables.v1.ColumnType
+	1,   // 37: elephant.tables.v1.SchemaStep.kind:type_name -> elephant.tables.v1.SchemaStepKind
+	41,  // 38: elephant.tables.v1.EnsureSchemaRequest.schema:type_name -> elephant.tables.v1.SchemaDeclaration
+	10,  // 39: elephant.tables.v1.EnsureSchemaResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	11,  // 40: elephant.tables.v1.EnsureSchemaResponse.namespace:type_name -> elephant.tables.v1.Namespace
+	16,  // 41: elephant.tables.v1.EnsureSchemaResponse.tables:type_name -> elephant.tables.v1.Table
+	45,  // 42: elephant.tables.v1.EnsureSchemaResponse.steps:type_name -> elephant.tables.v1.SchemaStep
+	14,  // 43: elephant.tables.v1.EnsureSchemaResponse.violations:type_name -> elephant.tables.v1.ConstraintViolation
+	10,  // 44: elephant.tables.v1.SchemaChange.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 45: elephant.tables.v1.SchemaChange.table:type_name -> elephant.tables.v1.Table
+	16,  // 46: elephant.tables.v1.DescribeResponse.tables:type_name -> elephant.tables.v1.Table
+	10,  // 47: elephant.tables.v1.DescribeResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	11,  // 48: elephant.tables.v1.DescribeResponse.namespace:type_name -> elephant.tables.v1.Namespace
+	10,  // 49: elephant.tables.v1.UpdateNamespaceResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	11,  // 50: elephant.tables.v1.UpdateNamespaceResponse.namespace:type_name -> elephant.tables.v1.Namespace
+	12,  // 51: elephant.tables.v1.CreateTableRequest.columns:type_name -> elephant.tables.v1.Column
+	10,  // 52: elephant.tables.v1.CreateTableResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 53: elephant.tables.v1.CreateTableResponse.table:type_name -> elephant.tables.v1.Table
+	10,  // 54: elephant.tables.v1.UpdateTableResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 55: elephant.tables.v1.UpdateTableResponse.table:type_name -> elephant.tables.v1.Table
+	10,  // 56: elephant.tables.v1.DeleteTableResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	12,  // 57: elephant.tables.v1.AddColumnRequest.column:type_name -> elephant.tables.v1.Column
+	10,  // 58: elephant.tables.v1.AddColumnResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 59: elephant.tables.v1.AddColumnResponse.table:type_name -> elephant.tables.v1.Table
+	12,  // 60: elephant.tables.v1.UpdateColumnRequest.column:type_name -> elephant.tables.v1.Column
+	10,  // 61: elephant.tables.v1.UpdateColumnResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 62: elephant.tables.v1.UpdateColumnResponse.table:type_name -> elephant.tables.v1.Table
+	0,   // 63: elephant.tables.v1.ChangeColumnTypeRequest.type:type_name -> elephant.tables.v1.ColumnType
+	19,  // 64: elephant.tables.v1.ChangeColumnTypeResponse.failures:type_name -> elephant.tables.v1.CellError
+	49,  // 65: elephant.tables.v1.ChangeColumnTypeResponse.result:type_name -> elephant.tables.v1.SchemaChange
+	10,  // 66: elephant.tables.v1.DeleteColumnResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 67: elephant.tables.v1.DeleteColumnResponse.table:type_name -> elephant.tables.v1.Table
+	10,  // 68: elephant.tables.v1.SetRequiredResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 69: elephant.tables.v1.SetRequiredResponse.table:type_name -> elephant.tables.v1.Table
+	14,  // 70: elephant.tables.v1.SetRequiredResponse.violations:type_name -> elephant.tables.v1.ConstraintViolation
+	13,  // 71: elephant.tables.v1.AddIndexRequest.index:type_name -> elephant.tables.v1.Index
+	10,  // 72: elephant.tables.v1.AddIndexResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 73: elephant.tables.v1.AddIndexResponse.table:type_name -> elephant.tables.v1.Table
+	14,  // 74: elephant.tables.v1.AddIndexResponse.violations:type_name -> elephant.tables.v1.ConstraintViolation
+	10,  // 75: elephant.tables.v1.DeleteIndexResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	16,  // 76: elephant.tables.v1.DeleteIndexResponse.table:type_name -> elephant.tables.v1.Table
+	21,  // 77: elephant.tables.v1.ListRequest.filters:type_name -> elephant.tables.v1.Filter
+	22,  // 78: elephant.tables.v1.ListRequest.sort:type_name -> elephant.tables.v1.Sort
+	17,  // 79: elephant.tables.v1.ListResponse.rows:type_name -> elephant.tables.v1.Row
+	10,  // 80: elephant.tables.v1.ListResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	7,   // 81: elephant.tables.v1.CellWrite.value:type_name -> elephant.tables.v1.Value
+	7,   // 82: elephant.tables.v1.CellWrite.expected:type_name -> elephant.tables.v1.Value
+	76,  // 83: elephant.tables.v1.RowInsert.cells:type_name -> elephant.tables.v1.CellWrite
+	76,  // 84: elephant.tables.v1.RowUpdate.cells:type_name -> elephant.tables.v1.CellWrite
+	77,  // 85: elephant.tables.v1.Mutation.insert:type_name -> elephant.tables.v1.RowInsert
+	78,  // 86: elephant.tables.v1.Mutation.update:type_name -> elephant.tables.v1.RowUpdate
+	79,  // 87: elephant.tables.v1.Mutation.move:type_name -> elephant.tables.v1.RowMove
+	80,  // 88: elephant.tables.v1.MutateRequest.mutations:type_name -> elephant.tables.v1.Mutation
+	18,  // 89: elephant.tables.v1.MutationResult.conflict:type_name -> elephant.tables.v1.CellConflict
+	14,  // 90: elephant.tables.v1.MutationResult.violation:type_name -> elephant.tables.v1.ConstraintViolation
+	10,  // 91: elephant.tables.v1.MutateResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	82,  // 92: elephant.tables.v1.MutateResponse.results:type_name -> elephant.tables.v1.MutationResult
+	10,  // 93: elephant.tables.v1.UndoResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	82,  // 94: elephant.tables.v1.UndoResponse.results:type_name -> elephant.tables.v1.MutationResult
+	7,   // 95: elephant.tables.v1.QueryRequest.params:type_name -> elephant.tables.v1.Value
+	0,   // 96: elephant.tables.v1.QueryColumn.type:type_name -> elephant.tables.v1.ColumnType
+	7,   // 97: elephant.tables.v1.QueryRow.values:type_name -> elephant.tables.v1.Value
+	87,  // 98: elephant.tables.v1.QueryResponse.columns:type_name -> elephant.tables.v1.QueryColumn
+	88,  // 99: elephant.tables.v1.QueryResponse.rows:type_name -> elephant.tables.v1.QueryRow
+	10,  // 100: elephant.tables.v1.QueryResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	10,  // 101: elephant.tables.v1.Change.cursor:type_name -> elephant.tables.v1.Cursor
+	143, // 102: elephant.tables.v1.Change.at:type_name -> google.protobuf.Timestamp
+	7,   // 103: elephant.tables.v1.Change.old:type_name -> elephant.tables.v1.Value
+	7,   // 104: elephant.tables.v1.Change.new:type_name -> elephant.tables.v1.Value
+	17,  // 105: elephant.tables.v1.Change.row_state:type_name -> elephant.tables.v1.Row
+	16,  // 106: elephant.tables.v1.Change.table_state:type_name -> elephant.tables.v1.Table
+	11,  // 107: elephant.tables.v1.Change.namespace_state:type_name -> elephant.tables.v1.Namespace
+	10,  // 108: elephant.tables.v1.ChangesRequest.after:type_name -> elephant.tables.v1.Cursor
+	90,  // 109: elephant.tables.v1.ChangesResponse.changes:type_name -> elephant.tables.v1.Change
+	10,  // 110: elephant.tables.v1.ChangesResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	10,  // 111: elephant.tables.v1.WatchRequest.after:type_name -> elephant.tables.v1.Cursor
+	94,  // 112: elephant.tables.v1.WatchRequest.presence:type_name -> elephant.tables.v1.Presence
+	94,  // 113: elephant.tables.v1.PresenceUpdate.presence:type_name -> elephant.tables.v1.Presence
+	10,  // 114: elephant.tables.v1.Heartbeat.head:type_name -> elephant.tables.v1.Cursor
+	10,  // 115: elephant.tables.v1.Heartbeat.durable:type_name -> elephant.tables.v1.Cursor
+	90,  // 116: elephant.tables.v1.WatchResponse.change:type_name -> elephant.tables.v1.Change
+	95,  // 117: elephant.tables.v1.WatchResponse.presence:type_name -> elephant.tables.v1.PresenceUpdate
+	96,  // 118: elephant.tables.v1.WatchResponse.heartbeat:type_name -> elephant.tables.v1.Heartbeat
+	106, // 119: elephant.tables.v1.WatchResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
+	97,  // 120: elephant.tables.v1.WatchResponse.hello:type_name -> elephant.tables.v1.Hello
+	21,  // 121: elephant.tables.v1.SummarizeRequest.filters:type_name -> elephant.tables.v1.Filter
+	7,   // 122: elephant.tables.v1.SummaryBucket.value:type_name -> elephant.tables.v1.Value
+	7,   // 123: elephant.tables.v1.SummaryBucket.upper:type_name -> elephant.tables.v1.Value
+	100, // 124: elephant.tables.v1.SummarizeResponse.buckets:type_name -> elephant.tables.v1.SummaryBucket
+	7,   // 125: elephant.tables.v1.SummarizeResponse.min:type_name -> elephant.tables.v1.Value
+	7,   // 126: elephant.tables.v1.SummarizeResponse.max:type_name -> elephant.tables.v1.Value
+	7,   // 127: elephant.tables.v1.SummarizeResponse.median:type_name -> elephant.tables.v1.Value
+	10,  // 128: elephant.tables.v1.SummarizeResponse.cursor:type_name -> elephant.tables.v1.Cursor
+	94,  // 129: elephant.tables.v1.UpdatePresenceRequest.presence:type_name -> elephant.tables.v1.Presence
+	80,  // 130: elephant.tables.v1.SuggestRequest.mutations:type_name -> elephant.tables.v1.Mutation
+	106, // 131: elephant.tables.v1.SuggestResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
+	80,  // 132: elephant.tables.v1.Suggestion.mutations:type_name -> elephant.tables.v1.Mutation
+	2,   // 133: elephant.tables.v1.Suggestion.state:type_name -> elephant.tables.v1.SuggestionState
+	143, // 134: elephant.tables.v1.Suggestion.created:type_name -> google.protobuf.Timestamp
+	143, // 135: elephant.tables.v1.Suggestion.expires:type_name -> google.protobuf.Timestamp
+	106, // 136: elephant.tables.v1.ResolveSuggestionResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
+	83,  // 137: elephant.tables.v1.ResolveSuggestionResponse.result:type_name -> elephant.tables.v1.MutateResponse
+	106, // 138: elephant.tables.v1.ListSuggestionsResponse.suggestions:type_name -> elephant.tables.v1.Suggestion
+	10,  // 139: elephant.tables.v1.Snapshot.cursor:type_name -> elephant.tables.v1.Cursor
+	3,   // 140: elephant.tables.v1.Snapshot.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
+	4,   // 141: elephant.tables.v1.Snapshot.format:type_name -> elephant.tables.v1.ExportFormat
+	143, // 142: elephant.tables.v1.Snapshot.created:type_name -> google.protobuf.Timestamp
+	143, // 143: elephant.tables.v1.Snapshot.expires:type_name -> google.protobuf.Timestamp
+	3,   // 144: elephant.tables.v1.CreateSnapshotRequest.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
+	4,   // 145: elephant.tables.v1.CreateSnapshotRequest.format:type_name -> elephant.tables.v1.ExportFormat
+	111, // 146: elephant.tables.v1.CreateSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
+	111, // 147: elephant.tables.v1.GetSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
+	16,  // 148: elephant.tables.v1.GetSnapshotResponse.tables:type_name -> elephant.tables.v1.Table
+	111, // 149: elephant.tables.v1.ListSnapshotsResponse.snapshots:type_name -> elephant.tables.v1.Snapshot
+	21,  // 150: elephant.tables.v1.TableSelection.filters:type_name -> elephant.tables.v1.Filter
+	22,  // 151: elephant.tables.v1.TableSelection.sort:type_name -> elephant.tables.v1.Sort
+	118, // 152: elephant.tables.v1.PublicationSpec.tables:type_name -> elephant.tables.v1.TableSelection
+	119, // 153: elephant.tables.v1.PublishRequest.spec:type_name -> elephant.tables.v1.PublicationSpec
+	122, // 154: elephant.tables.v1.PublishResponse.publication:type_name -> elephant.tables.v1.Publication
+	143, // 155: elephant.tables.v1.Publication.created:type_name -> google.protobuf.Timestamp
+	122, // 156: elephant.tables.v1.GetPublicationResponse.publication:type_name -> elephant.tables.v1.Publication
+	119, // 157: elephant.tables.v1.GetPublicationResponse.spec:type_name -> elephant.tables.v1.PublicationSpec
+	16,  // 158: elephant.tables.v1.GetPublicationResponse.tables:type_name -> elephant.tables.v1.Table
+	20,  // 159: elephant.tables.v1.AnalyzeRequest.source_at:type_name -> elephant.tables.v1.PointInTime
+	133, // 160: elephant.tables.v1.AnalyzeResponse.plan:type_name -> elephant.tables.v1.ImportPlan
+	12,  // 161: elephant.tables.v1.ImportColumn.column:type_name -> elephant.tables.v1.Column
+	5,   // 162: elephant.tables.v1.ImportCandidate.kind:type_name -> elephant.tables.v1.SourceKind
+	6,   // 163: elephant.tables.v1.ImportCandidate.mode:type_name -> elephant.tables.v1.ImportMode
+	129, // 164: elephant.tables.v1.ImportCandidate.columns:type_name -> elephant.tables.v1.ImportColumn
+	130, // 165: elephant.tables.v1.ImportCandidate.preview:type_name -> elephant.tables.v1.DiffSummary
+	10,  // 166: elephant.tables.v1.RoundTrip.base:type_name -> elephant.tables.v1.Cursor
+	10,  // 167: elephant.tables.v1.ImportPlan.base:type_name -> elephant.tables.v1.Cursor
+	132, // 168: elephant.tables.v1.ImportPlan.round_trip:type_name -> elephant.tables.v1.RoundTrip
+	131, // 169: elephant.tables.v1.ImportPlan.candidates:type_name -> elephant.tables.v1.ImportCandidate
+	133, // 170: elephant.tables.v1.ApplyRequest.plan:type_name -> elephant.tables.v1.ImportPlan
+	138, // 171: elephant.tables.v1.ApplyResponse.job:type_name -> elephant.tables.v1.ImportJob
+	138, // 172: elephant.tables.v1.GetJobResponse.job:type_name -> elephant.tables.v1.ImportJob
+	10,  // 173: elephant.tables.v1.ImportJob.cursor:type_name -> elephant.tables.v1.Cursor
+	130, // 174: elephant.tables.v1.ImportJob.applied:type_name -> elephant.tables.v1.DiffSummary
+	18,  // 175: elephant.tables.v1.ImportJob.conflicts:type_name -> elephant.tables.v1.CellConflict
+	19,  // 176: elephant.tables.v1.ImportJob.failures:type_name -> elephant.tables.v1.CellError
+	141, // 177: elephant.tables.v1.WatchEventsResponse.event:type_name -> elephant.tables.v1.Event
+	10,  // 178: elephant.tables.v1.Event.cursor:type_name -> elephant.tables.v1.Cursor
+	143, // 179: elephant.tables.v1.Event.created:type_name -> google.protobuf.Timestamp
+	7,   // 180: elephant.tables.v1.Row.CellsEntry.value:type_name -> elephant.tables.v1.Value
+	24,  // 181: elephant.tables.v1.DatabasesService.CreateDatabase:input_type -> elephant.tables.v1.CreateDatabaseRequest
+	26,  // 182: elephant.tables.v1.DatabasesService.GetDatabase:input_type -> elephant.tables.v1.GetDatabaseRequest
+	29,  // 183: elephant.tables.v1.DatabasesService.Fork:input_type -> elephant.tables.v1.ForkRequest
+	31,  // 184: elephant.tables.v1.DatabasesService.Restore:input_type -> elephant.tables.v1.RestoreRequest
+	34,  // 185: elephant.tables.v1.DatabasesService.History:input_type -> elephant.tables.v1.HistoryRequest
+	37,  // 186: elephant.tables.v1.DatabasesService.RecoverDatabase:input_type -> elephant.tables.v1.RecoverDatabaseRequest
+	39,  // 187: elephant.tables.v1.DatabasesService.DeleteDatabase:input_type -> elephant.tables.v1.DeleteDatabaseRequest
+	50,  // 188: elephant.tables.v1.SchemaService.Describe:input_type -> elephant.tables.v1.DescribeRequest
+	52,  // 189: elephant.tables.v1.SchemaService.UpdateNamespace:input_type -> elephant.tables.v1.UpdateNamespaceRequest
+	54,  // 190: elephant.tables.v1.SchemaService.CreateTable:input_type -> elephant.tables.v1.CreateTableRequest
+	56,  // 191: elephant.tables.v1.SchemaService.UpdateTable:input_type -> elephant.tables.v1.UpdateTableRequest
+	58,  // 192: elephant.tables.v1.SchemaService.DeleteTable:input_type -> elephant.tables.v1.DeleteTableRequest
+	60,  // 193: elephant.tables.v1.SchemaService.AddColumn:input_type -> elephant.tables.v1.AddColumnRequest
+	62,  // 194: elephant.tables.v1.SchemaService.UpdateColumn:input_type -> elephant.tables.v1.UpdateColumnRequest
+	64,  // 195: elephant.tables.v1.SchemaService.ChangeColumnType:input_type -> elephant.tables.v1.ChangeColumnTypeRequest
+	66,  // 196: elephant.tables.v1.SchemaService.DeleteColumn:input_type -> elephant.tables.v1.DeleteColumnRequest
+	68,  // 197: elephant.tables.v1.SchemaService.SetRequired:input_type -> elephant.tables.v1.SetRequiredRequest
+	70,  // 198: elephant.tables.v1.SchemaService.AddIndex:input_type -> elephant.tables.v1.AddIndexRequest
+	72,  // 199: elephant.tables.v1.SchemaService.DeleteIndex:input_type -> elephant.tables.v1.DeleteIndexRequest
+	47,  // 200: elephant.tables.v1.SchemaService.EnsureSchema:input_type -> elephant.tables.v1.EnsureSchemaRequest
+	74,  // 201: elephant.tables.v1.DataService.List:input_type -> elephant.tables.v1.ListRequest
+	81,  // 202: elephant.tables.v1.DataService.Mutate:input_type -> elephant.tables.v1.MutateRequest
+	84,  // 203: elephant.tables.v1.DataService.Undo:input_type -> elephant.tables.v1.UndoRequest
+	86,  // 204: elephant.tables.v1.DataService.Query:input_type -> elephant.tables.v1.QueryRequest
+	91,  // 205: elephant.tables.v1.DataService.Changes:input_type -> elephant.tables.v1.ChangesRequest
+	93,  // 206: elephant.tables.v1.DataService.Watch:input_type -> elephant.tables.v1.WatchRequest
+	104, // 207: elephant.tables.v1.DataService.Suggest:input_type -> elephant.tables.v1.SuggestRequest
+	107, // 208: elephant.tables.v1.DataService.ResolveSuggestion:input_type -> elephant.tables.v1.ResolveSuggestionRequest
+	109, // 209: elephant.tables.v1.DataService.ListSuggestions:input_type -> elephant.tables.v1.ListSuggestionsRequest
+	99,  // 210: elephant.tables.v1.DataService.Summarize:input_type -> elephant.tables.v1.SummarizeRequest
+	102, // 211: elephant.tables.v1.DataService.UpdatePresence:input_type -> elephant.tables.v1.UpdatePresenceRequest
+	112, // 212: elephant.tables.v1.SnapshotsService.CreateSnapshot:input_type -> elephant.tables.v1.CreateSnapshotRequest
+	114, // 213: elephant.tables.v1.SnapshotsService.GetSnapshot:input_type -> elephant.tables.v1.GetSnapshotRequest
+	116, // 214: elephant.tables.v1.SnapshotsService.ListSnapshots:input_type -> elephant.tables.v1.ListSnapshotsRequest
+	120, // 215: elephant.tables.v1.SnapshotsService.Publish:input_type -> elephant.tables.v1.PublishRequest
+	123, // 216: elephant.tables.v1.SnapshotsService.GetPublication:input_type -> elephant.tables.v1.GetPublicationRequest
+	125, // 217: elephant.tables.v1.ImportsService.CreateUpload:input_type -> elephant.tables.v1.CreateUploadRequest
+	127, // 218: elephant.tables.v1.ImportsService.Analyze:input_type -> elephant.tables.v1.AnalyzeRequest
+	134, // 219: elephant.tables.v1.ImportsService.Apply:input_type -> elephant.tables.v1.ApplyRequest
+	136, // 220: elephant.tables.v1.ImportsService.GetJob:input_type -> elephant.tables.v1.GetJobRequest
+	139, // 221: elephant.tables.v1.EventsService.WatchEvents:input_type -> elephant.tables.v1.WatchEventsRequest
+	25,  // 222: elephant.tables.v1.DatabasesService.CreateDatabase:output_type -> elephant.tables.v1.CreateDatabaseResponse
+	27,  // 223: elephant.tables.v1.DatabasesService.GetDatabase:output_type -> elephant.tables.v1.GetDatabaseResponse
+	30,  // 224: elephant.tables.v1.DatabasesService.Fork:output_type -> elephant.tables.v1.ForkResponse
+	32,  // 225: elephant.tables.v1.DatabasesService.Restore:output_type -> elephant.tables.v1.RestoreResponse
+	36,  // 226: elephant.tables.v1.DatabasesService.History:output_type -> elephant.tables.v1.HistoryResponse
+	38,  // 227: elephant.tables.v1.DatabasesService.RecoverDatabase:output_type -> elephant.tables.v1.RecoverDatabaseResponse
+	40,  // 228: elephant.tables.v1.DatabasesService.DeleteDatabase:output_type -> elephant.tables.v1.DeleteDatabaseResponse
+	51,  // 229: elephant.tables.v1.SchemaService.Describe:output_type -> elephant.tables.v1.DescribeResponse
+	53,  // 230: elephant.tables.v1.SchemaService.UpdateNamespace:output_type -> elephant.tables.v1.UpdateNamespaceResponse
+	55,  // 231: elephant.tables.v1.SchemaService.CreateTable:output_type -> elephant.tables.v1.CreateTableResponse
+	57,  // 232: elephant.tables.v1.SchemaService.UpdateTable:output_type -> elephant.tables.v1.UpdateTableResponse
+	59,  // 233: elephant.tables.v1.SchemaService.DeleteTable:output_type -> elephant.tables.v1.DeleteTableResponse
+	61,  // 234: elephant.tables.v1.SchemaService.AddColumn:output_type -> elephant.tables.v1.AddColumnResponse
+	63,  // 235: elephant.tables.v1.SchemaService.UpdateColumn:output_type -> elephant.tables.v1.UpdateColumnResponse
+	65,  // 236: elephant.tables.v1.SchemaService.ChangeColumnType:output_type -> elephant.tables.v1.ChangeColumnTypeResponse
+	67,  // 237: elephant.tables.v1.SchemaService.DeleteColumn:output_type -> elephant.tables.v1.DeleteColumnResponse
+	69,  // 238: elephant.tables.v1.SchemaService.SetRequired:output_type -> elephant.tables.v1.SetRequiredResponse
+	71,  // 239: elephant.tables.v1.SchemaService.AddIndex:output_type -> elephant.tables.v1.AddIndexResponse
+	73,  // 240: elephant.tables.v1.SchemaService.DeleteIndex:output_type -> elephant.tables.v1.DeleteIndexResponse
+	48,  // 241: elephant.tables.v1.SchemaService.EnsureSchema:output_type -> elephant.tables.v1.EnsureSchemaResponse
+	75,  // 242: elephant.tables.v1.DataService.List:output_type -> elephant.tables.v1.ListResponse
+	83,  // 243: elephant.tables.v1.DataService.Mutate:output_type -> elephant.tables.v1.MutateResponse
+	85,  // 244: elephant.tables.v1.DataService.Undo:output_type -> elephant.tables.v1.UndoResponse
+	89,  // 245: elephant.tables.v1.DataService.Query:output_type -> elephant.tables.v1.QueryResponse
+	92,  // 246: elephant.tables.v1.DataService.Changes:output_type -> elephant.tables.v1.ChangesResponse
+	98,  // 247: elephant.tables.v1.DataService.Watch:output_type -> elephant.tables.v1.WatchResponse
+	105, // 248: elephant.tables.v1.DataService.Suggest:output_type -> elephant.tables.v1.SuggestResponse
+	108, // 249: elephant.tables.v1.DataService.ResolveSuggestion:output_type -> elephant.tables.v1.ResolveSuggestionResponse
+	110, // 250: elephant.tables.v1.DataService.ListSuggestions:output_type -> elephant.tables.v1.ListSuggestionsResponse
+	101, // 251: elephant.tables.v1.DataService.Summarize:output_type -> elephant.tables.v1.SummarizeResponse
+	103, // 252: elephant.tables.v1.DataService.UpdatePresence:output_type -> elephant.tables.v1.UpdatePresenceResponse
+	113, // 253: elephant.tables.v1.SnapshotsService.CreateSnapshot:output_type -> elephant.tables.v1.CreateSnapshotResponse
+	115, // 254: elephant.tables.v1.SnapshotsService.GetSnapshot:output_type -> elephant.tables.v1.GetSnapshotResponse
+	117, // 255: elephant.tables.v1.SnapshotsService.ListSnapshots:output_type -> elephant.tables.v1.ListSnapshotsResponse
+	121, // 256: elephant.tables.v1.SnapshotsService.Publish:output_type -> elephant.tables.v1.PublishResponse
+	124, // 257: elephant.tables.v1.SnapshotsService.GetPublication:output_type -> elephant.tables.v1.GetPublicationResponse
+	126, // 258: elephant.tables.v1.ImportsService.CreateUpload:output_type -> elephant.tables.v1.CreateUploadResponse
+	128, // 259: elephant.tables.v1.ImportsService.Analyze:output_type -> elephant.tables.v1.AnalyzeResponse
+	135, // 260: elephant.tables.v1.ImportsService.Apply:output_type -> elephant.tables.v1.ApplyResponse
+	137, // 261: elephant.tables.v1.ImportsService.GetJob:output_type -> elephant.tables.v1.GetJobResponse
+	140, // 262: elephant.tables.v1.EventsService.WatchEvents:output_type -> elephant.tables.v1.WatchEventsResponse
+	222, // [222:263] is the sub-list for method output_type
+	181, // [181:222] is the sub-list for method input_type
+	181, // [181:181] is the sub-list for extension type_name
+	181, // [181:181] is the sub-list for extension extendee
+	0,   // [0:181] is the sub-list for field type_name
 }
 
 func init() { file_elephant_tables_v1_service_proto_init() }
@@ -9853,30 +12361,31 @@ func file_elephant_tables_v1_service_proto_init() {
 		(*Value_Document)(nil),
 		(*Value_Json)(nil),
 	}
-	file_elephant_tables_v1_service_proto_msgTypes[9].OneofWrappers = []any{
+	file_elephant_tables_v1_service_proto_msgTypes[13].OneofWrappers = []any{
 		(*PointInTime_Seq)(nil),
 		(*PointInTime_Time)(nil),
 		(*PointInTime_Snapshot)(nil),
 	}
-	file_elephant_tables_v1_service_proto_msgTypes[15].OneofWrappers = []any{
+	file_elephant_tables_v1_service_proto_msgTypes[19].OneofWrappers = []any{
 		(*GetDatabaseRequest_Database)(nil),
 		(*GetDatabaseRequest_OwnerDocument)(nil),
 	}
-	file_elephant_tables_v1_service_proto_msgTypes[17].OneofWrappers = []any{}
-	file_elephant_tables_v1_service_proto_msgTypes[25].OneofWrappers = []any{}
-	file_elephant_tables_v1_service_proto_msgTypes[34].OneofWrappers = []any{}
-	file_elephant_tables_v1_service_proto_msgTypes[52].OneofWrappers = []any{
+	file_elephant_tables_v1_service_proto_msgTypes[21].OneofWrappers = []any{}
+	file_elephant_tables_v1_service_proto_msgTypes[30].OneofWrappers = []any{}
+	file_elephant_tables_v1_service_proto_msgTypes[49].OneofWrappers = []any{}
+	file_elephant_tables_v1_service_proto_msgTypes[73].OneofWrappers = []any{
 		(*Mutation_Insert)(nil),
 		(*Mutation_Update)(nil),
 		(*Mutation_Delete)(nil),
 		(*Mutation_Move)(nil),
 	}
-	file_elephant_tables_v1_service_proto_msgTypes[54].OneofWrappers = []any{
+	file_elephant_tables_v1_service_proto_msgTypes[75].OneofWrappers = []any{
 		(*MutationResult_Row)(nil),
 		(*MutationResult_Conflict)(nil),
 		(*MutationResult_Error)(nil),
+		(*MutationResult_Violation)(nil),
 	}
-	file_elephant_tables_v1_service_proto_msgTypes[70].OneofWrappers = []any{
+	file_elephant_tables_v1_service_proto_msgTypes[91].OneofWrappers = []any{
 		(*WatchResponse_Change)(nil),
 		(*WatchResponse_Presence)(nil),
 		(*WatchResponse_Heartbeat)(nil),
@@ -9888,8 +12397,8 @@ func file_elephant_tables_v1_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_elephant_tables_v1_service_proto_rawDesc), len(file_elephant_tables_v1_service_proto_rawDesc)),
-			NumEnums:      6,
-			NumMessages:   115,
+			NumEnums:      7,
+			NumMessages:   136,
 			NumExtensions: 0,
 			NumServices:   6,
 		},

@@ -26,10 +26,111 @@
 // streamed on Watch and undoable as a unit. Positions in that log are
 // Cursors.
 //
+// Namespaces: the table widget is one of several applications that keep
+// tabular data in a document's one database. Every table belongs to a
+// namespace, named by the application that created it, and a change
+// batch touches exactly one namespace. Calls that name tables, batches or
+// suggestions take a namespace, and the catalog, Watch, Changes and the
+// event stream return only what belongs to it; a table, batch or
+// suggestion of another namespace is not found. Snapshots, publishing
+// and forks cover the whole database. A namespace is an organising
+// convention, not an access boundary: access is the caller's access to
+// the owning document, and anyone who may write the document may write
+// every namespace in it.
+//
+// A namespace name is an identifier: a lower-case ASCII letter, then
+// lower-case letters and digits in runs joined by single underscores, at
+// most 32 bytes, not starting with "sqlite" or "pragma", such as
+// "widget" or "plan_board". A malformed one is refused with
+// invalid_argument. A namespace exists once a table has been created in
+// it or SchemaService.UpdateNamespace has set its flag. A database holds
+// at most 20 namespaces, and a namespace at most 200 tables; past either
+// a call is refused with resource_exhausted. The database size cap, the
+// change log and the single writer are shared by every namespace.
+//
+// Keys: a table has a key, unique within its namespace, and a column a
+// key, unique within its table. A key is an identifier: a lower-case
+// ASCII letter, then lower-case letters and digits in runs joined by
+// single underscores, at most 64 bytes, such as "people" or
+// "start_date"; a malformed one is refused with invalid_argument. It is
+// given when the table or column is created, or made by the service from
+// the display name when none is given, as the table widget's are, and
+// it never changes: a rename leaves it, and so do undo, restore, import
+// and every other change. Undo, restore, forks and snapshots carry it
+// with the table or column.
+//
+// A key is not reused while history that names it can be undone: once a
+// table or column is deleted, its key stays reserved for it, within the
+// namespace or the table, as long as the change log holds the deletion
+// (the change log window, the span Undo is offered in). Only after that
+// can another table or column be given it. A request that gives a key
+// another table or column holds or reserves is refused with
+// already_exists. A restore is the exception: it puts back the state at
+// the point it restores to, keys included, so it may bring back a table
+// or column whose key a deleted one still reserves, and an undo of that
+// deletion is then a conflict.
+//
+// Addressing: wherever a request names a table or column of a namespace
+// by id, it may give its key instead. That is every table, column,
+// summary_column, target_table, target_column and key_columns field and
+// every entry of a tables or columns list of a request that takes a
+// namespace, and the column of a CellWrite, Filter or Sort in one. Ids
+// always start with a digit and keys always with a letter, so a
+// reference is unambiguously one or the other. Responses, change records
+// and stored suggestions name tables and columns by id, and Table and
+// Column carry both, as do rendered publications. Calls that span the
+// whole database name tables by id only, since a key is unique only
+// within its namespace: DatabasesService.Restore,
+// SnapshotsService.CreateSnapshot and the tables of a PublicationSpec.
+// The columns, filters and sort of a TableSelection may name a column
+// by key, since the table is named. A Presence is relayed between
+// clients as it was sent, unresolved.
+//
+// Constraints: a column can be required, and a table can have unique
+// constraints and indexes over one or more of its columns, together at
+// most 16 per table (Table.indexes). All three are schema: setting or
+// clearing a required flag (SchemaService.SetRequired) and adding or
+// deleting a unique constraint or index (SchemaService.AddIndex and
+// DeleteIndex) are change batches, streamed on Watch and undoable.
+//
+// A cell is empty when it holds no value, and a text cell also when it
+// holds the empty string. A write that would leave a required column
+// empty, or give two rows the same values in the columns of a unique
+// constraint, is refused for that operation with a ConstraintViolation
+// naming the constraint and, for a unique constraint, the row that
+// already holds the values; the rest of the request applies as for any
+// other failing operation. Rows where any column of a unique constraint
+// is empty are not compared. Values compare as their column type does:
+// text, choice, date, datetime and document references exactly, as
+// stored (so text is case and space sensitive, and a document reference
+// is compared in its canonical lower-case form); integers, numbers and
+// booleans by value; decimals by value, so 1.5 and 1.50 collide. A
+// unique constraint cannot cover a multi_choice or json column. This
+// holds for every write: Mutate, an applied suggestion, Undo (where it
+// is a conflict for the change that would break it), a restore and an
+// import (where a refused row is reported as a failure).
+//
+// Adding a required flag or a unique constraint that existing rows
+// break is refused with failed_precondition, carrying a
+// ConstraintViolations detail that lists the offending rows up to a cap;
+// the request's dry_run reports the same without changing anything. A
+// column that a unique constraint or index covers cannot be deleted, and
+// one a unique constraint covers cannot change type: delete the index
+// first. A type change of a required column is refused when a cell
+// would not convert, since it would become empty. An index changes no
+// results; it only makes filters, sorts and queries on its columns
+// faster.
+//
 // Refusals carry a structured reason in the error metadata under
 // "reason", as elephant-collab's do. The reasons a stream ends with are
 // lease_moved, cursor_invalid and token_expired; see DataService.Watch.
-// One more reason refuses a call before it starts:
+// Two more reasons refuse a call:
+//
+//	schema_version_conflict (code failed_precondition):
+//	SchemaService.EnsureSchema was given a version lower than the one
+//	the namespace has, or the same version with another schema. The
+//	error carries a SchemaVersionConflict detail with the stored
+//	version.
 //
 //	recovery_needed (code failed_precondition): the database cannot be
 //	opened, because nothing is restorable from the replica of its newest
@@ -102,6 +203,9 @@ const (
 	DatabasesServiceDeleteDatabaseProcedure = "/elephant.tables.v1.DatabasesService/DeleteDatabase"
 	// SchemaServiceDescribeProcedure is the fully-qualified name of the SchemaService's Describe RPC.
 	SchemaServiceDescribeProcedure = "/elephant.tables.v1.SchemaService/Describe"
+	// SchemaServiceUpdateNamespaceProcedure is the fully-qualified name of the SchemaService's
+	// UpdateNamespace RPC.
+	SchemaServiceUpdateNamespaceProcedure = "/elephant.tables.v1.SchemaService/UpdateNamespace"
 	// SchemaServiceCreateTableProcedure is the fully-qualified name of the SchemaService's CreateTable
 	// RPC.
 	SchemaServiceCreateTableProcedure = "/elephant.tables.v1.SchemaService/CreateTable"
@@ -122,6 +226,17 @@ const (
 	// SchemaServiceDeleteColumnProcedure is the fully-qualified name of the SchemaService's
 	// DeleteColumn RPC.
 	SchemaServiceDeleteColumnProcedure = "/elephant.tables.v1.SchemaService/DeleteColumn"
+	// SchemaServiceSetRequiredProcedure is the fully-qualified name of the SchemaService's SetRequired
+	// RPC.
+	SchemaServiceSetRequiredProcedure = "/elephant.tables.v1.SchemaService/SetRequired"
+	// SchemaServiceAddIndexProcedure is the fully-qualified name of the SchemaService's AddIndex RPC.
+	SchemaServiceAddIndexProcedure = "/elephant.tables.v1.SchemaService/AddIndex"
+	// SchemaServiceDeleteIndexProcedure is the fully-qualified name of the SchemaService's DeleteIndex
+	// RPC.
+	SchemaServiceDeleteIndexProcedure = "/elephant.tables.v1.SchemaService/DeleteIndex"
+	// SchemaServiceEnsureSchemaProcedure is the fully-qualified name of the SchemaService's
+	// EnsureSchema RPC.
+	SchemaServiceEnsureSchemaProcedure = "/elephant.tables.v1.SchemaService/EnsureSchema"
 	// DataServiceListProcedure is the fully-qualified name of the DataService's List RPC.
 	DataServiceListProcedure = "/elephant.tables.v1.DataService/List"
 	// DataServiceMutateProcedure is the fully-qualified name of the DataService's Mutate RPC.
@@ -196,12 +311,13 @@ type DatabasesServiceClient interface {
 	// Auth: doc_write on the owning document.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
 	// GetDatabase describes a database: its lineage, its head and durable
-	// cursors, and its tables. It is looked up by database id or by owning
+	// cursors, and its namespaces. It is looked up by database id or by owning
 	// document, which are the same UUID.
 	//
 	// A database that needs recovery is not opened: the response then sets
 	// recovery, and info carries only what is recorded outside the
-	// database, without head, durable or tables. See recovery_needed in the
+	// database, without head, durable or namespaces. See recovery_needed in
+	// the
 	// package comment.
 	//
 	// Auth: doc_read on the owning document.
@@ -230,9 +346,24 @@ type DatabasesServiceClient interface {
 	// a deliberate full revert: every change after the point is discarded,
 	// including changes others made after the caller picked it. Before
 	// writing anything the owner takes a restore-point snapshot of the
-	// current state, and then writes the difference as one restore batch,
-	// so editors stay connected and see the tables jump back live. Going
-	// back is another restore, to that snapshot.
+	// current state, and then writes the difference in one transaction as
+	// one restore batch per namespace it changes, since a batch touches
+	// exactly one namespace, so editors stay connected and see the tables
+	// jump back live. Going back is another restore, to that snapshot.
+	//
+	// A restore covers the whole database unless it names a namespace.
+	// With one, only that namespace goes back to the point: its tables,
+	// rows, schema, keys, required flags, unique constraints and indexes,
+	// its declared schema version and digest and its schema_editable flag,
+	// written as one restore batch in that namespace. Other namespaces,
+	// their Watch streams and their cursors see nothing of it. A restore of
+	// the whole database or a whole namespace puts back each namespace's
+	// record as it was at the point; a namespace the point does not hold
+	// is kept, with its flag cleared and no declared version, since a
+	// namespace is never removed. A restore of some tables leaves the
+	// namespace records alone. Open agent suggestions are left as they
+	// are, and their writes then fail per operation where they no longer
+	// apply.
 	//
 	// With dry_run set nothing is written, and the response reports what
 	// the restore would discard, so the UI can say so before confirming.
@@ -400,12 +531,13 @@ type DatabasesServiceHandler interface {
 	// Auth: doc_write on the owning document.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
 	// GetDatabase describes a database: its lineage, its head and durable
-	// cursors, and its tables. It is looked up by database id or by owning
+	// cursors, and its namespaces. It is looked up by database id or by owning
 	// document, which are the same UUID.
 	//
 	// A database that needs recovery is not opened: the response then sets
 	// recovery, and info carries only what is recorded outside the
-	// database, without head, durable or tables. See recovery_needed in the
+	// database, without head, durable or namespaces. See recovery_needed in
+	// the
 	// package comment.
 	//
 	// Auth: doc_read on the owning document.
@@ -434,9 +566,24 @@ type DatabasesServiceHandler interface {
 	// a deliberate full revert: every change after the point is discarded,
 	// including changes others made after the caller picked it. Before
 	// writing anything the owner takes a restore-point snapshot of the
-	// current state, and then writes the difference as one restore batch,
-	// so editors stay connected and see the tables jump back live. Going
-	// back is another restore, to that snapshot.
+	// current state, and then writes the difference in one transaction as
+	// one restore batch per namespace it changes, since a batch touches
+	// exactly one namespace, so editors stay connected and see the tables
+	// jump back live. Going back is another restore, to that snapshot.
+	//
+	// A restore covers the whole database unless it names a namespace.
+	// With one, only that namespace goes back to the point: its tables,
+	// rows, schema, keys, required flags, unique constraints and indexes,
+	// its declared schema version and digest and its schema_editable flag,
+	// written as one restore batch in that namespace. Other namespaces,
+	// their Watch streams and their cursors see nothing of it. A restore of
+	// the whole database or a whole namespace puts back each namespace's
+	// record as it was at the point; a namespace the point does not hold
+	// is kept, with its flag cleared and no declared version, since a
+	// namespace is never removed. A restore of some tables leaves the
+	// namespace records alone. Open agent suggestions are left as they
+	// are, and their writes then fail per operation where they no longer
+	// apply.
 	//
 	// With dry_run set nothing is written, and the response reports what
 	// the restore would discard, so the UI can say so before confirming.
@@ -586,9 +733,15 @@ func (UnimplementedDatabasesServiceHandler) DeleteDatabase(context.Context, *con
 
 // SchemaServiceClient is a client for the elephant.tables.v1.SchemaService service.
 type SchemaServiceClient interface {
-	// Describe returns the catalog of a database, and the read-only views
-	// Query runs against.
+	// Describe returns the catalog of one namespace of a database, and the
+	// read-only views of its tables that Query runs against.
 	Describe(context.Context, *connect.Request[v1.DescribeRequest]) (*connect.Response[v1.DescribeResponse], error)
+	// UpdateNamespace sets whether people may edit a namespace's schema,
+	// creating the namespace when it does not exist. It is a change batch
+	// in that namespace, streamed on Watch and undoable. Setting the flag a
+	// namespace already has writes nothing, and the response's batch is
+	// empty.
+	UpdateNamespace(context.Context, *connect.Request[v1.UpdateNamespaceRequest]) (*connect.Response[v1.UpdateNamespaceResponse], error)
 	// CreateTable adds a table, with its initial columns.
 	CreateTable(context.Context, *connect.Request[v1.CreateTableRequest]) (*connect.Response[v1.CreateTableResponse], error)
 	// UpdateTable renames a table, or sets its summary column. Either
@@ -609,8 +762,82 @@ type SchemaServiceClient interface {
 	// written, and the response reports which cells would fail.
 	ChangeColumnType(context.Context, *connect.Request[v1.ChangeColumnTypeRequest]) (*connect.Response[v1.ChangeColumnTypeResponse], error)
 	// DeleteColumn removes a column. The batch keeps its values, so it
-	// undoes.
+	// undoes. A column a unique constraint or index covers is refused with
+	// failed_precondition.
 	DeleteColumn(context.Context, *connect.Request[v1.DeleteColumnRequest]) (*connect.Response[v1.DeleteColumnResponse], error)
+	// SetRequired sets or clears a column's required flag. Setting it when
+	// rows hold no value in the column is refused with failed_precondition
+	// and a ConstraintViolations detail; with dry_run set nothing is
+	// written and the response lists those rows. Setting the flag a column
+	// already has writes nothing, and the response's batch is empty.
+	SetRequired(context.Context, *connect.Request[v1.SetRequiredRequest]) (*connect.Response[v1.SetRequiredResponse], error)
+	// AddIndex adds a unique constraint or an index to a table. A unique
+	// constraint that existing rows break is refused with
+	// failed_precondition and a ConstraintViolations detail; with dry_run
+	// set nothing is written and the response lists those rows. A table
+	// holds at most 16 unique constraints and indexes; past that the call
+	// is refused with resource_exhausted.
+	AddIndex(context.Context, *connect.Request[v1.AddIndexRequest]) (*connect.Response[v1.AddIndexResponse], error)
+	// DeleteIndex removes a unique constraint or an index.
+	DeleteIndex(context.Context, *connect.Request[v1.DeleteIndexRequest]) (*connect.Response[v1.DeleteIndexResponse], error)
+	// EnsureSchema declares the whole schema of a namespace, with a
+	// version, for an application that manages its own schema. The
+	// service compares the declaration with what the namespace has,
+	// matching tables and columns by key, and applies the difference as
+	// one change batch in the namespace, which records the version and
+	// the declaration's digest on the namespace (Namespace.schema_version
+	// and schema_digest). The version is compared and set inside the
+	// batch's transaction, so two clients declaring at once write one
+	// batch: the second finds its version stored.
+	//
+	// Against the stored version:
+	//
+	//   - a higher version is applied when every step of it is possible,
+	//     and refused as a whole otherwise, writing nothing;
+	//   - the stored version with the stored digest is a no-op: nothing is
+	//     written, batch is empty and unchanged is set;
+	//   - the stored version with another digest, and a lower version, are
+	//     refused with failed_precondition and the reason
+	//     schema_version_conflict, carrying a SchemaVersionConflict detail
+	//     with the stored version, so that an old client cannot roll a
+	//     newer schema back.
+	//
+	// What is matched by key and changed in place: a table's name and
+	// summary column; a column's name, type, format, options, hidden flag,
+	// required flag and position (columns take the declared order); the
+	// table's unique constraints and indexes, matched by index key, which
+	// are made exactly the declared ones. A rename is a new name under the
+	// same key. A key that is new is a new table or column; one that
+	// changes meaning cannot be expressed, since keys never change.
+	//
+	// Tables and columns the namespace has and the declaration lacks are
+	// left as they are, data and all, and listed in steps as kept: a
+	// declaration never deletes data because it omitted something. With
+	// remove_undeclared set they are deleted instead, in the same batch,
+	// which keeps their rows and cells so that it undoes. Undeclared
+	// unique constraints and indexes of a declared table are removed
+	// either way, which loses no data.
+	//
+	// A step is impossible, and refuses the declaration, when existing
+	// rows break it: a column made required that has empty cells, a new
+	// required column of a table that has rows, a unique constraint the
+	// rows break, or a type change some cell does not convert to (a
+	// declaration never empties a cell). That is failed_precondition with
+	// a ConstraintViolations detail listing the offending rows of every
+	// such step, capped; with dry_run set nothing is written and the
+	// response lists them instead, with the planned steps. A malformed
+	// declaration is invalid_argument, a key a deleted table or column
+	// still reserves already_exists, and a limit resource_exhausted.
+	//
+	// The batch is undoable as a whole, the version and digest included.
+	// A whole-database Restore puts back each namespace's version and
+	// digest along with its tables. Changes made to the namespace's
+	// schema by other calls do not change the stored version: the next
+	// higher version reconciles them, and redeclaring the stored version
+	// does not.
+	//
+	// Auth: doc_write on the owning document, as for any schema change.
+	EnsureSchema(context.Context, *connect.Request[v1.EnsureSchemaRequest]) (*connect.Response[v1.EnsureSchemaResponse], error)
 }
 
 // NewSchemaServiceClient constructs a client for the elephant.tables.v1.SchemaService service. By
@@ -628,6 +855,12 @@ func NewSchemaServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+SchemaServiceDescribeProcedure,
 			connect.WithSchema(schemaServiceMethods.ByName("Describe")),
+			connect.WithClientOptions(opts...),
+		),
+		updateNamespace: connect.NewClient[v1.UpdateNamespaceRequest, v1.UpdateNamespaceResponse](
+			httpClient,
+			baseURL+SchemaServiceUpdateNamespaceProcedure,
+			connect.WithSchema(schemaServiceMethods.ByName("UpdateNamespace")),
 			connect.WithClientOptions(opts...),
 		),
 		createTable: connect.NewClient[v1.CreateTableRequest, v1.CreateTableResponse](
@@ -672,12 +905,37 @@ func NewSchemaServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(schemaServiceMethods.ByName("DeleteColumn")),
 			connect.WithClientOptions(opts...),
 		),
+		setRequired: connect.NewClient[v1.SetRequiredRequest, v1.SetRequiredResponse](
+			httpClient,
+			baseURL+SchemaServiceSetRequiredProcedure,
+			connect.WithSchema(schemaServiceMethods.ByName("SetRequired")),
+			connect.WithClientOptions(opts...),
+		),
+		addIndex: connect.NewClient[v1.AddIndexRequest, v1.AddIndexResponse](
+			httpClient,
+			baseURL+SchemaServiceAddIndexProcedure,
+			connect.WithSchema(schemaServiceMethods.ByName("AddIndex")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteIndex: connect.NewClient[v1.DeleteIndexRequest, v1.DeleteIndexResponse](
+			httpClient,
+			baseURL+SchemaServiceDeleteIndexProcedure,
+			connect.WithSchema(schemaServiceMethods.ByName("DeleteIndex")),
+			connect.WithClientOptions(opts...),
+		),
+		ensureSchema: connect.NewClient[v1.EnsureSchemaRequest, v1.EnsureSchemaResponse](
+			httpClient,
+			baseURL+SchemaServiceEnsureSchemaProcedure,
+			connect.WithSchema(schemaServiceMethods.ByName("EnsureSchema")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // schemaServiceClient implements SchemaServiceClient.
 type schemaServiceClient struct {
 	describe         *connect.Client[v1.DescribeRequest, v1.DescribeResponse]
+	updateNamespace  *connect.Client[v1.UpdateNamespaceRequest, v1.UpdateNamespaceResponse]
 	createTable      *connect.Client[v1.CreateTableRequest, v1.CreateTableResponse]
 	updateTable      *connect.Client[v1.UpdateTableRequest, v1.UpdateTableResponse]
 	deleteTable      *connect.Client[v1.DeleteTableRequest, v1.DeleteTableResponse]
@@ -685,11 +943,20 @@ type schemaServiceClient struct {
 	updateColumn     *connect.Client[v1.UpdateColumnRequest, v1.UpdateColumnResponse]
 	changeColumnType *connect.Client[v1.ChangeColumnTypeRequest, v1.ChangeColumnTypeResponse]
 	deleteColumn     *connect.Client[v1.DeleteColumnRequest, v1.DeleteColumnResponse]
+	setRequired      *connect.Client[v1.SetRequiredRequest, v1.SetRequiredResponse]
+	addIndex         *connect.Client[v1.AddIndexRequest, v1.AddIndexResponse]
+	deleteIndex      *connect.Client[v1.DeleteIndexRequest, v1.DeleteIndexResponse]
+	ensureSchema     *connect.Client[v1.EnsureSchemaRequest, v1.EnsureSchemaResponse]
 }
 
 // Describe calls elephant.tables.v1.SchemaService.Describe.
 func (c *schemaServiceClient) Describe(ctx context.Context, req *connect.Request[v1.DescribeRequest]) (*connect.Response[v1.DescribeResponse], error) {
 	return c.describe.CallUnary(ctx, req)
+}
+
+// UpdateNamespace calls elephant.tables.v1.SchemaService.UpdateNamespace.
+func (c *schemaServiceClient) UpdateNamespace(ctx context.Context, req *connect.Request[v1.UpdateNamespaceRequest]) (*connect.Response[v1.UpdateNamespaceResponse], error) {
+	return c.updateNamespace.CallUnary(ctx, req)
 }
 
 // CreateTable calls elephant.tables.v1.SchemaService.CreateTable.
@@ -727,11 +994,37 @@ func (c *schemaServiceClient) DeleteColumn(ctx context.Context, req *connect.Req
 	return c.deleteColumn.CallUnary(ctx, req)
 }
 
+// SetRequired calls elephant.tables.v1.SchemaService.SetRequired.
+func (c *schemaServiceClient) SetRequired(ctx context.Context, req *connect.Request[v1.SetRequiredRequest]) (*connect.Response[v1.SetRequiredResponse], error) {
+	return c.setRequired.CallUnary(ctx, req)
+}
+
+// AddIndex calls elephant.tables.v1.SchemaService.AddIndex.
+func (c *schemaServiceClient) AddIndex(ctx context.Context, req *connect.Request[v1.AddIndexRequest]) (*connect.Response[v1.AddIndexResponse], error) {
+	return c.addIndex.CallUnary(ctx, req)
+}
+
+// DeleteIndex calls elephant.tables.v1.SchemaService.DeleteIndex.
+func (c *schemaServiceClient) DeleteIndex(ctx context.Context, req *connect.Request[v1.DeleteIndexRequest]) (*connect.Response[v1.DeleteIndexResponse], error) {
+	return c.deleteIndex.CallUnary(ctx, req)
+}
+
+// EnsureSchema calls elephant.tables.v1.SchemaService.EnsureSchema.
+func (c *schemaServiceClient) EnsureSchema(ctx context.Context, req *connect.Request[v1.EnsureSchemaRequest]) (*connect.Response[v1.EnsureSchemaResponse], error) {
+	return c.ensureSchema.CallUnary(ctx, req)
+}
+
 // SchemaServiceHandler is an implementation of the elephant.tables.v1.SchemaService service.
 type SchemaServiceHandler interface {
-	// Describe returns the catalog of a database, and the read-only views
-	// Query runs against.
+	// Describe returns the catalog of one namespace of a database, and the
+	// read-only views of its tables that Query runs against.
 	Describe(context.Context, *connect.Request[v1.DescribeRequest]) (*connect.Response[v1.DescribeResponse], error)
+	// UpdateNamespace sets whether people may edit a namespace's schema,
+	// creating the namespace when it does not exist. It is a change batch
+	// in that namespace, streamed on Watch and undoable. Setting the flag a
+	// namespace already has writes nothing, and the response's batch is
+	// empty.
+	UpdateNamespace(context.Context, *connect.Request[v1.UpdateNamespaceRequest]) (*connect.Response[v1.UpdateNamespaceResponse], error)
 	// CreateTable adds a table, with its initial columns.
 	CreateTable(context.Context, *connect.Request[v1.CreateTableRequest]) (*connect.Response[v1.CreateTableResponse], error)
 	// UpdateTable renames a table, or sets its summary column. Either
@@ -752,8 +1045,82 @@ type SchemaServiceHandler interface {
 	// written, and the response reports which cells would fail.
 	ChangeColumnType(context.Context, *connect.Request[v1.ChangeColumnTypeRequest]) (*connect.Response[v1.ChangeColumnTypeResponse], error)
 	// DeleteColumn removes a column. The batch keeps its values, so it
-	// undoes.
+	// undoes. A column a unique constraint or index covers is refused with
+	// failed_precondition.
 	DeleteColumn(context.Context, *connect.Request[v1.DeleteColumnRequest]) (*connect.Response[v1.DeleteColumnResponse], error)
+	// SetRequired sets or clears a column's required flag. Setting it when
+	// rows hold no value in the column is refused with failed_precondition
+	// and a ConstraintViolations detail; with dry_run set nothing is
+	// written and the response lists those rows. Setting the flag a column
+	// already has writes nothing, and the response's batch is empty.
+	SetRequired(context.Context, *connect.Request[v1.SetRequiredRequest]) (*connect.Response[v1.SetRequiredResponse], error)
+	// AddIndex adds a unique constraint or an index to a table. A unique
+	// constraint that existing rows break is refused with
+	// failed_precondition and a ConstraintViolations detail; with dry_run
+	// set nothing is written and the response lists those rows. A table
+	// holds at most 16 unique constraints and indexes; past that the call
+	// is refused with resource_exhausted.
+	AddIndex(context.Context, *connect.Request[v1.AddIndexRequest]) (*connect.Response[v1.AddIndexResponse], error)
+	// DeleteIndex removes a unique constraint or an index.
+	DeleteIndex(context.Context, *connect.Request[v1.DeleteIndexRequest]) (*connect.Response[v1.DeleteIndexResponse], error)
+	// EnsureSchema declares the whole schema of a namespace, with a
+	// version, for an application that manages its own schema. The
+	// service compares the declaration with what the namespace has,
+	// matching tables and columns by key, and applies the difference as
+	// one change batch in the namespace, which records the version and
+	// the declaration's digest on the namespace (Namespace.schema_version
+	// and schema_digest). The version is compared and set inside the
+	// batch's transaction, so two clients declaring at once write one
+	// batch: the second finds its version stored.
+	//
+	// Against the stored version:
+	//
+	//   - a higher version is applied when every step of it is possible,
+	//     and refused as a whole otherwise, writing nothing;
+	//   - the stored version with the stored digest is a no-op: nothing is
+	//     written, batch is empty and unchanged is set;
+	//   - the stored version with another digest, and a lower version, are
+	//     refused with failed_precondition and the reason
+	//     schema_version_conflict, carrying a SchemaVersionConflict detail
+	//     with the stored version, so that an old client cannot roll a
+	//     newer schema back.
+	//
+	// What is matched by key and changed in place: a table's name and
+	// summary column; a column's name, type, format, options, hidden flag,
+	// required flag and position (columns take the declared order); the
+	// table's unique constraints and indexes, matched by index key, which
+	// are made exactly the declared ones. A rename is a new name under the
+	// same key. A key that is new is a new table or column; one that
+	// changes meaning cannot be expressed, since keys never change.
+	//
+	// Tables and columns the namespace has and the declaration lacks are
+	// left as they are, data and all, and listed in steps as kept: a
+	// declaration never deletes data because it omitted something. With
+	// remove_undeclared set they are deleted instead, in the same batch,
+	// which keeps their rows and cells so that it undoes. Undeclared
+	// unique constraints and indexes of a declared table are removed
+	// either way, which loses no data.
+	//
+	// A step is impossible, and refuses the declaration, when existing
+	// rows break it: a column made required that has empty cells, a new
+	// required column of a table that has rows, a unique constraint the
+	// rows break, or a type change some cell does not convert to (a
+	// declaration never empties a cell). That is failed_precondition with
+	// a ConstraintViolations detail listing the offending rows of every
+	// such step, capped; with dry_run set nothing is written and the
+	// response lists them instead, with the planned steps. A malformed
+	// declaration is invalid_argument, a key a deleted table or column
+	// still reserves already_exists, and a limit resource_exhausted.
+	//
+	// The batch is undoable as a whole, the version and digest included.
+	// A whole-database Restore puts back each namespace's version and
+	// digest along with its tables. Changes made to the namespace's
+	// schema by other calls do not change the stored version: the next
+	// higher version reconciles them, and redeclaring the stored version
+	// does not.
+	//
+	// Auth: doc_write on the owning document, as for any schema change.
+	EnsureSchema(context.Context, *connect.Request[v1.EnsureSchemaRequest]) (*connect.Response[v1.EnsureSchemaResponse], error)
 }
 
 // NewSchemaServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -767,6 +1134,12 @@ func NewSchemaServiceHandler(svc SchemaServiceHandler, opts ...connect.HandlerOp
 		SchemaServiceDescribeProcedure,
 		svc.Describe,
 		connect.WithSchema(schemaServiceMethods.ByName("Describe")),
+		connect.WithHandlerOptions(opts...),
+	)
+	schemaServiceUpdateNamespaceHandler := connect.NewUnaryHandler(
+		SchemaServiceUpdateNamespaceProcedure,
+		svc.UpdateNamespace,
+		connect.WithSchema(schemaServiceMethods.ByName("UpdateNamespace")),
 		connect.WithHandlerOptions(opts...),
 	)
 	schemaServiceCreateTableHandler := connect.NewUnaryHandler(
@@ -811,10 +1184,36 @@ func NewSchemaServiceHandler(svc SchemaServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(schemaServiceMethods.ByName("DeleteColumn")),
 		connect.WithHandlerOptions(opts...),
 	)
+	schemaServiceSetRequiredHandler := connect.NewUnaryHandler(
+		SchemaServiceSetRequiredProcedure,
+		svc.SetRequired,
+		connect.WithSchema(schemaServiceMethods.ByName("SetRequired")),
+		connect.WithHandlerOptions(opts...),
+	)
+	schemaServiceAddIndexHandler := connect.NewUnaryHandler(
+		SchemaServiceAddIndexProcedure,
+		svc.AddIndex,
+		connect.WithSchema(schemaServiceMethods.ByName("AddIndex")),
+		connect.WithHandlerOptions(opts...),
+	)
+	schemaServiceDeleteIndexHandler := connect.NewUnaryHandler(
+		SchemaServiceDeleteIndexProcedure,
+		svc.DeleteIndex,
+		connect.WithSchema(schemaServiceMethods.ByName("DeleteIndex")),
+		connect.WithHandlerOptions(opts...),
+	)
+	schemaServiceEnsureSchemaHandler := connect.NewUnaryHandler(
+		SchemaServiceEnsureSchemaProcedure,
+		svc.EnsureSchema,
+		connect.WithSchema(schemaServiceMethods.ByName("EnsureSchema")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/elephant.tables.v1.SchemaService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SchemaServiceDescribeProcedure:
 			schemaServiceDescribeHandler.ServeHTTP(w, r)
+		case SchemaServiceUpdateNamespaceProcedure:
+			schemaServiceUpdateNamespaceHandler.ServeHTTP(w, r)
 		case SchemaServiceCreateTableProcedure:
 			schemaServiceCreateTableHandler.ServeHTTP(w, r)
 		case SchemaServiceUpdateTableProcedure:
@@ -829,6 +1228,14 @@ func NewSchemaServiceHandler(svc SchemaServiceHandler, opts ...connect.HandlerOp
 			schemaServiceChangeColumnTypeHandler.ServeHTTP(w, r)
 		case SchemaServiceDeleteColumnProcedure:
 			schemaServiceDeleteColumnHandler.ServeHTTP(w, r)
+		case SchemaServiceSetRequiredProcedure:
+			schemaServiceSetRequiredHandler.ServeHTTP(w, r)
+		case SchemaServiceAddIndexProcedure:
+			schemaServiceAddIndexHandler.ServeHTTP(w, r)
+		case SchemaServiceDeleteIndexProcedure:
+			schemaServiceDeleteIndexHandler.ServeHTTP(w, r)
+		case SchemaServiceEnsureSchemaProcedure:
+			schemaServiceEnsureSchemaHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -840,6 +1247,10 @@ type UnimplementedSchemaServiceHandler struct{}
 
 func (UnimplementedSchemaServiceHandler) Describe(context.Context, *connect.Request[v1.DescribeRequest]) (*connect.Response[v1.DescribeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.SchemaService.Describe is not implemented"))
+}
+
+func (UnimplementedSchemaServiceHandler) UpdateNamespace(context.Context, *connect.Request[v1.UpdateNamespaceRequest]) (*connect.Response[v1.UpdateNamespaceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.SchemaService.UpdateNamespace is not implemented"))
 }
 
 func (UnimplementedSchemaServiceHandler) CreateTable(context.Context, *connect.Request[v1.CreateTableRequest]) (*connect.Response[v1.CreateTableResponse], error) {
@@ -870,6 +1281,22 @@ func (UnimplementedSchemaServiceHandler) DeleteColumn(context.Context, *connect.
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.SchemaService.DeleteColumn is not implemented"))
 }
 
+func (UnimplementedSchemaServiceHandler) SetRequired(context.Context, *connect.Request[v1.SetRequiredRequest]) (*connect.Response[v1.SetRequiredResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.SchemaService.SetRequired is not implemented"))
+}
+
+func (UnimplementedSchemaServiceHandler) AddIndex(context.Context, *connect.Request[v1.AddIndexRequest]) (*connect.Response[v1.AddIndexResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.SchemaService.AddIndex is not implemented"))
+}
+
+func (UnimplementedSchemaServiceHandler) DeleteIndex(context.Context, *connect.Request[v1.DeleteIndexRequest]) (*connect.Response[v1.DeleteIndexResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.SchemaService.DeleteIndex is not implemented"))
+}
+
+func (UnimplementedSchemaServiceHandler) EnsureSchema(context.Context, *connect.Request[v1.EnsureSchemaRequest]) (*connect.Response[v1.EnsureSchemaResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.SchemaService.EnsureSchema is not implemented"))
+}
+
 // DataServiceClient is a client for the elephant.tables.v1.DataService service.
 type DataServiceClient interface {
 	// List reads a page of rows from a table, with optional filters, sort
@@ -888,13 +1315,20 @@ type DataServiceClient interface {
 	// Auth: doc_write on the owning document.
 	Mutate(context.Context, *connect.Request[v1.MutateRequest]) (*connect.Response[v1.MutateResponse], error)
 	// Undo reverts a change batch, as a new batch. A cell changed by a
-	// later batch is a conflict and keeps its value. Undo is offered only
+	// later batch is a conflict and keeps its value. A change whose revert
+	// would leave a required column empty or break a unique constraint is
+	// not reverted, and is reported with a violation. Undo is offered only
 	// within the change log window.
 	//
 	// Auth: doc_write on the owning document.
 	Undo(context.Context, *connect.Request[v1.UndoRequest]) (*connect.Response[v1.UndoResponse], error)
 	// Query runs read-only SQL against the views DescribeResponse lists,
 	// which are named after the tables and columns rather than their ids.
+	// Without a namespace it sees the views of every namespace, each named
+	// by its namespace, two underscores and the table's SQL name. With a
+	// namespace it sees only that namespace's views, named by the table's
+	// SQL name alone, and only that namespace's catalog rows; the service
+	// enforces this, so other namespaces cannot be reached by any SQL.
 	// It runs on a read-only connection that can read the views and the
 	// catalog and nothing else, under a deadline, a row cap and a response
 	// size cap, and is rate limited per subject. Results carry the catalog
@@ -910,8 +1344,9 @@ type DataServiceClient interface {
 	//
 	// Auth: doc_read on the owning document.
 	Changes(context.Context, *connect.Request[v1.ChangesRequest]) (*connect.Response[v1.ChangesResponse], error)
-	// Watch streams a database's changes after a cursor, as they commit,
-	// together with presence, suggestions and heartbeats. The first message
+	// Watch streams the changes of one namespace of a database after a
+	// cursor, as they commit, together with that namespace's presence and
+	// suggestions, and heartbeats. The first message
 	// is always a Hello carrying the stream's session id, which
 	// UpdatePresence takes. A stream opened on a pod that does not own the
 	// database is proxied to the owner.
@@ -1172,13 +1607,20 @@ type DataServiceHandler interface {
 	// Auth: doc_write on the owning document.
 	Mutate(context.Context, *connect.Request[v1.MutateRequest]) (*connect.Response[v1.MutateResponse], error)
 	// Undo reverts a change batch, as a new batch. A cell changed by a
-	// later batch is a conflict and keeps its value. Undo is offered only
+	// later batch is a conflict and keeps its value. A change whose revert
+	// would leave a required column empty or break a unique constraint is
+	// not reverted, and is reported with a violation. Undo is offered only
 	// within the change log window.
 	//
 	// Auth: doc_write on the owning document.
 	Undo(context.Context, *connect.Request[v1.UndoRequest]) (*connect.Response[v1.UndoResponse], error)
 	// Query runs read-only SQL against the views DescribeResponse lists,
 	// which are named after the tables and columns rather than their ids.
+	// Without a namespace it sees the views of every namespace, each named
+	// by its namespace, two underscores and the table's SQL name. With a
+	// namespace it sees only that namespace's views, named by the table's
+	// SQL name alone, and only that namespace's catalog rows; the service
+	// enforces this, so other namespaces cannot be reached by any SQL.
 	// It runs on a read-only connection that can read the views and the
 	// catalog and nothing else, under a deadline, a row cap and a response
 	// size cap, and is rate limited per subject. Results carry the catalog
@@ -1194,8 +1636,9 @@ type DataServiceHandler interface {
 	//
 	// Auth: doc_read on the owning document.
 	Changes(context.Context, *connect.Request[v1.ChangesRequest]) (*connect.Response[v1.ChangesResponse], error)
-	// Watch streams a database's changes after a cursor, as they commit,
-	// together with presence, suggestions and heartbeats. The first message
+	// Watch streams the changes of one namespace of a database after a
+	// cursor, as they commit, together with that namespace's presence and
+	// suggestions, and heartbeats. The first message
 	// is always a Hello carrying the stream's session id, which
 	// UpdatePresence takes. A stream opened on a pod that does not own the
 	// database is proxied to the owner.
