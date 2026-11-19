@@ -298,7 +298,10 @@ enum ColumnType {
   COLUMN_TYPE_TEXT = 1;
   // A 64-bit integer.
   COLUMN_TYPE_INTEGER = 2;
-  // A double-precision float.
+  // A double-precision float. It holds integers exactly only up to 2^53
+  // and decimals only to about 15 significant digits, so a conversion to
+  // it from COLUMN_TYPE_INTEGER or COLUMN_TYPE_DECIMAL may round a value;
+  // see ChangeColumnTypeResponse.rounded.
   COLUMN_TYPE_NUMBER = 3;
   // An exact decimal, stored as a canonical decimal string.
   COLUMN_TYPE_DECIMAL = 4;
@@ -1027,6 +1030,13 @@ service SchemaService {
   // failed_precondition and a ConstraintViolations detail. With dry_run
   // set nothing is written, and the response reports which cells would
   // fail.
+  //
+  // A conversion to COLUMN_TYPE_NUMBER, a double, rounds an integer or
+  // decimal that a double cannot hold, such as 9007199254740993 or a
+  // decimal of more than about 15 significant digits. Such a cell
+  // converts, rounded, and is counted in the response's rounded as well
+  // as in converted; the batch keeps its old value, so an undo restores
+  // it exactly.
   rpc ChangeColumnType(ChangeColumnTypeRequest) returns (ChangeColumnTypeResponse);
 
   // DeleteColumn removes a column. The batch keeps its values, so it
@@ -1094,7 +1104,9 @@ service SchemaService {
   // rows break it: a column made required that has empty cells, a new
   // required column of a table that has rows, a unique constraint the
   // rows break, or a type change some cell does not convert to (a
-  // declaration never empties a cell). That is failed_precondition with
+  // declaration never empties a cell). A type change to
+  // COLUMN_TYPE_NUMBER that rounds a value is not refused; the step
+  // counts the cells in its rounded. That is failed_precondition with
   // a ConstraintViolations detail listing the offending rows of every
   // such step, capped; with dry_run set nothing is written and the
   // response lists them instead, with the planned steps. A malformed
@@ -1229,6 +1241,11 @@ message SchemaStep {
   string index = 4;
   // Human-readable description, such as "type text to integer".
   string description = 5;
+  // For SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE, the cells whose value was,
+  // or on a dry run would be, rounded by a conversion to
+  // COLUMN_TYPE_NUMBER, as ChangeColumnTypeResponse.rounded counts them.
+  // A rounded cell is not a violation: the declaration converts it.
+  int64 rounded = 6;
 }
 
 // SchemaVersionConflict is the detail of the failed_precondition that
@@ -1470,6 +1487,12 @@ message ChangeColumnTypeResponse {
   repeated CellError failures = 2;
   // The change batch. Unset on a dry run.
   SchemaChange result = 3;
+  // Cells among those that converted whose value changed on the way,
+  // because the target is COLUMN_TYPE_NUMBER and a double cannot hold
+  // the old COLUMN_TYPE_INTEGER or COLUMN_TYPE_DECIMAL value exactly: a
+  // cell is rounded when its new value does not read back as the old
+  // one. Counted on a dry run too.
+  int64 rounded = 4;
 }
 
 message DeleteColumnRequest {

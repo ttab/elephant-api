@@ -233,7 +233,10 @@ const (
 	ColumnType_COLUMN_TYPE_TEXT ColumnType = 1
 	// A 64-bit integer.
 	ColumnType_COLUMN_TYPE_INTEGER ColumnType = 2
-	// A double-precision float.
+	// A double-precision float. It holds integers exactly only up to 2^53
+	// and decimals only to about 15 significant digits, so a conversion to
+	// it from COLUMN_TYPE_INTEGER or COLUMN_TYPE_DECIMAL may round a value;
+	// see ChangeColumnTypeResponse.rounded.
 	ColumnType_COLUMN_TYPE_NUMBER ColumnType = 3
 	// An exact decimal, stored as a canonical decimal string.
 	ColumnType_COLUMN_TYPE_DECIMAL ColumnType = 4
@@ -3858,7 +3861,12 @@ type SchemaStep struct {
 	// Key of the unique constraint or index, for an index step.
 	Index string `protobuf:"bytes,4,opt,name=index,proto3" json:"index,omitempty"`
 	// Human-readable description, such as "type text to integer".
-	Description   string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	// For SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE, the cells whose value was,
+	// or on a dry run would be, rounded by a conversion to
+	// COLUMN_TYPE_NUMBER, as ChangeColumnTypeResponse.rounded counts them.
+	// A rounded cell is not a violation: the declaration converts it.
+	Rounded       int64 `protobuf:"varint,6,opt,name=rounded,proto3" json:"rounded,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3926,6 +3934,13 @@ func (x *SchemaStep) GetDescription() string {
 		return x.Description
 	}
 	return ""
+}
+
+func (x *SchemaStep) GetRounded() int64 {
+	if x != nil {
+		return x.Rounded
+	}
+	return 0
 }
 
 // SchemaVersionConflict is the detail of the failed_precondition that
@@ -5305,7 +5320,13 @@ type ChangeColumnTypeResponse struct {
 	// values are kept in the batch.
 	Failures []*CellError `protobuf:"bytes,2,rep,name=failures,proto3" json:"failures,omitempty"`
 	// The change batch. Unset on a dry run.
-	Result        *SchemaChange `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
+	Result *SchemaChange `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
+	// Cells among those that converted whose value changed on the way,
+	// because the target is COLUMN_TYPE_NUMBER and a double cannot hold
+	// the old COLUMN_TYPE_INTEGER or COLUMN_TYPE_DECIMAL value exactly: a
+	// cell is rounded when its new value does not read back as the old
+	// one. Counted on a dry run too.
+	Rounded       int64 `protobuf:"varint,4,opt,name=rounded,proto3" json:"rounded,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5359,6 +5380,13 @@ func (x *ChangeColumnTypeResponse) GetResult() *SchemaChange {
 		return x.Result
 	}
 	return nil
+}
+
+func (x *ChangeColumnTypeResponse) GetRounded() int64 {
+	if x != nil {
+		return x.Rounded
+	}
+	return 0
 }
 
 type DeleteColumnRequest struct {
@@ -11905,14 +11933,15 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\rDeclaredIndex\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x18\n" +
 	"\acolumns\x18\x02 \x03(\tR\acolumns\x12\x16\n" +
-	"\x06unique\x18\x03 \x01(\bR\x06unique\"\xaa\x01\n" +
+	"\x06unique\x18\x03 \x01(\bR\x06unique\"\xc4\x01\n" +
 	"\n" +
 	"SchemaStep\x126\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\".elephant.tables.v1.SchemaStepKindR\x04kind\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12\x16\n" +
 	"\x06column\x18\x03 \x01(\tR\x06column\x12\x14\n" +
 	"\x05index\x18\x04 \x01(\tR\x05index\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription\"\x8c\x01\n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x18\n" +
+	"\arounded\x18\x06 \x01(\x03R\arounded\"\x8c\x01\n" +
 	"\x15SchemaVersionConflict\x12%\n" +
 	"\x0estored_version\x18\x01 \x01(\x03R\rstoredVersion\x12#\n" +
 	"\rstored_digest\x18\x02 \x01(\tR\fstoredDigest\x12'\n" +
@@ -12007,11 +12036,12 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x04type\x18\x04 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\x12\x18\n" +
 	"\aoptions\x18\x05 \x03(\tR\aoptions\x12\x17\n" +
 	"\adry_run\x18\x06 \x01(\bR\x06dryRun\x12\x1c\n" +
-	"\tnamespace\x18\a \x01(\tR\tnamespace\"\xad\x01\n" +
+	"\tnamespace\x18\a \x01(\tR\tnamespace\"\xc7\x01\n" +
 	"\x18ChangeColumnTypeResponse\x12\x1c\n" +
 	"\tconverted\x18\x01 \x01(\x03R\tconverted\x129\n" +
 	"\bfailures\x18\x02 \x03(\v2\x1d.elephant.tables.v1.CellErrorR\bfailures\x128\n" +
-	"\x06result\x18\x03 \x01(\v2 .elephant.tables.v1.SchemaChangeR\x06result\"}\n" +
+	"\x06result\x18\x03 \x01(\v2 .elephant.tables.v1.SchemaChangeR\x06result\x12\x18\n" +
+	"\arounded\x18\x04 \x01(\x03R\arounded\"}\n" +
 	"\x13DeleteColumnRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x12\x16\n" +

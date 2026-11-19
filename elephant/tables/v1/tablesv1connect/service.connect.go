@@ -895,6 +895,13 @@ type SchemaServiceClient interface {
 	// failed_precondition and a ConstraintViolations detail. With dry_run
 	// set nothing is written, and the response reports which cells would
 	// fail.
+	//
+	// A conversion to COLUMN_TYPE_NUMBER, a double, rounds an integer or
+	// decimal that a double cannot hold, such as 9007199254740993 or a
+	// decimal of more than about 15 significant digits. Such a cell
+	// converts, rounded, and is counted in the response's rounded as well
+	// as in converted; the batch keeps its old value, so an undo restores
+	// it exactly.
 	ChangeColumnType(context.Context, *connect.Request[v1.ChangeColumnTypeRequest]) (*connect.Response[v1.ChangeColumnTypeResponse], error)
 	// DeleteColumn removes a column. The batch keeps its values, so it
 	// undoes. A column a unique constraint or index covers is refused with
@@ -957,7 +964,9 @@ type SchemaServiceClient interface {
 	// rows break it: a column made required that has empty cells, a new
 	// required column of a table that has rows, a unique constraint the
 	// rows break, or a type change some cell does not convert to (a
-	// declaration never empties a cell). That is failed_precondition with
+	// declaration never empties a cell). A type change to
+	// COLUMN_TYPE_NUMBER that rounds a value is not refused; the step
+	// counts the cells in its rounded. That is failed_precondition with
 	// a ConstraintViolations detail listing the offending rows of every
 	// such step, capped; with dry_run set nothing is written and the
 	// response lists them instead, with the planned steps. A malformed
@@ -1190,6 +1199,13 @@ type SchemaServiceHandler interface {
 	// failed_precondition and a ConstraintViolations detail. With dry_run
 	// set nothing is written, and the response reports which cells would
 	// fail.
+	//
+	// A conversion to COLUMN_TYPE_NUMBER, a double, rounds an integer or
+	// decimal that a double cannot hold, such as 9007199254740993 or a
+	// decimal of more than about 15 significant digits. Such a cell
+	// converts, rounded, and is counted in the response's rounded as well
+	// as in converted; the batch keeps its old value, so an undo restores
+	// it exactly.
 	ChangeColumnType(context.Context, *connect.Request[v1.ChangeColumnTypeRequest]) (*connect.Response[v1.ChangeColumnTypeResponse], error)
 	// DeleteColumn removes a column. The batch keeps its values, so it
 	// undoes. A column a unique constraint or index covers is refused with
@@ -1252,7 +1268,9 @@ type SchemaServiceHandler interface {
 	// rows break it: a column made required that has empty cells, a new
 	// required column of a table that has rows, a unique constraint the
 	// rows break, or a type change some cell does not convert to (a
-	// declaration never empties a cell). That is failed_precondition with
+	// declaration never empties a cell). A type change to
+	// COLUMN_TYPE_NUMBER that rounds a value is not refused; the step
+	// counts the cells in its rounded. That is failed_precondition with
 	// a ConstraintViolations detail listing the offending rows of every
 	// such step, capped; with dry_run set nothing is written and the
 	// response lists them instead, with the planned steps. A malformed

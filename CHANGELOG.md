@@ -137,6 +137,13 @@ Changes:
   at all, and a declaration may take a key only a deletion reserves.
   `ConstraintViolation` also reports a cell that does not convert to a
   declared type.
+- Rounding to number: `ChangeColumnTypeResponse.rounded` (4) and, for a
+  type change step of a declaration, `SchemaStep.rounded` (6) count the
+  cells whose integer or decimal value a conversion to
+  `COLUMN_TYPE_NUMBER` rounded, on a dry run too. Such a cell still
+  converts; `COLUMN_TYPE_NUMBER` is documented as a double that holds
+  integers exactly only up to 2^53 and decimals to about 15 significant
+  digits.
 - `QueryRequest.namespace` (5), optional, scopes a `Query` statement to
   one namespace: it sees that namespace's views under their tables' keys
   alone and only that namespace's rows of `_tables` and `_columns`.
