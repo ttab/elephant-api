@@ -11324,7 +11324,9 @@ func (x *Event) GetDocumentNonce() string {
 }
 
 // SkippedEvent is a repository event the follower skipped, which left
-// a document's database out of sync with the document.
+// a document's database out of sync with the document, or a later
+// deletion or restore of the document it held back behind one; the
+// error of a held-back event says so.
 type SkippedEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Id of the event in the repository's event log.

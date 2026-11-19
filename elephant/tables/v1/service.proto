@@ -3004,25 +3004,31 @@ message Event {
 // that it does not hold up every later event, and recorded: the
 // database it concerns, or the document when it had none, is then out
 // of sync with its document, and refused with out_of_sync until it is
-// reconciled. These calls list what is out of sync and reconcile it.
+// reconciled. The document's later deletions and restores are held back
+// behind the skipped event, recorded with it rather than applied, so
+// that reconciling can apply them in order. These calls list what is out
+// of sync and reconcile it.
 // They are not database-scoped and not forwarded: any pod serves them.
 service AdminService {
-  // ListOutOfSync lists the skipped events not yet reconciled, oldest
-  // first, a page at a time.
+  // ListOutOfSync lists the skipped and held-back events not yet
+  // reconciled, oldest first, a page at a time.
   //
   // Auth: the tables_admin scope.
   rpc ListOutOfSync(ListOutOfSyncRequest) returns (ListOutOfSyncResponse);
 
   // Reconcile brings a document's databases in line with the document,
-  // for every skipped event of it: it reads the document's current state
-  // from the repository and applies what each event would have done. A
-  // skipped deletion archives the deleted generation's database, or
-  // records the generation as deleted when it had none; a skipped restore
-  // binds the restored-from generation's database to the restored
-  // generation, when that generation is still the document's current
-  // one; any other event, or a restore the document has moved on from,
-  // changes nothing. The records are then cleared, and the database is
-  // served again if it is live.
+  // for every skipped or held-back event of it: it reads the document's
+  // current state from the repository, and applies what each event would
+  // have done, in the order the repository made them. A deletion
+  // archives the deleted generation's database, or records the
+  // generation as deleted when it had none; a restore binds the
+  // restored-from generation's database to the restored generation; any
+  // other event changes nothing. Then, when the repository reports the
+  // document's current generation restored from another, it binds that
+  // generation's database to the current one as CreateDatabase would,
+  // which changes nothing when the restore was applied already. The
+  // records are then cleared, and the database is served again if it is
+  // live.
   //
   // Returns not_found when the document has no skipped event. Returns
   // unavailable when the repository could not be read, and the call is
@@ -3033,7 +3039,9 @@ service AdminService {
 }
 
 // SkippedEvent is a repository event the follower skipped, which left
-// a document's database out of sync with the document.
+// a document's database out of sync with the document, or a later
+// deletion or restore of the document it held back behind one; the
+// error of a held-back event says so.
 message SkippedEvent {
   // Id of the event in the repository's event log.
   int64 event_id = 1;

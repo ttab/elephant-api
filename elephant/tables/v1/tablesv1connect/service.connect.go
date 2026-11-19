@@ -2720,21 +2720,24 @@ func (UnimplementedEventsServiceHandler) WatchEvents(context.Context, *connect.R
 
 // AdminServiceClient is a client for the elephant.tables.v1.AdminService service.
 type AdminServiceClient interface {
-	// ListOutOfSync lists the skipped events not yet reconciled, oldest
-	// first, a page at a time.
+	// ListOutOfSync lists the skipped and held-back events not yet
+	// reconciled, oldest first, a page at a time.
 	//
 	// Auth: the tables_admin scope.
 	ListOutOfSync(context.Context, *connect.Request[v1.ListOutOfSyncRequest]) (*connect.Response[v1.ListOutOfSyncResponse], error)
 	// Reconcile brings a document's databases in line with the document,
-	// for every skipped event of it: it reads the document's current state
-	// from the repository and applies what each event would have done. A
-	// skipped deletion archives the deleted generation's database, or
-	// records the generation as deleted when it had none; a skipped restore
-	// binds the restored-from generation's database to the restored
-	// generation, when that generation is still the document's current
-	// one; any other event, or a restore the document has moved on from,
-	// changes nothing. The records are then cleared, and the database is
-	// served again if it is live.
+	// for every skipped or held-back event of it: it reads the document's
+	// current state from the repository, and applies what each event would
+	// have done, in the order the repository made them. A deletion
+	// archives the deleted generation's database, or records the
+	// generation as deleted when it had none; a restore binds the
+	// restored-from generation's database to the restored generation; any
+	// other event changes nothing. Then, when the repository reports the
+	// document's current generation restored from another, it binds that
+	// generation's database to the current one as CreateDatabase would,
+	// which changes nothing when the restore was applied already. The
+	// records are then cleared, and the database is served again if it is
+	// live.
 	//
 	// Returns not_found when the document has no skipped event. Returns
 	// unavailable when the repository could not be read, and the call is
@@ -2788,21 +2791,24 @@ func (c *adminServiceClient) Reconcile(ctx context.Context, req *connect.Request
 
 // AdminServiceHandler is an implementation of the elephant.tables.v1.AdminService service.
 type AdminServiceHandler interface {
-	// ListOutOfSync lists the skipped events not yet reconciled, oldest
-	// first, a page at a time.
+	// ListOutOfSync lists the skipped and held-back events not yet
+	// reconciled, oldest first, a page at a time.
 	//
 	// Auth: the tables_admin scope.
 	ListOutOfSync(context.Context, *connect.Request[v1.ListOutOfSyncRequest]) (*connect.Response[v1.ListOutOfSyncResponse], error)
 	// Reconcile brings a document's databases in line with the document,
-	// for every skipped event of it: it reads the document's current state
-	// from the repository and applies what each event would have done. A
-	// skipped deletion archives the deleted generation's database, or
-	// records the generation as deleted when it had none; a skipped restore
-	// binds the restored-from generation's database to the restored
-	// generation, when that generation is still the document's current
-	// one; any other event, or a restore the document has moved on from,
-	// changes nothing. The records are then cleared, and the database is
-	// served again if it is live.
+	// for every skipped or held-back event of it: it reads the document's
+	// current state from the repository, and applies what each event would
+	// have done, in the order the repository made them. A deletion
+	// archives the deleted generation's database, or records the
+	// generation as deleted when it had none; a restore binds the
+	// restored-from generation's database to the restored generation; any
+	// other event changes nothing. Then, when the repository reports the
+	// document's current generation restored from another, it binds that
+	// generation's database to the current one as CreateDatabase would,
+	// which changes nothing when the restore was applied already. The
+	// records are then cleared, and the database is served again if it is
+	// live.
 	//
 	// Returns not_found when the document has no skipped event. Returns
 	// unavailable when the repository could not be read, and the call is

@@ -243,10 +243,13 @@ Changes:
 - Out of sync: `AdminService`, for operators, needs the `tables_admin`
   scope. A repository event the service skipped after it failed to
   apply, a document's deletion or restore, leaves the document's
-  database out of sync with the document;
-  `ListOutOfSync` lists the skipped events (`SkippedEvent`), a page at a
-  time, and `Reconcile` reads the document from the repository, applies
-  what each would have done and clears them (`ReconciledEvent`). Until
+  database out of sync with the document, and the document's later
+  deletions and restores are held back behind it;
+  `ListOutOfSync` lists the skipped and held-back events
+  (`SkippedEvent`), a page at a time, and `Reconcile` reads the document
+  from the repository, applies what each would have done in event order,
+  binds the current generation's database when the repository reports
+  it restored, and clears them (`ReconciledEvent`). Until
   then every call naming the database, and `CreateDatabase` and `Fork`
   into the document, are refused with `failed_precondition` and the
   reason `out_of_sync`.
