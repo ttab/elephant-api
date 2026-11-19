@@ -259,6 +259,10 @@ message DocumentRef {
   // whose references cannot be looked up fails instead. Ignored on
   // writes.
   bool unresolved = 4;
+  // Type of the referenced document, such as core/article, looked up
+  // with the title. Empty when no_access or unresolved is set. Ignored
+  // on writes.
+  string type = 5;
 }
 
 // Cursor is a position in a database's change log.
@@ -1767,6 +1771,21 @@ message ListRequest {
   repeated string columns = 7;
   // Namespace the table is in. Required.
   string namespace = 8;
+  // Rows of the result to skip before the page, so that a client can
+  // read a window at any position of it. Refused with invalid_argument
+  // when negative or given together with a page token. A window is read
+  // afresh each time, so rows inserted or deleted ahead of it shift it;
+  // a client following Watch reads its window again rather than holding
+  // on to positions.
+  int32 offset = 9;
+  // Also count the rows matching the filters, into the response's total.
+  bool count = 10;
+  // Ids of the rows to read. When set, only these rows are returned, in
+  // the request's sort order, and an id with no row, such as a deleted
+  // one, is left out. Filters, sort, projection, offset, limit and count
+  // apply as usual, so the total counts the given rows that match. At
+  // most 1000 ids; more are refused with invalid_argument.
+  repeated int64 rows = 11;
 }
 
 message ListResponse {
@@ -1776,6 +1795,9 @@ message ListResponse {
   string next_page_token = 2;
   // The state the page was read at. Start Watch here.
   Cursor cursor = 3;
+  // The number of rows matching the filters, at the same state as the
+  // page, when the request asked for a count; 0 otherwise.
+  int64 total = 4;
 }
 
 // CellWrite writes one cell.

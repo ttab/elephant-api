@@ -1042,7 +1042,11 @@ type DocumentRef struct {
 	// false; read fewer rows, or read again, to have it resolved. A read
 	// whose references cannot be looked up fails instead. Ignored on
 	// writes.
-	Unresolved    bool `protobuf:"varint,4,opt,name=unresolved,proto3" json:"unresolved,omitempty"`
+	Unresolved bool `protobuf:"varint,4,opt,name=unresolved,proto3" json:"unresolved,omitempty"`
+	// Type of the referenced document, such as core/article, looked up
+	// with the title. Empty when no_access or unresolved is set. Ignored
+	// on writes.
+	Type          string `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1103,6 +1107,13 @@ func (x *DocumentRef) GetUnresolved() bool {
 		return x.Unresolved
 	}
 	return false
+}
+
+func (x *DocumentRef) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
 }
 
 // Cursor is a position in a database's change log.
@@ -5986,7 +5997,22 @@ type ListRequest struct {
 	// Rows key their cells by column id either way.
 	Columns []string `protobuf:"bytes,7,rep,name=columns,proto3" json:"columns,omitempty"`
 	// Namespace the table is in. Required.
-	Namespace     string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Namespace string `protobuf:"bytes,8,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Rows of the result to skip before the page, so that a client can
+	// read a window at any position of it. Refused with invalid_argument
+	// when negative or given together with a page token. A window is read
+	// afresh each time, so rows inserted or deleted ahead of it shift it;
+	// a client following Watch reads its window again rather than holding
+	// on to positions.
+	Offset int32 `protobuf:"varint,9,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Also count the rows matching the filters, into the response's total.
+	Count bool `protobuf:"varint,10,opt,name=count,proto3" json:"count,omitempty"`
+	// Ids of the rows to read. When set, only these rows are returned, in
+	// the request's sort order, and an id with no row, such as a deleted
+	// one, is left out. Filters, sort, projection, offset, limit and count
+	// apply as usual, so the total counts the given rows that match. At
+	// most 1000 ids; more are refused with invalid_argument.
+	Rows          []int64 `protobuf:"varint,11,rep,packed,name=rows,proto3" json:"rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6077,6 +6103,27 @@ func (x *ListRequest) GetNamespace() string {
 	return ""
 }
 
+func (x *ListRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListRequest) GetCount() bool {
+	if x != nil {
+		return x.Count
+	}
+	return false
+}
+
+func (x *ListRequest) GetRows() []int64 {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
 type ListResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The page of rows.
@@ -6084,7 +6131,10 @@ type ListResponse struct {
 	// Token for the next page. Empty when there are no more pages.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	// The state the page was read at. Start Watch here.
-	Cursor        *Cursor `protobuf:"bytes,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	Cursor *Cursor `protobuf:"bytes,3,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// The number of rows matching the filters, at the same state as the
+	// page, when the request asked for a count; 0 otherwise.
+	Total         int64 `protobuf:"varint,4,opt,name=total,proto3" json:"total,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6138,6 +6188,13 @@ func (x *ListResponse) GetCursor() *Cursor {
 		return x.Cursor
 	}
 	return nil
+}
+
+func (x *ListResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
 }
 
 // CellWrite writes one cell.
@@ -11279,14 +11336,15 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x04kind\"$\n" +
 	"\n" +
 	"StringList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"t\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x88\x01\n" +
 	"\vDocumentRef\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1b\n" +
 	"\tno_access\x18\x03 \x01(\bR\bnoAccess\x12\x1e\n" +
 	"\n" +
 	"unresolved\x18\x04 \x01(\bR\n" +
-	"unresolved\"0\n" +
+	"unresolved\x12\x12\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\"0\n" +
 	"\x06Cursor\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x12\x10\n" +
 	"\x03seq\x18\x02 \x01(\x03R\x03seq\"\x94\x01\n" +
@@ -11636,7 +11694,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x13DeleteIndexResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12/\n" +
-	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\x90\x02\n" +
+	"\x05table\x18\x03 \x01(\v2\x19.elephant.tables.v1.TableR\x05table\"\xd2\x02\n" +
 	"\vListRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05table\x18\x02 \x01(\tR\x05table\x124\n" +
@@ -11646,11 +11704,16 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\x06 \x01(\tR\tpageToken\x12\x18\n" +
 	"\acolumns\x18\a \x03(\tR\acolumns\x12\x1c\n" +
-	"\tnamespace\x18\b \x01(\tR\tnamespace\"\x97\x01\n" +
+	"\tnamespace\x18\b \x01(\tR\tnamespace\x12\x16\n" +
+	"\x06offset\x18\t \x01(\x05R\x06offset\x12\x14\n" +
+	"\x05count\x18\n" +
+	" \x01(\bR\x05count\x12\x12\n" +
+	"\x04rows\x18\v \x03(\x03R\x04rows\"\xad\x01\n" +
 	"\fListResponse\x12+\n" +
 	"\x04rows\x18\x01 \x03(\v2\x17.elephant.tables.v1.RowR\x04rows\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x122\n" +
-	"\x06cursor\x18\x03 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\"\x8b\x01\n" +
+	"\x06cursor\x18\x03 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12\x14\n" +
+	"\x05total\x18\x04 \x01(\x03R\x05total\"\x8b\x01\n" +
 	"\tCellWrite\x12\x16\n" +
 	"\x06column\x18\x01 \x01(\tR\x06column\x12/\n" +
 	"\x05value\x18\x02 \x01(\v2\x19.elephant.tables.v1.ValueR\x05value\x125\n" +
