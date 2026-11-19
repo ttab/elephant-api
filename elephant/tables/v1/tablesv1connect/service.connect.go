@@ -26,9 +26,10 @@
 // reused, which DatabaseInfo and Event carry for operators; no request
 // takes it.
 //
-// The API is six services in this one package, served with Connect only:
-// DatabasesService, SchemaService, DataService, SnapshotsService,
-// ImportsService and EventsService. Everything is unary except
+// The API is seven services in this one package, served with Connect
+// only: DatabasesService, SchemaService, DataService, SnapshotsService,
+// ImportsService, EventsService and, for operators, AdminService.
+// Everything is unary except
 // DataService.Watch and EventsService.WatchEvents, which are server
 // streams. Every database-scoped call takes the owning document's UUID,
 // in a field named database, and is forwarded to the pod that owns the
@@ -191,6 +192,14 @@
 //	on its own. Call DatabasesService.GetDatabase, which reports the
 //	state without opening the database, and offer the earlier version it
 //	names; on acceptance call DatabasesService.RecoverDatabase.
+//
+//	out_of_sync (code failed_precondition): the service could not apply
+//	a change the repository made to the owning document, its deletion or
+//	its restore, and recorded the database, or the document when it had
+//	none, as out of sync with it. Every call that names the database is
+//	refused this way, and so are CreateDatabase and Fork into the
+//	document, until an operator reconciles it with
+//	AdminService.Reconcile. The client can only retry later.
 package tablesv1connect
 
 import (
@@ -222,6 +231,8 @@ const (
 	ImportsServiceName = "elephant.tables.v1.ImportsService"
 	// EventsServiceName is the fully-qualified name of the EventsService service.
 	EventsServiceName = "elephant.tables.v1.EventsService"
+	// AdminServiceName is the fully-qualified name of the AdminService service.
+	AdminServiceName = "elephant.tables.v1.AdminService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -340,6 +351,11 @@ const (
 	// EventsServiceWatchEventsProcedure is the fully-qualified name of the EventsService's WatchEvents
 	// RPC.
 	EventsServiceWatchEventsProcedure = "/elephant.tables.v1.EventsService/WatchEvents"
+	// AdminServiceListOutOfSyncProcedure is the fully-qualified name of the AdminService's
+	// ListOutOfSync RPC.
+	AdminServiceListOutOfSyncProcedure = "/elephant.tables.v1.AdminService/ListOutOfSync"
+	// AdminServiceReconcileProcedure is the fully-qualified name of the AdminService's Reconcile RPC.
+	AdminServiceReconcileProcedure = "/elephant.tables.v1.AdminService/Reconcile"
 )
 
 // DatabasesServiceClient is a client for the elephant.tables.v1.DatabasesService service.
@@ -366,7 +382,8 @@ type DatabasesServiceClient interface {
 	// with unavailable, and succeeds once it has. The write permission is
 	// checked on the generation the database is bound to; when the
 	// document's generation changes during the call, it is refused with
-	// aborted, and the caller retries.
+	// aborted, and the caller retries. A document the service recorded as
+	// out of sync is refused with out_of_sync.
 	//
 	// Auth: doc_write on the owning document, and read permission on it.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
@@ -403,6 +420,8 @@ type DatabasesServiceClient interface {
 	// A fork is also refused with aborted, and the caller retries, when
 	// another database of the generation was created or deleted while it
 	// made its copy, since the number it was to take is no longer next.
+	// A source database or a new owning document the service recorded as
+	// out of sync is refused with out_of_sync.
 	//
 	// Auth: doc_read on the source's owning document, and doc_write and
 	// read permission on the new owning document.
@@ -615,7 +634,8 @@ type DatabasesServiceHandler interface {
 	// with unavailable, and succeeds once it has. The write permission is
 	// checked on the generation the database is bound to; when the
 	// document's generation changes during the call, it is refused with
-	// aborted, and the caller retries.
+	// aborted, and the caller retries. A document the service recorded as
+	// out of sync is refused with out_of_sync.
 	//
 	// Auth: doc_write on the owning document, and read permission on it.
 	CreateDatabase(context.Context, *connect.Request[v1.CreateDatabaseRequest]) (*connect.Response[v1.CreateDatabaseResponse], error)
@@ -652,6 +672,8 @@ type DatabasesServiceHandler interface {
 	// A fork is also refused with aborted, and the caller retries, when
 	// another database of the generation was created or deleted while it
 	// made its copy, since the number it was to take is no longer next.
+	// A source database or a new owning document the service recorded as
+	// out of sync is refused with out_of_sync.
 	//
 	// Auth: doc_read on the source's owning document, and doc_write and
 	// read permission on the new owning document.
@@ -2694,4 +2716,140 @@ type UnimplementedEventsServiceHandler struct{}
 
 func (UnimplementedEventsServiceHandler) WatchEvents(context.Context, *connect.Request[v1.WatchEventsRequest], *connect.ServerStream[v1.WatchEventsResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.EventsService.WatchEvents is not implemented"))
+}
+
+// AdminServiceClient is a client for the elephant.tables.v1.AdminService service.
+type AdminServiceClient interface {
+	// ListOutOfSync lists the skipped events not yet reconciled, oldest
+	// first, a page at a time.
+	//
+	// Auth: the tables_admin scope.
+	ListOutOfSync(context.Context, *connect.Request[v1.ListOutOfSyncRequest]) (*connect.Response[v1.ListOutOfSyncResponse], error)
+	// Reconcile brings a document's databases in line with the document,
+	// for every skipped event of it: it reads the document's current state
+	// from the repository and applies what each event would have done. A
+	// skipped deletion archives the deleted generation's database, or
+	// records the generation as deleted when it had none; a skipped restore
+	// binds the restored-from generation's database to the restored
+	// generation, when that generation is still the document's current
+	// one; any other event, or a restore the document has moved on from,
+	// changes nothing. The records are then cleared, and the database is
+	// served again if it is live.
+	//
+	// Returns not_found when the document has no skipped event. Returns
+	// unavailable when the repository could not be read, and the call is
+	// retried; nothing is changed then.
+	//
+	// Auth: the tables_admin scope.
+	Reconcile(context.Context, *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error)
+}
+
+// NewAdminServiceClient constructs a client for the elephant.tables.v1.AdminService service. By
+// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
+// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewAdminServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) AdminServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	adminServiceMethods := v1.File_elephant_tables_v1_service_proto.Services().ByName("AdminService").Methods()
+	return &adminServiceClient{
+		listOutOfSync: connect.NewClient[v1.ListOutOfSyncRequest, v1.ListOutOfSyncResponse](
+			httpClient,
+			baseURL+AdminServiceListOutOfSyncProcedure,
+			connect.WithSchema(adminServiceMethods.ByName("ListOutOfSync")),
+			connect.WithClientOptions(opts...),
+		),
+		reconcile: connect.NewClient[v1.ReconcileRequest, v1.ReconcileResponse](
+			httpClient,
+			baseURL+AdminServiceReconcileProcedure,
+			connect.WithSchema(adminServiceMethods.ByName("Reconcile")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// adminServiceClient implements AdminServiceClient.
+type adminServiceClient struct {
+	listOutOfSync *connect.Client[v1.ListOutOfSyncRequest, v1.ListOutOfSyncResponse]
+	reconcile     *connect.Client[v1.ReconcileRequest, v1.ReconcileResponse]
+}
+
+// ListOutOfSync calls elephant.tables.v1.AdminService.ListOutOfSync.
+func (c *adminServiceClient) ListOutOfSync(ctx context.Context, req *connect.Request[v1.ListOutOfSyncRequest]) (*connect.Response[v1.ListOutOfSyncResponse], error) {
+	return c.listOutOfSync.CallUnary(ctx, req)
+}
+
+// Reconcile calls elephant.tables.v1.AdminService.Reconcile.
+func (c *adminServiceClient) Reconcile(ctx context.Context, req *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error) {
+	return c.reconcile.CallUnary(ctx, req)
+}
+
+// AdminServiceHandler is an implementation of the elephant.tables.v1.AdminService service.
+type AdminServiceHandler interface {
+	// ListOutOfSync lists the skipped events not yet reconciled, oldest
+	// first, a page at a time.
+	//
+	// Auth: the tables_admin scope.
+	ListOutOfSync(context.Context, *connect.Request[v1.ListOutOfSyncRequest]) (*connect.Response[v1.ListOutOfSyncResponse], error)
+	// Reconcile brings a document's databases in line with the document,
+	// for every skipped event of it: it reads the document's current state
+	// from the repository and applies what each event would have done. A
+	// skipped deletion archives the deleted generation's database, or
+	// records the generation as deleted when it had none; a skipped restore
+	// binds the restored-from generation's database to the restored
+	// generation, when that generation is still the document's current
+	// one; any other event, or a restore the document has moved on from,
+	// changes nothing. The records are then cleared, and the database is
+	// served again if it is live.
+	//
+	// Returns not_found when the document has no skipped event. Returns
+	// unavailable when the repository could not be read, and the call is
+	// retried; nothing is changed then.
+	//
+	// Auth: the tables_admin scope.
+	Reconcile(context.Context, *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error)
+}
+
+// NewAdminServiceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewAdminServiceHandler(svc AdminServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	adminServiceMethods := v1.File_elephant_tables_v1_service_proto.Services().ByName("AdminService").Methods()
+	adminServiceListOutOfSyncHandler := connect.NewUnaryHandler(
+		AdminServiceListOutOfSyncProcedure,
+		svc.ListOutOfSync,
+		connect.WithSchema(adminServiceMethods.ByName("ListOutOfSync")),
+		connect.WithHandlerOptions(opts...),
+	)
+	adminServiceReconcileHandler := connect.NewUnaryHandler(
+		AdminServiceReconcileProcedure,
+		svc.Reconcile,
+		connect.WithSchema(adminServiceMethods.ByName("Reconcile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/elephant.tables.v1.AdminService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case AdminServiceListOutOfSyncProcedure:
+			adminServiceListOutOfSyncHandler.ServeHTTP(w, r)
+		case AdminServiceReconcileProcedure:
+			adminServiceReconcileHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedAdminServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedAdminServiceHandler struct{}
+
+func (UnimplementedAdminServiceHandler) ListOutOfSync(context.Context, *connect.Request[v1.ListOutOfSyncRequest]) (*connect.Response[v1.ListOutOfSyncResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.AdminService.ListOutOfSync is not implemented"))
+}
+
+func (UnimplementedAdminServiceHandler) Reconcile(context.Context, *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.AdminService.Reconcile is not implemented"))
 }

@@ -24,9 +24,10 @@ syntax = "proto3";
 // reused, which DatabaseInfo and Event carry for operators; no request
 // takes it.
 //
-// The API is six services in this one package, served with Connect only:
-// DatabasesService, SchemaService, DataService, SnapshotsService,
-// ImportsService and EventsService. Everything is unary except
+// The API is seven services in this one package, served with Connect
+// only: DatabasesService, SchemaService, DataService, SnapshotsService,
+// ImportsService, EventsService and, for operators, AdminService.
+// Everything is unary except
 // DataService.Watch and EventsService.WatchEvents, which are server
 // streams. Every database-scoped call takes the owning document's UUID,
 // in a field named database, and is forwarded to the pod that owns the
@@ -189,6 +190,14 @@ syntax = "proto3";
 //   on its own. Call DatabasesService.GetDatabase, which reports the
 //   state without opening the database, and offer the earlier version it
 //   names; on acceptance call DatabasesService.RecoverDatabase.
+//
+//   out_of_sync (code failed_precondition): the service could not apply
+//   a change the repository made to the owning document, its deletion or
+//   its restore, and recorded the database, or the document when it had
+//   none, as out of sync with it. Every call that names the database is
+//   refused this way, and so are CreateDatabase and Fork into the
+//   document, until an operator reconciles it with
+//   AdminService.Reconcile. The client can only retry later.
 package elephant.tables.v1;
 
 import "google/protobuf/timestamp.proto";
@@ -573,7 +582,8 @@ service DatabasesService {
   // with unavailable, and succeeds once it has. The write permission is
   // checked on the generation the database is bound to; when the
   // document's generation changes during the call, it is refused with
-  // aborted, and the caller retries.
+  // aborted, and the caller retries. A document the service recorded as
+  // out of sync is refused with out_of_sync.
   //
   // Auth: doc_write on the owning document, and read permission on it.
   rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
@@ -612,6 +622,8 @@ service DatabasesService {
   // A fork is also refused with aborted, and the caller retries, when
   // another database of the generation was created or deleted while it
   // made its copy, since the number it was to take is no longer next.
+  // A source database or a new owning document the service recorded as
+  // out of sync is refused with out_of_sync.
   //
   // Auth: doc_read on the source's owning document, and doc_write and
   // read permission on the new owning document.
@@ -2980,4 +2992,100 @@ message Event {
   // restored generation does not change it for events that happened
   // before.
   string document_nonce = 10;
+}
+
+// ---------- Admin ----------
+
+// AdminService is for operators. The repository event-log follower
+// applies what the repository does to a document that concerns its
+// database: a deletion archives the database, a restore brings it back.
+// An event that fails to apply three times, for a reason that is about
+// the event rather than about Postgres being unavailable, is skipped so
+// that it does not hold up every later event, and recorded: the
+// database it concerns, or the document when it had none, is then out
+// of sync with its document, and refused with out_of_sync until it is
+// reconciled. These calls list what is out of sync and reconcile it.
+// They are not database-scoped and not forwarded: any pod serves them.
+service AdminService {
+  // ListOutOfSync lists the skipped events not yet reconciled, oldest
+  // first, a page at a time.
+  //
+  // Auth: the tables_admin scope.
+  rpc ListOutOfSync(ListOutOfSyncRequest) returns (ListOutOfSyncResponse);
+
+  // Reconcile brings a document's databases in line with the document,
+  // for every skipped event of it: it reads the document's current state
+  // from the repository and applies what each event would have done. A
+  // skipped deletion archives the deleted generation's database, or
+  // records the generation as deleted when it had none; a skipped restore
+  // binds the restored-from generation's database to the restored
+  // generation, when that generation is still the document's current
+  // one; any other event, or a restore the document has moved on from,
+  // changes nothing. The records are then cleared, and the database is
+  // served again if it is live.
+  //
+  // Returns not_found when the document has no skipped event. Returns
+  // unavailable when the repository could not be read, and the call is
+  // retried; nothing is changed then.
+  //
+  // Auth: the tables_admin scope.
+  rpc Reconcile(ReconcileRequest) returns (ReconcileResponse);
+}
+
+// SkippedEvent is a repository event the follower skipped, which left
+// a document's database out of sync with the document.
+message SkippedEvent {
+  // Id of the event in the repository's event log.
+  int64 event_id = 1;
+  // The repository's event type, such as delete_document or
+  // restore_finished.
+  string event_type = 2;
+  // UUID of the document the event is about.
+  string document = 3;
+  // The database's own id (DatabaseInfo.id) the event concerned: for a
+  // deletion the deleted generation's database, for a restore the
+  // restored-from generation's. Empty when the document had no such
+  // database when the event was skipped.
+  string database_id = 4;
+  // Why the event failed to apply, for a person to read.
+  string error = 5;
+  // When the event was skipped.
+  google.protobuf.Timestamp skipped = 6;
+}
+
+message ListOutOfSyncRequest {
+  // Resume after this event id, the last event_id of the previous page.
+  // 0 starts from the oldest.
+  int64 after = 1;
+  // Events per page; 0 means 100, and at most 1000 are returned.
+  int32 limit = 2;
+}
+
+message ListOutOfSyncResponse {
+  // The skipped events after the request's after, by event id.
+  repeated SkippedEvent events = 1;
+}
+
+message ReconcileRequest {
+  // UUID of the document to reconcile. Required.
+  string document = 1;
+}
+
+// ReconciledEvent is what Reconcile did for one skipped event.
+message ReconciledEvent {
+  // The skipped event.
+  SkippedEvent event = 1;
+  // What was applied: archived (the deleted generation's database was
+  // archived), deleted (the deleted generation had no live database and
+  // was recorded as deleted), restored (the restored-from generation's
+  // database was bound to the restored generation) or nothing.
+  string action = 2;
+  // The database's own id the action applied to. Empty for nothing and
+  // deleted.
+  string database_id = 3;
+}
+
+message ReconcileResponse {
+  // What was done for each skipped event of the document, by event id.
+  repeated ReconciledEvent events = 1;
 }

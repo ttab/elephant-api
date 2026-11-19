@@ -8,7 +8,7 @@ pull requests hold the detail.
 
 **New service (tables):** `elephant.tables.v1` is the declaration for
 elephant-tables, which gives a document its own tabular data in a SQLite
-database of the document's current generation. It is six services in one
+database of the document's current generation. It is seven services in one
 package: `DatabasesService` (create, describe, fork, restore in place,
 history, recovery from a lost replica, and delete), `SchemaService`
 (namespaces, tables, columns, constraints, indexes, type changes with a
@@ -16,8 +16,9 @@ dry run and declared schemas), `DataService`
 (rows, mutations, undo, read-only SQL, column summaries, agent
 suggestions, presence, and the `Watch` change stream), `SnapshotsService`
 (export snapshots and publications), `ImportsService` (upload, analyze,
-apply) and `EventsService` (the tenant's coarse event log, over the
-`WatchEvents` stream). It is declared at
+apply), `EventsService` (the tenant's coarse event log, over the
+`WatchEvents` stream) and, for operators, `AdminService` (databases out
+of sync with their documents). It is declared at
 `elephant/tables/v1/service.proto`; Go consumers import
 `github.com/ttab/elephant-api/elephant/tables/v1` and
 `github.com/ttab/elephant-api/elephant/tables/v1/tablesv1connect`, and the
@@ -239,6 +240,17 @@ Changes:
   restored. A token
   with the `eventlog_read` scope gets every event unfiltered, without
   `doc_read`.
+- Out of sync: `AdminService`, for operators, needs the `tables_admin`
+  scope. A repository event the service skipped after it failed to
+  apply, a document's deletion or restore, leaves the document's
+  database out of sync with the document;
+  `ListOutOfSync` lists the skipped events (`SkippedEvent`), a page at a
+  time, and `Reconcile` reads the document from the repository, applies
+  what each would have done and clears them (`ReconciledEvent`). Until
+  then every call naming the database, and `CreateDatabase` and `Fork`
+  into the document, are refused with `failed_precondition` and the
+  reason `out_of_sync`.
+
 ## [v0.30.0] - 2026-11-18
 
 **Breaking (Comments):** `Comments.WaitForComments`, the interim wakeup poll
