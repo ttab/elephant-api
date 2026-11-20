@@ -1660,12 +1660,21 @@ type DataServiceClient interface {
 	// its values as positional parameters (? and ?NNN) or as named ones
 	// (:name, @name, $name), never both.
 	//
+	// With snapshot set it reads a publish snapshot of the database
+	// instead of the live tables: the data as it was published, with the
+	// same views, catalog tables, namespace scoping, sandbox, caps and
+	// deadline. The live database is not touched, so a later edit changes
+	// nothing a snapshot query reads.
+	//
 	// Returns invalid_argument for SQL that does not parse or reaches past
 	// the views, for a parameter without a value and for a value no
-	// parameter uses, positional or named, and resource_exhausted on the rate limit or the
-	// deadline.
+	// parameter uses, positional or named, and for a snapshot that is not
+	// a publish snapshot; not_found for a snapshot that is not one of the
+	// database's; failed_precondition for a snapshot whose file is
+	// missing from storage; and resource_exhausted on the rate limit or
+	// the deadline.
 	//
-	// Auth: doc_read on the owning document.
+	// Auth: doc_read on the owning document, for a snapshot query too.
 	Query(context.Context, *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error)
 	// Changes reads the change log after a cursor: the unary catch-up for a
 	// client that is not holding a Watch stream.
@@ -1977,12 +1986,21 @@ type DataServiceHandler interface {
 	// its values as positional parameters (? and ?NNN) or as named ones
 	// (:name, @name, $name), never both.
 	//
+	// With snapshot set it reads a publish snapshot of the database
+	// instead of the live tables: the data as it was published, with the
+	// same views, catalog tables, namespace scoping, sandbox, caps and
+	// deadline. The live database is not touched, so a later edit changes
+	// nothing a snapshot query reads.
+	//
 	// Returns invalid_argument for SQL that does not parse or reaches past
 	// the views, for a parameter without a value and for a value no
-	// parameter uses, positional or named, and resource_exhausted on the rate limit or the
-	// deadline.
+	// parameter uses, positional or named, and for a snapshot that is not
+	// a publish snapshot; not_found for a snapshot that is not one of the
+	// database's; failed_precondition for a snapshot whose file is
+	// missing from storage; and resource_exhausted on the rate limit or
+	// the deadline.
 	//
-	// Auth: doc_read on the owning document.
+	// Auth: doc_read on the owning document, for a snapshot query too.
 	Query(context.Context, *connect.Request[v1.QueryRequest]) (*connect.Response[v1.QueryResponse], error)
 	// Changes reads the change log after a cursor: the unary catch-up for a
 	// client that is not holding a Watch stream.
@@ -2262,8 +2280,9 @@ type SnapshotsServiceClient interface {
 	//
 	// Auth: doc_read on the owning document. Snapshots are for the service
 	// and for editors, for history and diffing; distribution reads
-	// publications. An id that names no snapshot is answered exactly as
-	// one the caller may not read.
+	// publications, or queries a publish snapshot with DataService.Query.
+	// An id that names no snapshot is answered exactly as one the caller
+	// may not read.
 	GetSnapshot(context.Context, *connect.Request[v1.GetSnapshotRequest]) (*connect.Response[v1.GetSnapshotResponse], error)
 	// ListSnapshots lists a database's snapshots, newest first. Paginated.
 	//
@@ -2384,8 +2403,9 @@ type SnapshotsServiceHandler interface {
 	//
 	// Auth: doc_read on the owning document. Snapshots are for the service
 	// and for editors, for history and diffing; distribution reads
-	// publications. An id that names no snapshot is answered exactly as
-	// one the caller may not read.
+	// publications, or queries a publish snapshot with DataService.Query.
+	// An id that names no snapshot is answered exactly as one the caller
+	// may not read.
 	GetSnapshot(context.Context, *connect.Request[v1.GetSnapshotRequest]) (*connect.Response[v1.GetSnapshotResponse], error)
 	// ListSnapshots lists a database's snapshots, newest first. Paginated.
 	//

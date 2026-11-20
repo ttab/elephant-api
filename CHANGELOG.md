@@ -277,6 +277,15 @@ Changes:
   `failed_precondition` and the reason `not_deleted`,
   `deleted_with_document`, `generation_ended`, `newer_database`,
   `purging` or `purged` when it cannot.
+- Query of a publish snapshot: `QueryRequest.snapshot` (7), optional,
+  runs the statement against a publish snapshot of the database instead
+  of its live tables, so that a system processing a published document
+  reads the data as it was published. `database` stays required, and the
+  snapshot must be one of the current generation's database: any other
+  id is `not_found`, as `GetSnapshot` answers it, and an export or a
+  restore point is `invalid_argument`. Access, views, namespace scoping,
+  caps and the rate limit are a live query's, and the response's `cursor`
+  is the snapshot's.
 
 ## [v0.30.0] - 2026-11-18
 

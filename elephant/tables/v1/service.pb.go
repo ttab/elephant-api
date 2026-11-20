@@ -7163,7 +7163,25 @@ type QueryRequest struct {
 	// named parameter of the statement needs a value, and a value the
 	// statement does not use is refused too. params and named_params count
 	// together against the server's parameter cap.
-	NamedParams   map[string]*Value `protobuf:"bytes,6,rep,name=named_params,json=namedParams,proto3" json:"named_params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	NamedParams map[string]*Value `protobuf:"bytes,6,rep,name=named_params,json=namedParams,proto3" json:"named_params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Id of a publish snapshot to query, optional: the snapshot a
+	// publication names (Publication.snapshot), or one ListSnapshots
+	// lists. With one, the statement reads the database as that snapshot
+	// holds it, every table as it was published, and not the live tables;
+	// the views, _tables and _columns are the snapshot's. Without one, the
+	// live database.
+	//
+	// The snapshot must be one of database's, which is required either
+	// way and resolves to the database of the document's current
+	// generation, as for a live query. So a snapshot of a deleted
+	// database, or of an earlier generation's, is not_found, as an id
+	// that names no snapshot is, and as GetSnapshot answers both. A
+	// snapshot of another purpose, an export or a restore point, is
+	// invalid_argument.
+	//
+	// The response's cursor is then the snapshot's (Snapshot.cursor), not
+	// the live database's head.
+	Snapshot      string `protobuf:"bytes,7,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7238,6 +7256,13 @@ func (x *QueryRequest) GetNamedParams() map[string]*Value {
 		return x.NamedParams
 	}
 	return nil
+}
+
+func (x *QueryRequest) GetSnapshot() string {
+	if x != nil {
+		return x.Snapshot
+	}
+	return ""
 }
 
 // QueryColumn is a column of a query result.
@@ -7350,7 +7375,8 @@ type QueryResponse struct {
 	Rows []*QueryRow `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
 	// True when the result was cut off at the row or size cap.
 	Truncated bool `protobuf:"varint,3,opt,name=truncated,proto3" json:"truncated,omitempty"`
-	// The state the query read.
+	// The state the query read: the live database's head, or, for a
+	// query of a snapshot, the snapshot's cursor.
 	Cursor        *Cursor `protobuf:"bytes,4,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -12582,14 +12608,15 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\fUndoResponse\x12\x14\n" +
 	"\x05batch\x18\x01 \x01(\tR\x05batch\x122\n" +
 	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12<\n" +
-	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"\xd4\x02\n" +
+	"\aresults\x18\x03 \x03(\v2\".elephant.tables.v1.MutationResultR\aresults\"\xf0\x02\n" +
 	"\fQueryRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x10\n" +
 	"\x03sql\x18\x02 \x01(\tR\x03sql\x121\n" +
 	"\x06params\x18\x03 \x03(\v2\x19.elephant.tables.v1.ValueR\x06params\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x1c\n" +
 	"\tnamespace\x18\x05 \x01(\tR\tnamespace\x12T\n" +
-	"\fnamed_params\x18\x06 \x03(\v21.elephant.tables.v1.QueryRequest.NamedParamsEntryR\vnamedParams\x1aY\n" +
+	"\fnamed_params\x18\x06 \x03(\v21.elephant.tables.v1.QueryRequest.NamedParamsEntryR\vnamedParams\x12\x1a\n" +
+	"\bsnapshot\x18\a \x01(\tR\bsnapshot\x1aY\n" +
 	"\x10NamedParamsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12/\n" +
 	"\x05value\x18\x02 \x01(\v2\x19.elephant.tables.v1.ValueR\x05value:\x028\x01\"U\n" +

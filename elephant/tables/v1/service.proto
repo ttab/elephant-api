@@ -1735,12 +1735,21 @@ service DataService {
   // its values as positional parameters (? and ?NNN) or as named ones
   // (:name, @name, $name), never both.
   //
+  // With snapshot set it reads a publish snapshot of the database
+  // instead of the live tables: the data as it was published, with the
+  // same views, catalog tables, namespace scoping, sandbox, caps and
+  // deadline. The live database is not touched, so a later edit changes
+  // nothing a snapshot query reads.
+  //
   // Returns invalid_argument for SQL that does not parse or reaches past
   // the views, for a parameter without a value and for a value no
-  // parameter uses, positional or named, and resource_exhausted on the rate limit or the
-  // deadline.
+  // parameter uses, positional or named, and for a snapshot that is not
+  // a publish snapshot; not_found for a snapshot that is not one of the
+  // database's; failed_precondition for a snapshot whose file is
+  // missing from storage; and resource_exhausted on the rate limit or
+  // the deadline.
   //
-  // Auth: doc_read on the owning document.
+  // Auth: doc_read on the owning document, for a snapshot query too.
   rpc Query(QueryRequest) returns (QueryResponse);
 
   // Changes reads the change log after a cursor: the unary catch-up for a
@@ -2066,6 +2075,24 @@ message QueryRequest {
   // statement does not use is refused too. params and named_params count
   // together against the server's parameter cap.
   map<string, Value> named_params = 6;
+  // Id of a publish snapshot to query, optional: the snapshot a
+  // publication names (Publication.snapshot), or one ListSnapshots
+  // lists. With one, the statement reads the database as that snapshot
+  // holds it, every table as it was published, and not the live tables;
+  // the views, _tables and _columns are the snapshot's. Without one, the
+  // live database.
+  //
+  // The snapshot must be one of database's, which is required either
+  // way and resolves to the database of the document's current
+  // generation, as for a live query. So a snapshot of a deleted
+  // database, or of an earlier generation's, is not_found, as an id
+  // that names no snapshot is, and as GetSnapshot answers both. A
+  // snapshot of another purpose, an export or a restore point, is
+  // invalid_argument.
+  //
+  // The response's cursor is then the snapshot's (Snapshot.cursor), not
+  // the live database's head.
+  string snapshot = 7;
 }
 
 // QueryColumn is a column of a query result.
@@ -2090,7 +2117,8 @@ message QueryResponse {
   repeated QueryRow rows = 2;
   // True when the result was cut off at the row or size cap.
   bool truncated = 3;
-  // The state the query read.
+  // The state the query read: the live database's head, or, for a
+  // query of a snapshot, the snapshot's cursor.
   Cursor cursor = 4;
 }
 
@@ -2428,8 +2456,9 @@ message ListSuggestionsResponse {
 // is an immutable copy of a whole database at a cursor. A publication is
 // the data actually made public: rendered from a publish snapshot by a
 // publication spec, and possibly a subset of it. Distribution and
-// end-user products read publications only, never snapshots or the live
-// API.
+// end-user products read publications, or query the publish snapshot a
+// publication was rendered from (DataService.Query with snapshot set),
+// never the live tables.
 service SnapshotsService {
   // CreateSnapshot takes an export snapshot, for downloads, round trips
   // and agent hand-offs. Publish snapshots are taken by Publish, and
@@ -2446,8 +2475,9 @@ service SnapshotsService {
   //
   // Auth: doc_read on the owning document. Snapshots are for the service
   // and for editors, for history and diffing; distribution reads
-  // publications. An id that names no snapshot is answered exactly as
-  // one the caller may not read.
+  // publications, or queries a publish snapshot with DataService.Query.
+  // An id that names no snapshot is answered exactly as one the caller
+  // may not read.
   rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
 
   // ListSnapshots lists a database's snapshots, newest first. Paginated.
