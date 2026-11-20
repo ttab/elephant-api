@@ -1,0 +1,3323 @@
+syntax = "proto3";
+
+// elephant-tables gives Elephant documents their own tabular data. Each
+// owning document may have one SQLite database per generation, served by
+// a single leased writer pod, replicated to S3 and published as immutable
+// snapshots.
+//
+// Generations: the repository gives every document a nonce, which is new
+// whenever the document's UUID starts a new life: when it is created,
+// created again after a delete, or restored. A database belongs to one
+// generation. Every request names a database by its owning document's
+// UUID, and is served from the live database of the document's current
+// generation, which the service learns from the repository with the
+// caller's own token; a database of an earlier generation of the same
+// UUID is never served for it, and the request is then not found.
+// Deleting the document archives its generation's database; a document
+// created again under the UUID is a new generation and may get a new
+// database at once, while the archived one waits for the repository to
+// purge the deletion. A caller may also delete a document's database
+// with DatabasesService.DeleteDatabase while the document lives on, and
+// create another for the same generation: the databases of one
+// generation are numbered from 1 (DatabaseInfo.generation), and at most
+// one of them is live. A database also has an id of its own, never
+// reused, which DatabaseInfo and Event carry for operators; no request
+// takes it.
+//
+// The API is seven services in this one package, served with Connect
+// only: DatabasesService, SchemaService, DataService, SnapshotsService,
+// ImportsService, EventsService and, for operators, AdminService.
+// Everything is unary except
+// DataService.Watch and EventsService.WatchEvents, which are server
+// streams. Every database-scoped call takes the owning document's UUID,
+// in a field named database, and is forwarded to the pod that owns the
+// database, so a caller never needs to know which pod that is.
+//
+// Access is the access the caller has to the owning document: reading
+// needs doc_read on it and any mutation needs doc_write, checked against
+// the repository with the caller's own token. A database has no ACL of its
+// own. Every database-scoped call also reads the document's metadata
+// with the caller's token, to learn its current generation, so the
+// caller needs read permission on the document even for a write; a
+// caller who may write but not read it is refused with
+// permission_denied.
+//
+// Every change to a live table — edits, schema changes, imports, undo,
+// restores and applied suggestions — is a change batch: one transaction,
+// attributed to the caller, appended to the database's change log,
+// streamed on Watch and undoable as a unit. Positions in that log are
+// Cursors.
+//
+// Namespaces: the table widget is one of several applications that keep
+// tabular data in a document's one database. Every table belongs to a
+// namespace, named by the application that created it, and a change
+// batch touches exactly one namespace. Calls that name tables, batches or
+// suggestions take a namespace, and the catalog, Watch, Changes and the
+// event stream return only what belongs to it; a table, batch or
+// suggestion of another namespace is not found. Snapshots, publishing
+// and forks cover the whole database. A namespace is an organising
+// convention, not an access boundary: access is the caller's access to
+// the owning document, and anyone who may write the document may write
+// every namespace in it.
+//
+// A namespace name is an identifier: a lower-case ASCII letter, then
+// lower-case letters and digits in runs joined by single underscores, at
+// most 32 bytes, not starting with "sqlite" or "pragma", such as
+// "widget" or "plan_board". A malformed one is refused with
+// invalid_argument. A namespace exists once a table has been created in
+// it or SchemaService.UpdateNamespace has set its flag. A database holds
+// at most 10 namespaces, and a namespace at most 20 tables, by default;
+// past either a call is refused with resource_exhausted. These and the
+// service's other data limits are the deployment's, which an operator
+// reads and changes with AdminService.GetLimits and UpdateLimits. The
+// database size cap, the
+// change log and the single writer are shared by every namespace.
+//
+// Keys: a table has a key, unique within its namespace, and a column a
+// key, unique within its table. A key is an identifier: a lower-case
+// ASCII letter, then lower-case letters and digits in runs joined by
+// single underscores, at most 64 bytes, such as "people" or
+// "start_date". It is given when the table or column is created, or made
+// by the service from the display name when none is given, as the table
+// widget's are, and it never changes: a rename leaves it, and so do
+// undo, restore, import and every other change. Undo, restore, forks and
+// snapshots carry it with the table or column.
+//
+// Keys are what SQL reads by: DataService.Query names a table's view by
+// the table's key and each column of the view by the column's key, so a
+// statement keeps working whatever the display names become. A table
+// or column key therefore also does not start with "sqlite" or
+// "pragma", nor with "t_" or "c_" followed by an id, the service's own
+// physical names. A table key is also not the name of one of SQLite's
+// table-valued functions or virtual tables (json_each, json_tree,
+// jsonb_each, jsonb_tree, dbstat, generate_series, carray, bytecode,
+// tables_used, completion), and a column key is not "id", every view's
+// row id column. SQL keywords such as "order" or "group" are allowed:
+// a statement puts such a key in double quotes, as in
+// SELECT "order" FROM "group". A key given in a request that is not
+// an identifier or breaks any of this is refused with invalid_argument
+// saying why; a key the
+// service makes from a display name is steered clear of it, with a
+// prefix ("t_" for a table, "c_" for a column) for one that would start
+// with a digit or a refused prefix, and a numbered suffix ("id_2") for
+// one that would be refused whole. An index key is an identifier and
+// nothing more, since it names nothing in SQL.
+//
+// A key is not reused while history that names it can be undone: once a
+// table or column is deleted, its key stays reserved for it, within the
+// namespace or the table, as long as the change log holds the deletion
+// (the change log window, the span Undo is offered in). Only after that
+// can another table or column be given it. A request that gives a key
+// another table or column holds or reserves is refused with
+// already_exists. A restore is the exception: it puts back the state at
+// the point it restores to, keys included, so it may bring back a table
+// or column whose key a deleted one still reserves, and an undo of that
+// deletion is then a conflict. SchemaService.EnsureSchema is the other
+// exception: the application that declares a namespace's schema owns its
+// keys, so a declaration may give a new table or column a key that only
+// a deletion reserves, never one a live table or column holds. That is
+// what lets an application declare a version again after the batch that
+// declared it was undone, since the undo deletes what the batch created.
+// An undo of the deletion is then a conflict, as after a restore.
+//
+// Addressing: wherever a request names a table or column of a namespace
+// by id, it may give its key instead. That is every table, column,
+// summary_column, target_table, target_column and key_columns field and
+// every entry of a tables or columns list of a request that takes a
+// namespace, and the column of a CellWrite, Filter or Sort in one. Ids
+// always start with a digit and keys always with a letter, so a
+// reference is unambiguously one or the other. Responses, change records
+// and stored suggestions name tables and columns by id, and Table and
+// Column carry both, as do rendered publications. Calls that span the
+// whole database name tables by id only, since a key is unique only
+// within its namespace: DatabasesService.Restore,
+// SnapshotsService.CreateSnapshot and the tables of a PublicationSpec.
+// The columns, filters and sort of a TableSelection may name a column
+// by key, since the table is named. A Presence is relayed between
+// clients as it was sent, unresolved.
+//
+// Constraints: a column can be required, and a table can have unique
+// constraints and indexes over one or more of its columns, together at
+// most 16 per table (Table.indexes). All three are schema: setting or
+// clearing a required flag (SchemaService.SetRequired) and adding or
+// deleting a unique constraint or index (SchemaService.AddIndex and
+// DeleteIndex) are change batches, streamed on Watch and undoable.
+//
+// A cell is empty when it holds no value, and a text cell also when it
+// holds the empty string. A write that would leave a required column
+// empty, or give two rows the same values in the columns of a unique
+// constraint, is refused for that operation with a ConstraintViolation
+// naming the constraint and, for a unique constraint, the row that
+// already holds the values; the rest of the request applies as for any
+// other failing operation. Rows where any column of a unique constraint
+// is empty are not compared. Values compare as their column type does:
+// text, choice, date, datetime and document references exactly, as
+// stored (so text is case and space sensitive, and a document reference
+// is compared in its canonical lower-case form); integers, numbers and
+// booleans by value; decimals by value, so 1.5 and 1.50 collide. A
+// unique constraint cannot cover a multi_choice or json column. This
+// holds for every write: Mutate, an applied suggestion, Undo (where it
+// is a conflict for the change that would break it), a restore and an
+// import (where a refused row is reported as a failure).
+//
+// Adding a required flag or a unique constraint that existing rows
+// break is refused with failed_precondition, carrying a
+// ConstraintViolations detail that lists the offending rows up to a cap;
+// the request's dry_run reports the same without changing anything. A
+// column that a unique constraint or index covers cannot be deleted, and
+// one a unique constraint covers cannot change type: delete the index
+// first. A type change of a required column is refused when a cell
+// would not convert, since it would become empty. A cell that is not
+// empty and would convert to an empty one, such as text of only spaces
+// converted to a number, or a JSON string "" converted to text, counts
+// as not converting, for every pair of types. An index changes no
+// results; it only makes filters, sorts and queries on its columns
+// faster.
+//
+// Refusals carry a structured reason in the error metadata under
+// "reason", as elephant-collab's do. The reasons a stream ends with are
+// lease_moved, cursor_invalid and token_expired; see DataService.Watch.
+// Two more reasons refuse a call:
+//
+//   schema_version_conflict (code failed_precondition):
+//   SchemaService.EnsureSchema was given a version lower than the one
+//   the namespace has, or the same version with another schema. The
+//   error carries a SchemaVersionConflict detail with the stored
+//   version.
+//
+//   recovery_needed (code failed_precondition): the database cannot be
+//   opened, because nothing is restorable from the replica of its newest
+//   lease epoch, which only happens when objects were removed from the
+//   bucket outside the service. Any call that has to open the database
+//   is refused this way, Watch included, and no pod opens an older epoch
+//   on its own. Call DatabasesService.GetDatabase, which reports the
+//   state without opening the database, and offer the earlier version it
+//   names; on acceptance call DatabasesService.RecoverDatabase.
+//
+//   out_of_sync (code failed_precondition): the service could not apply
+//   a change the repository made to the owning document, its deletion or
+//   its restore, and recorded the database, or the document when it had
+//   none, as out of sync with it. Every call that names the database is
+//   refused this way, and so are CreateDatabase and Fork into the
+//   document, until an operator reconciles it with
+//   AdminService.Reconcile. The client can only retry later.
+//
+// DatabasesService.UndeleteDatabase refuses with reasons of its own,
+// listed there.
+package elephant.tables.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/ttab/elephant-api/elephant/tables/v1;tablesv1";
+
+// ---------- Common ----------
+
+// Value is one cell value, typed after the column it belongs to. Exactly
+// one member is set; an empty cell carries null = true.
+message Value {
+  oneof kind {
+    // Set to true for an empty cell. Never set to false.
+    bool null = 1;
+    // A COLUMN_TYPE_TEXT value.
+    string text = 2;
+    // A COLUMN_TYPE_INTEGER value.
+    int64 integer = 3;
+    // A COLUMN_TYPE_NUMBER value.
+    double number = 4;
+    // A COLUMN_TYPE_DECIMAL value: a canonical decimal string, for money
+    // and exact figures, such as "1234.50".
+    string decimal = 5;
+    // A COLUMN_TYPE_BOOLEAN value.
+    bool boolean = 6;
+    // A COLUMN_TYPE_DATE value, as YYYY-MM-DD.
+    string date = 7;
+    // A COLUMN_TYPE_DATETIME value, as RFC 3339 in UTC.
+    string datetime = 8;
+    // A COLUMN_TYPE_CHOICE value: one of the column's options.
+    string choice = 9;
+    // A COLUMN_TYPE_MULTI_CHOICE value: a set of the column's options.
+    StringList multi_choice = 10;
+    // A COLUMN_TYPE_DOCUMENT_REF value, resolved for the caller.
+    DocumentRef document = 11;
+    // A COLUMN_TYPE_JSON value, as JSON text. The escape hatch for
+    // imports and agents.
+    string json = 12;
+  }
+}
+
+// StringList is a list of strings, for the multi_choice member of Value,
+// since a oneof cannot hold a repeated field directly.
+message StringList {
+  repeated string values = 1;
+}
+
+// DocumentRef is a reference from a cell to an Elephant document. It is
+// resolved per viewer, with the viewer's own token: a document the caller
+// cannot read comes back with only its UUID and no_access set, never with
+// its title.
+message DocumentRef {
+  // UUID of the referenced document.
+  string uuid = 1;
+  // Title of the referenced document. Empty when no_access is set.
+  // Ignored on writes.
+  string title = 2;
+  // True when the caller cannot read the referenced document. Ignored on
+  // writes.
+  bool no_access = 3;
+  // True when the service did not look the referenced document up for
+  // this response, because the response references more distinct
+  // documents than one response resolves, or because the lookup failed
+  // after the request's write had committed: the response to a write
+  // that took effect is never an error because of its references, so
+  // that a retry does not write twice. Title is empty and no_access
+  // false; read fewer rows, or read again, to have it resolved. A read
+  // whose references cannot be looked up fails instead. Ignored on
+  // writes.
+  bool unresolved = 4;
+  // Type of the referenced document, such as core/article, looked up
+  // with the title. Empty when no_access or unresolved is set. Ignored
+  // on writes.
+  string type = 5;
+}
+
+// Cursor is a position in a database's change log.
+//
+// Replication is asynchronous, so a crashed owner can lose its last
+// commits after clients already saw them, and the next owner will reuse
+// those seq values. The lease epoch is what tells the two apart: a cursor
+// from an older epoch that is ahead of the seq the current epoch started
+// from is invalid, and its holder has to reload.
+message Cursor {
+  // Lease epoch of the writer that produced the change.
+  int64 epoch = 1;
+  // The database's change sequence.
+  int64 seq = 2;
+}
+
+// ColumnType is the type of a column, which decides how its cells are
+// stored and which member of Value they use.
+enum ColumnType {
+  // No type. Only returned for a computed expression in a QueryColumn;
+  // never valid on a column.
+  COLUMN_TYPE_UNSPECIFIED = 0;
+  // Text.
+  COLUMN_TYPE_TEXT = 1;
+  // A 64-bit integer.
+  COLUMN_TYPE_INTEGER = 2;
+  // A double-precision float. It holds integers exactly only up to 2^53
+  // and decimals only to about 15 significant digits, so a conversion to
+  // it from COLUMN_TYPE_INTEGER or COLUMN_TYPE_DECIMAL may round a value;
+  // see ChangeColumnTypeResponse.rounded.
+  COLUMN_TYPE_NUMBER = 3;
+  // An exact decimal, stored as a canonical decimal string.
+  COLUMN_TYPE_DECIMAL = 4;
+  // A boolean.
+  COLUMN_TYPE_BOOLEAN = 5;
+  // An ISO 8601 date.
+  COLUMN_TYPE_DATE = 6;
+  // An ISO 8601 date and time in UTC.
+  COLUMN_TYPE_DATETIME = 7;
+  // One of the column's options.
+  COLUMN_TYPE_CHOICE = 8;
+  // A set of the column's options.
+  COLUMN_TYPE_MULTI_CHOICE = 9;
+  // A reference to an Elephant document, resolved and ACL-checked on
+  // read.
+  COLUMN_TYPE_DOCUMENT_REF = 10;
+  // Arbitrary JSON.
+  COLUMN_TYPE_JSON = 11;
+}
+
+// Namespace is a namespace of a database: a group of tables belonging to
+// one application.
+message Namespace {
+  // The namespace's name.
+  string name = 1;
+  // True when people may edit the namespace's schema, as the table
+  // widget's own tables may be. An application that manages its own
+  // schema leaves it unset, and the widget's schema editor offers those
+  // tables as read-only structure. The flag guides clients; the service
+  // stores and returns it, and does not enforce it.
+  bool schema_editable = 2;
+  // The version of the schema last declared for the namespace with
+  // SchemaService.EnsureSchema. 0 when none has been.
+  int64 schema_version = 3;
+  // The digest of that declaration: the lower-case hex SHA-256 of its
+  // canonical form, the same for two declarations of the same schema
+  // whatever their version. The order of the declared tables, and of a
+  // table's indexes, is not part of the schema and does not change it;
+  // the order of a table's columns is. Empty when none has been
+  // declared.
+  string schema_digest = 4;
+}
+
+// Column is a column in a table's catalog.
+message Column {
+  // Column id, assigned by the server: twelve characters, the first a
+  // digit. Stable across renames.
+  string id = 1;
+  // Display name. Free text: renaming a column changes nothing a
+  // statement names.
+  string name = 2;
+  reserved 3;
+  reserved "sql_name";
+  // Type of the column.
+  ColumnType type = 4;
+  // Display hint, such as "0.0 %". Not interpreted by the service.
+  string format = 5;
+  // The allowed values of a COLUMN_TYPE_CHOICE or
+  // COLUMN_TYPE_MULTI_CHOICE column. Empty for other types. Commas are
+  // reserved, since they separate options when a set is written as text:
+  // an option that contains one is refused as invalid when a column is
+  // created or updated.
+  repeated string options = 6;
+  // Position of the column in the table, from 0.
+  int32 position = 7;
+  // True when the column is hidden from the default view. It is still
+  // read, written and queried like any other.
+  bool hidden = 8;
+  // The column's key, unique within its table: given when the column is
+  // created, or made by the service from its name, and never changed.
+  // It is the column's name in its table's view for Query. See Keys in
+  // the package comment.
+  string key = 9;
+  // True when the column refuses empty cells. Honoured when a column is
+  // created (CreateTable, AddColumn, a new column of an import), where
+  // existing rows that would be empty refuse it; changed with
+  // SchemaService.SetRequired, and ignored by UpdateColumn. See
+  // Constraints in the package comment.
+  bool required = 10;
+}
+
+// Index is a unique constraint or an index over columns of a table. See
+// Constraints in the package comment.
+message Index {
+  // Index id, assigned by the server: twelve characters, the first a
+  // digit. Ignored on AddIndex.
+  string id = 1;
+  // The index's key, unique among the indexes of its table: given on
+  // AddIndex, or made by the service from its columns' keys. A key is an
+  // identifier as a column key is.
+  string key = 2;
+  // Ids of the columns, in order, at most 4 by default
+  // (columns_per_index). AddIndex takes keys too.
+  repeated string columns = 3;
+  // True for a unique constraint, false for an index.
+  bool unique = 4;
+}
+
+// ConstraintViolation is a row that breaks a required column or a unique
+// constraint: the refusal of one write, or one of the rows that keep a
+// constraint from being added. For SchemaService.EnsureSchema it is also
+// a cell that does not convert to the type a column is declared with.
+message ConstraintViolation {
+  // Id of the table.
+  string table = 1;
+  // Id of the required column that would be empty, or of the column
+  // whose cell does not convert. Empty for a unique constraint.
+  string column = 2;
+  // Id of the unique constraint. Empty for a required column.
+  string index = 3;
+  // Id of the row that breaks it: the row a write updates, 0 for a row
+  // an insert would have added, or a row that keeps a constraint from
+  // being added.
+  int64 row = 4;
+  // For a unique constraint, the row that already holds the values.
+  int64 existing_row = 5;
+  // Human-readable description, naming the constraint by key.
+  string message = 6;
+}
+
+// ConstraintViolations is the detail of the failed_precondition that
+// refuses a required flag or unique constraint existing rows break.
+message ConstraintViolations {
+  // The offending rows, capped at 100.
+  repeated ConstraintViolation violations = 1;
+  // How many rows break it, all counted.
+  int64 count = 2;
+}
+
+// Table is a user table in a database, with its catalog.
+message Table {
+  // Table id, assigned by the server: twelve characters, the first a
+  // digit. Stable across renames.
+  string id = 1;
+  // Display name. Free text: renaming a table changes nothing a
+  // statement names.
+  string name = 2;
+  reserved 3;
+  reserved "sql_name";
+  // The table's columns, in position order.
+  repeated Column columns = 4;
+  // Number of rows in the table.
+  int64 row_count = 5;
+  // Id of the column DataService.Summarize summarises when it is not
+  // given one: what a table widget shows at card size. Empty for none. A
+  // new table gets its first COLUMN_TYPE_CHOICE column, else its first
+  // COLUMN_TYPE_BOOLEAN column, else none. Changed with
+  // SchemaService.UpdateTable. A board can override it for its own
+  // widget, in the board document.
+  string summary_column = 6;
+  // The namespace the table belongs to, set when it is created and never
+  // changed.
+  string namespace = 7;
+  // The table's key, unique within its namespace: given when the table is
+  // created, or made by the service from its name, and never changed.
+  // The table's view for Query is named by it: the namespace, two
+  // underscores and the key, such as "widget__people", which no two
+  // tables of a database share, or the key alone for a Query scoped to
+  // the namespace. See Keys in the package comment.
+  string key = 8;
+  // The table's unique constraints and indexes, in the order they were
+  // added.
+  repeated Index indexes = 9;
+}
+
+// Row is one row of a table.
+message Row {
+  // Row id: stable for the life of the row, never reused within a table.
+  int64 id = 1;
+  // Fractional index giving the row's place in the manual row order.
+  // Rows sort by it when no other sort is asked for.
+  string ord = 2;
+  // The row's cells, keyed by column id. A column that was not asked for
+  // is missing from the map.
+  map<string, Value> cells = 3;
+}
+
+// CellConflict is a cell someone else changed after the caller's base,
+// reported instead of being overwritten.
+message CellConflict {
+  // Id of the table the cell is in.
+  string table = 1;
+  // Id of the row the cell is in.
+  int64 row = 2;
+  // Id of the column the cell is in. Empty for a suggested delete or
+  // move of a row that changed after the suggestion was made: the
+  // conflict is with the whole row, which keeps its place and values,
+  // and current and proposed are unset.
+  string column = 3;
+  // What is in the cell now. It is kept unless the caller asked to
+  // overwrite conflicts.
+  Value current = 4;
+  // What the operation wanted to write.
+  Value proposed = 5;
+  // Subject that made the change the caller conflicts with.
+  string changed_by = 6;
+  // Position in the change log of the change the caller conflicts with.
+  Cursor changed_at = 7;
+}
+
+// CellError is a cell that could not be converted or written, as reported
+// by a column type change or an import.
+message CellError {
+  // Id of the row the cell is in. Set for live rows.
+  int64 row = 1;
+  // Id of the column the cell is in.
+  string column = 2;
+  // Where the cell came from, for imports: a sheet and cell such as
+  // "Blad1!C7", or a SQLite table and rowid.
+  string source = 3;
+  // Human-readable reason the cell failed.
+  string message = 4;
+}
+
+// PointInTime names a point in a database's history. Inside the change
+// log window every seq is restorable exactly; before it, only the restore
+// points DatabasesService.History lists are.
+message PointInTime {
+  oneof at {
+    // A seq in the database's change log.
+    int64 seq = 1;
+    // A time. Resolves to the nearest restorable point at or before it.
+    google.protobuf.Timestamp time = 2;
+    // Id of a snapshot of the same database: a restore point or an
+    // export. A publish snapshot is refused with invalid_argument.
+    string snapshot = 3;
+  }
+}
+
+// Filter is a condition on a column, for listing rows and for selecting
+// what a publication carries.
+message Filter {
+  // Id of the column to test. Its key may be given instead wherever the
+  // table is named: in a request that takes a namespace, and in a
+  // TableSelection.
+  string column = 1;
+  // The comparison: one of eq, ne, lt, lte, gt, gte, contains, in and
+  // empty. in takes any number of values, empty takes none, and the rest
+  // take exactly one.
+  string op = 2;
+  // The values to compare with.
+  repeated Value values = 3;
+}
+
+// Sort is one sort key.
+message Sort {
+  // Id of the column to sort on. Empty sorts by the manual row order.
+  // Its key may be given instead wherever the table is named: in a
+  // request that takes a namespace, and in a TableSelection.
+  string column = 1;
+  // True to sort in descending order.
+  bool descending = 2;
+}
+
+// ---------- Databases ----------
+
+// DatabasesService creates, describes, forks, restores, recovers,
+// deletes and undeletes databases. A document has at most one database that is not
+// archived: the current generation's. A generation has more than one
+// database only when callers deleted the earlier ones. See Generations
+// in the package comment.
+service DatabasesService {
+  // CreateDatabase creates the database of the document's current
+  // generation, which the service reads from the repository with the
+  // caller's token. Returns already_exists when the generation has a
+  // live one. A fork into the document that never opened, because the
+  // pod making it died, is not a database: once it is a few minutes old
+  // it is removed, and the database is created in its place.
+  //
+  // After DeleteDatabase the generation gets a new, empty database: it
+  // is numbered one past the generation's earlier databases
+  // (DatabaseInfo.generation) and has an id of its own, and nothing of
+  // the deleted database is visible in it.
+  //
+  // A document created again under the UUID of a deleted one is a new
+  // generation, and gets a new database; the deleted generation's stays
+  // archived until the deletion is purged. A generation that the service
+  // has seen deleted is refused with failed_precondition, also when the
+  // caller read it before the deletion. When the database of an earlier
+  // generation of the document is not archived yet, because the service
+  // has not yet applied that generation's deletion, the call is refused
+  // with unavailable, and succeeds once it has. The write permission is
+  // checked on the generation the database is bound to; when the
+  // document's generation changes during the call, it is refused with
+  // aborted, and the caller retries. A document the service recorded as
+  // out of sync is refused with out_of_sync.
+  //
+  // Auth: doc_write on the owning document, and read permission on it.
+  rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
+
+  // GetDatabase describes a database: its lineage, its head and durable
+  // cursors, and its namespaces. database and owner_document both name
+  // the owning document's UUID, and the database described is the one of
+  // the document's current generation.
+  //
+  // A database that needs recovery is not opened: the response then sets
+  // recovery, and info carries only what is recorded outside the
+  // database, without head, durable or namespaces. See recovery_needed in
+  // the
+  // package comment.
+  //
+  // Auth: doc_read on the owning document.
+  rpc GetDatabase(GetDatabaseRequest) returns (GetDatabaseResponse);
+
+  // Fork copies a database at a point in its history into the database
+  // of another document, which must not have one yet. The fork is a copy
+  // with its own replica and its own owner; it records the parent and the
+  // fork point as its lineage, and is never merged back. A document that
+  // already has a database imports tables from another one instead, with
+  // ImportsService.Analyze and source_database.
+  //
+  // Fork copies the state, then forces a sync of the source and waits
+  // until the source's replica holds the fork point, so that the fork
+  // never holds a change the source could still lose.
+  //
+  // A fork that fails before its database opens is removed again. One
+  // whose pod died meanwhile refuses opens with unavailable until it is
+  // removed, a few minutes later, by a sweep or by the next Fork or
+  // CreateDatabase into the same document. The fork belongs to the new
+  // owning document's current generation, as for CreateDatabase, which
+  // also says when a fork is refused because of an earlier generation.
+  // A fork is also refused with aborted, and the caller retries, when
+  // another database of the generation was created or deleted while it
+  // made its copy, since the number it was to take is no longer next.
+  // A source database or a new owning document the service recorded as
+  // out of sync is refused with out_of_sync.
+  //
+  // Auth: doc_read on the source's owning document, and doc_write and
+  // read permission on the new owning document.
+  rpc Fork(ForkRequest) returns (ForkResponse);
+
+  // Restore reverts a database in place to a point in its history. It is
+  // a deliberate full revert: every change after the point is discarded,
+  // including changes others made after the caller picked it. Before
+  // writing anything the owner takes a restore-point snapshot of the
+  // current state, and then writes the difference in one transaction as
+  // one restore batch per namespace it changes, since a batch touches
+  // exactly one namespace, so editors stay connected and see the tables
+  // jump back live. Going back is another restore, to that snapshot.
+  //
+  // A restore covers the whole database unless it names a namespace.
+  // With one, only that namespace goes back to the point: its tables,
+  // rows, schema, keys, required flags, unique constraints and indexes,
+  // its declared schema version and digest and its schema_editable flag,
+  // written as one restore batch in that namespace. Other namespaces,
+  // their Watch streams and their cursors see nothing of it. A restore of
+  // the whole database or a whole namespace puts back each namespace's
+  // record as it was at the point; a namespace the point does not hold
+  // is kept, with its flag cleared and no declared version, since a
+  // namespace is never removed. A restore of some tables leaves the
+  // namespace records alone. Open suggestions are left as they
+  // are, and their writes then fail per operation where they no longer
+  // apply.
+  //
+  // With dry_run set nothing is written, and the response reports what
+  // the restore would discard, so the UI can say so before confirming.
+  //
+  // Auth: doc_write on the owning document.
+  rpc Restore(RestoreRequest) returns (RestoreResponse);
+
+  // History lists the restorable points of a database. Granularity falls
+  // with age; a time between two points resolves to the one at or before
+  // it. Inside the change log window every seq is restorable exactly, and
+  // those are not listed.
+  //
+  // Auth: doc_read on the owning document.
+  rpc History(HistoryRequest) returns (HistoryResponse);
+
+  // RecoverDatabase opens a database that needs recovery from the earlier
+  // version GetDatabase offered, after the caller has accepted losing the
+  // changes made since. The request echoes the whole offer it was shown,
+  // from DatabaseRecovery: the lost epochs, the offered epoch, the offered
+  // TXID, and the truncated epoch when the offer cuts an epoch short. So
+  // a caller never accepts a version it was not shown, and an old warning
+  // cannot be accepted after the situation has changed. The service records
+  // who accepted and when on the epochs that are skipped, opens the
+  // database from the offered epoch as a new epoch, and logs a recovered
+  // event. Cursors from the skipped epochs are invalid afterwards, and a
+  // Watch or Changes holding one gets cursor_invalid.
+  //
+  // Returns failed_precondition when the database does not need recovery,
+  // or when any part of the offer no longer matches what GetDatabase
+  // offers now: the lost epochs, the offered epoch, the offered TXID or
+  // the truncated epoch. That happens after someone else recovered it, or
+  // when the replicas changed since the caller read the offer; read
+  // GetDatabase again and show the new offer. Returns
+  // failed_precondition with the reason recovery_needed when no epoch is
+  // restorable, in which case there is nothing to accept.
+  //
+  // Auth: doc_write on the owning document, checked with the caller's own
+  // token.
+  rpc RecoverDatabase(RecoverDatabaseRequest) returns (RecoverDatabaseResponse);
+
+  // DeleteDatabase deletes a document's tables while the document lives
+  // on. The database of the document's current generation is archived
+  // rather than removed: it is no longer served, every request naming
+  // the document is not found as for a document without a database, the
+  // pod serving it keeps its last changes, and its Watch streams end
+  // with lease_moved. A deleted event is logged. Its snapshots,
+  // publications, uploads and pending imports go with it, and the
+  // imports do not run while it is deleted; its forks,
+  // which belong to other documents, are not touched. The service keeps
+  // the archived database for a retention window, 30 days by default,
+  // and then deletes it for good; within the window UndeleteDatabase
+  // brings it back, while the document's generation is the same. A
+  // document restore never brings it back.
+  //
+  // The document may get a new database afterwards with CreateDatabase
+  // or Fork, numbered on within the generation, with an id of its own.
+  // A second DeleteDatabase, once the document has no database, is not
+  // found.
+  //
+  // Auth: doc_write on the owning document, and read permission on it.
+  rpc DeleteDatabase(DeleteDatabaseRequest) returns (DeleteDatabaseResponse);
+
+  // UndeleteDatabase brings back a database a caller deleted with
+  // DeleteDatabase, within its retention window. It is live again as it
+  // was when it was deleted, with every change made before the delete,
+  // under its own id and number; its snapshots, publications and uploads
+  // are its own again, and its pending imports run. An undeleted event is
+  // logged. Nothing is opened: the next call that names the document
+  // opens the database.
+  //
+  // The database brought back is the document's most recently deleted
+  // one, or the one of the document's current generation that
+  // generation names. It must belong to the document's current
+  // generation, which the service reads from the repository with the
+  // caller's token: a database deleted before the document was deleted,
+  // re-created or restored stays deleted. A document has at most one
+  // live database, so one created or forked into the document since
+  // the delete has to be deleted first.
+  //
+  // A call for a document without a deleted database, or with no
+  // database of the given number in its current generation, is not
+  // found. The other refusals carry a reason, all with code
+  // failed_precondition:
+  //
+  //   not_deleted: the database named by generation is live. A second
+  //   call naming it is refused this way rather than succeeding again,
+  //   as a second DeleteDatabase is not found.
+  //
+  //   deleted_with_document: the database was archived when its
+  //   document generation was deleted, not by DeleteDatabase. Only a
+  //   restore of the document in the repository brings it back.
+  //
+  //   generation_ended: the database belongs to an earlier generation
+  //   of the document, which was deleted, created again or restored
+  //   since.
+  //
+  //   newer_database: the document has a live database, created or
+  //   forked after the delete.
+  //
+  //   purging: the retention window has passed and the service has
+  //   started deleting the database's storage.
+  //
+  //   purged: the database's storage is gone.
+  //
+  // A document the service recorded as out of sync is refused with
+  // out_of_sync, as for CreateDatabase. When the document's live
+  // database is of an earlier generation, whose deletion the service has
+  // not applied yet, the call is refused with unavailable, and succeeds
+  // once it has. When the document's generation changes during the
+  // call, it is refused with aborted, and the caller retries.
+  //
+  // Auth: doc_write on the owning document, and read permission on it.
+  rpc UndeleteDatabase(UndeleteDatabaseRequest) returns (UndeleteDatabaseResponse);
+}
+
+// DatabaseInfo describes a database.
+message DatabaseInfo {
+  // UUID of the owning document, by which every request names the
+  // database.
+  string database = 1;
+  // UUID of the owning document. Always equal to database; both are
+  // carried so that each use names the role it means.
+  string owner_document = 2;
+  // UUID of the owning document of the database this one was forked from.
+  // Empty unless it is a fork. That document may have moved on to another
+  // generation since; parent_id names the very database.
+  string parent_database = 3;
+  // The fork point in the parent. Unset unless it is a fork.
+  Cursor parent_cursor = 4;
+  // The latest change.
+  Cursor head = 5;
+  // The latest change that is replicated to S3, and so survives a crash
+  // of the owning pod.
+  Cursor durable = 6;
+  reserved 7;
+  reserved "tables";
+  // When the database was created.
+  google.protobuf.Timestamp created = 8;
+  // The database's namespaces, by name. Their tables are read with
+  // SchemaService.Describe.
+  repeated Namespace namespaces = 9;
+  // The database's own id, never reused. It names the database in the
+  // service's storage and logs, and tells two databases of one document
+  // apart; no request takes it. For the first database of a generation
+  // it is the nonce of the generation the database was created for; a
+  // later one, created after a DeleteDatabase, derives its id from that
+  // nonce and its generation number. It stays when a document restore
+  // binds the database to a later generation.
+  string id = 10;
+  // The nonce of the document generation the database belongs to, as the
+  // repository reports it for the document.
+  string document_nonce = 11;
+  // The id of the database this one was forked from. Empty unless it is a
+  // fork.
+  string parent_id = 12;
+  // The database's size in bytes, without its change log: the pages in
+  // use by its tables, indexes, catalog and suggestions. The change log
+  // and its indexes are left out, since pruning shrinks them and nothing
+  // a user does keeps them small, and so are free pages, which SQLite
+  // reuses before it grows the file. The file can therefore be larger
+  // than this by the change log and the free pages; the hard cap that
+  // refuses writes applies to the whole file and is not reported here.
+  //
+  // It is measured by the pod serving the database, and reused while
+  // nothing has been written to the database since, or for up to 30
+  // seconds while writes continue: it can trail the head by that long.
+  // Unset when the response does not open the database: in
+  // CreateDatabaseResponse and UndeleteDatabaseResponse, and with a
+  // recovery in GetDatabaseResponse.
+  optional int64 data_size = 13;
+  // The soft size cap in bytes: the data_size past which a client should
+  // warn that the database is large. It is reported, never enforced;
+  // nothing is refused past it.
+  int64 soft_size_cap = 14;
+  // The database's number among the databases of its document
+  // generation, from 1: one past the generation's earlier databases,
+  // which callers deleted with DeleteDatabase. A database a document
+  // restore binds to the restored generation takes that generation's
+  // next number, 1 unless it had databases of its own.
+  int32 generation = 15;
+}
+
+message CreateDatabaseRequest {
+  // UUID of the owning document. The database belongs to its current
+  // generation.
+  string owner_document = 1;
+}
+
+message CreateDatabaseResponse {
+  // The new database.
+  DatabaseInfo info = 1;
+}
+
+message GetDatabaseRequest {
+  // The database to describe, named either way. Required.
+  oneof target {
+    // UUID of the owning document, as every request names a database.
+    string database = 1;
+    // UUID of the owning document.
+    string owner_document = 2;
+  }
+}
+
+message GetDatabaseResponse {
+  // The database. Without head, durable and namespaces when recovery is
+  // set.
+  DatabaseInfo info = 1;
+  // Why the database cannot be opened, and what it can be recovered to.
+  // Unset when the database is healthy.
+  DatabaseRecovery recovery = 2;
+}
+
+// DatabaseRecovery describes a database that needs recovery: the replica
+// of its newest lease epoch has nothing restorable, so its latest version
+// is lost, and an earlier version is offered instead. See recovery_needed
+// in the package comment.
+message DatabaseRecovery {
+  // The lease epochs that cannot be restored, oldest first. Recovery skips
+  // them.
+  repeated int64 lost_epochs = 1;
+  // When the lost version was last saved: the last time a change in the
+  // lost epochs was replicated to S3.
+  google.protobuf.Timestamp lost_saved = 2;
+  // The epoch offered instead: the newest one that can still be restored.
+  // Pass it to RecoverDatabase on acceptance. Unset when no epoch is
+  // restorable, and the database stays unavailable.
+  optional int64 offered_epoch = 3;
+  // The time of the newest version that can be restored from
+  // offered_epoch. Unset with offered_epoch.
+  google.protobuf.Timestamp offered_saved = 4;
+  // The point in offered_epoch's replica that a recovery restores to.
+  // Pass it to RecoverDatabase on acceptance. Unset with offered_epoch.
+  optional int64 offered_txid = 5;
+  // Set when the newest epoch's replica is restorable, but only to before
+  // what was recorded as saved in it: the offer is then the last
+  // restorable point of that same epoch, which recovery cuts short rather
+  // than skips. It equals offered_epoch, and lost_epochs is empty. Pass it
+  // to RecoverDatabase on acceptance.
+  optional int64 truncated_epoch = 6;
+}
+
+message ForkRequest {
+  // Database to fork from.
+  string database = 1;
+  // The point in the source's history to fork at. Unset forks the
+  // current state.
+  PointInTime at = 2;
+  // UUID of the document that will own the fork. Required, different
+  // from the source's owner, and its current generation without a
+  // database of its own.
+  string owner_document = 3;
+}
+
+message ForkResponse {
+  // The new database.
+  DatabaseInfo info = 1;
+}
+
+message RestoreRequest {
+  // Database to restore.
+  string database = 1;
+  // The point to restore to. Required.
+  PointInTime at = 2;
+  // Tables to restore. Empty restores all of them, those of the
+  // namespace when one is given. Without a namespace a table is named by
+  // id only, since the restore spans namespaces; with one it is named by
+  // id or key, and must be in that namespace at the point or now, or it
+  // is not found. A key that names one table now and another at the
+  // point, as a key can once the first table's deletion has left the
+  // change log and another table was given it, is ambiguous: it is
+  // refused with invalid_argument naming both table ids, and the caller
+  // names the table it means by id. A table the restore would bring back
+  // whose key a live table outside the restored set holds is refused
+  // with already_exists.
+  repeated string tables = 3;
+  // Report what would be discarded without writing anything.
+  bool dry_run = 4;
+  // Namespace to restore, alone. Optional: unset restores the whole
+  // database. A namespace that neither the point nor the database holds
+  // is not found. The counts of changes discarded and their actors cover
+  // only that namespace.
+  string namespace = 5;
+}
+
+message RestoreResponse {
+  reserved 1;
+  reserved "batch";
+  // Position of the last restore batch. Unset on a dry run.
+  Cursor cursor = 2;
+  // Cells the restore changes.
+  int64 cells_changed = 3;
+  // Rows the restore brings back.
+  int64 rows_inserted = 4;
+  // Rows the restore removes.
+  int64 rows_deleted = 5;
+  // Changes after the point that the restore discards.
+  int64 changes_discarded = 6;
+  // Subjects whose changes the restore discards.
+  repeated string discarded_actors = 7;
+  // Id of the snapshot of the pre-restore state. Restore to it to go
+  // back. Empty on a dry run.
+  string restore_point = 8;
+  // The restore batches, one per namespace the restore changes, by
+  // namespace. Empty on a dry run.
+  repeated NamespaceBatch batches = 9;
+}
+
+// NamespaceBatch is a change batch and the namespace it is in.
+message NamespaceBatch {
+  // The namespace.
+  string namespace = 1;
+  // Id of the change batch.
+  string batch = 2;
+}
+
+message HistoryRequest {
+  // Database to list restore points for.
+  string database = 1;
+  // Earliest time to list from. Unset lists from the start of retention.
+  google.protobuf.Timestamp from = 2;
+  // Latest time to list to. Unset lists up to now.
+  google.protobuf.Timestamp to = 3;
+}
+
+// RestorePoint is a point a database can be restored or forked at.
+message RestorePoint {
+  // The seq the point restores to.
+  int64 seq = 1;
+  // The time of the point.
+  google.protobuf.Timestamp time = 2;
+}
+
+message HistoryResponse {
+  // The restore points in the requested range, oldest first.
+  repeated RestorePoint points = 1;
+  // The earliest time any point is retained from.
+  google.protobuf.Timestamp retained_from = 2;
+}
+
+// RecoverDatabaseRequest accepts an offer, echoing every part of the
+// DatabaseRecovery the caller was shown. The call is refused with
+// failed_precondition when any of them no longer matches.
+message RecoverDatabaseRequest {
+  // Database to recover.
+  string database = 1;
+  // The epoch the caller was offered, from
+  // DatabaseRecovery.offered_epoch. Required.
+  int64 offered_epoch = 2;
+  // The lost epochs the caller was shown, from
+  // DatabaseRecovery.lost_epochs, in the same order. Empty when the offer
+  // only cuts an epoch short.
+  repeated int64 lost_epochs = 3;
+  // The TXID the caller was offered, from DatabaseRecovery.offered_txid.
+  // Required.
+  int64 offered_txid = 4;
+  // The epoch the offer cuts short, from DatabaseRecovery.truncated_epoch.
+  // Unset when the caller was shown none.
+  optional int64 truncated_epoch = 5;
+}
+
+message RecoverDatabaseResponse {
+  // The database after recovery, opened from the offered epoch as a new
+  // epoch.
+  DatabaseInfo info = 1;
+}
+
+message DeleteDatabaseRequest {
+  // UUID of the owning document, as every request names a database. The
+  // database deleted is the live one of the document's current
+  // generation. Required.
+  string database = 1;
+}
+
+message DeleteDatabaseResponse {}
+
+message UndeleteDatabaseRequest {
+  // UUID of the owning document, as every request names a database.
+  // Required.
+  string database = 1;
+  // The number of the database to bring back among the databases of
+  // the document's current generation (DatabaseInfo.generation). Unset
+  // brings back the document's most recently deleted database.
+  optional int32 generation = 2;
+}
+
+message UndeleteDatabaseResponse {
+  // The database brought back, as GetDatabase describes it, except that
+  // it is not opened: without head, durable, namespaces and data_size,
+  // which GetDatabase reads from the database.
+  DatabaseInfo info = 1;
+}
+
+// ---------- Schema ----------
+
+// SchemaService manages tables and columns. Every call that changes the
+// schema is a change batch: streamed on Watch with the full table state,
+// and undoable like an edit. A type change keeps the old value of every
+// converted cell in its batch, so it undoes too. A mutation that names a
+// table or column removed in the meantime fails per operation as a
+// conflict.
+//
+// Every call names the namespace it works in. A table of another
+// namespace is not found, and a new table belongs to the namespace it is
+// created in, which is created with it when it does not exist.
+//
+// Auth: doc_read on the owning document for Describe, doc_write for the
+// rest.
+service SchemaService {
+  // Describe returns the catalog of one namespace of a database, and the
+  // read-only views of its tables that Query runs against.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+
+  // UpdateNamespace sets whether people may edit a namespace's schema,
+  // creating the namespace when it does not exist. It is a change batch
+  // in that namespace, streamed on Watch and undoable. Setting the flag a
+  // namespace already has writes nothing, and the response's batch is
+  // empty.
+  rpc UpdateNamespace(UpdateNamespaceRequest) returns (UpdateNamespaceResponse);
+
+  // CreateTable adds a table, with its initial columns.
+  rpc CreateTable(CreateTableRequest) returns (CreateTableResponse);
+
+  // UpdateTable renames a table, or sets its summary column. Either
+  // touches only the catalog.
+  rpc UpdateTable(UpdateTableRequest) returns (UpdateTableResponse);
+
+  // DeleteTable removes a table and its rows. The batch keeps the rows,
+  // so it undoes.
+  rpc DeleteTable(DeleteTableRequest) returns (DeleteTableResponse);
+
+  // AddColumn adds a column to a table. Existing rows get empty cells.
+  rpc AddColumn(AddColumnRequest) returns (AddColumnResponse);
+
+  // UpdateColumn changes a column's name, format, options, position or
+  // hidden flag, which touch only the catalog. The type is changed with
+  // ChangeColumnType.
+  rpc UpdateColumn(UpdateColumnRequest) returns (UpdateColumnResponse);
+
+  // ChangeColumnType converts a column to another type, rebuilding the
+  // table inside one transaction. Cells that do not convert become empty,
+  // with their old values kept in the batch; a cell that is not empty and
+  // would convert to an empty value counts as one that does not convert.
+  // A required column with such a cell is refused with
+  // failed_precondition and a ConstraintViolations detail. With dry_run
+  // set nothing is written, and the response reports which cells would
+  // fail.
+  //
+  // A conversion to COLUMN_TYPE_NUMBER, a double, rounds an integer or
+  // decimal that a double cannot hold, such as 9007199254740993 or a
+  // decimal of more than about 15 significant digits. Such a cell
+  // converts, rounded, and is counted in the response's rounded as well
+  // as in converted; the batch keeps its old value, so an undo restores
+  // it exactly.
+  rpc ChangeColumnType(ChangeColumnTypeRequest) returns (ChangeColumnTypeResponse);
+
+  // DeleteColumn removes a column. The batch keeps its values, so it
+  // undoes. A column a unique constraint or index covers is refused with
+  // failed_precondition.
+  rpc DeleteColumn(DeleteColumnRequest) returns (DeleteColumnResponse);
+
+  // SetRequired sets or clears a column's required flag. Setting it when
+  // rows hold no value in the column is refused with failed_precondition
+  // and a ConstraintViolations detail; with dry_run set nothing is
+  // written and the response lists those rows. Setting the flag a column
+  // already has writes nothing, and the response's batch is empty.
+  rpc SetRequired(SetRequiredRequest) returns (SetRequiredResponse);
+
+  // AddIndex adds a unique constraint or an index to a table. A unique
+  // constraint that existing rows break is refused with
+  // failed_precondition and a ConstraintViolations detail; with dry_run
+  // set nothing is written and the response lists those rows. A table
+  // holds at most 8 unique constraints and indexes by default
+  // (indexes_per_table); past that the call
+  // is refused with resource_exhausted.
+  rpc AddIndex(AddIndexRequest) returns (AddIndexResponse);
+
+  // DeleteIndex removes a unique constraint or an index.
+  rpc DeleteIndex(DeleteIndexRequest) returns (DeleteIndexResponse);
+
+  // EnsureSchema declares the whole schema of a namespace, with a
+  // version, for an application that manages its own schema. The
+  // service compares the declaration with what the namespace has,
+  // matching tables and columns by key, and applies the difference as
+  // one change batch in the namespace, which records the version and
+  // the declaration's digest on the namespace (Namespace.schema_version
+  // and schema_digest). The version is compared and set inside the
+  // batch's transaction, so two clients declaring at once write one
+  // batch: the second finds its version stored.
+  //
+  // Against the stored version:
+  //
+  //   - a higher version is applied when every step of it is possible,
+  //     and refused as a whole otherwise, writing nothing;
+  //   - the stored version with the stored digest is a no-op: nothing is
+  //     written, batch is empty and unchanged is set;
+  //   - the stored version with another digest, and a lower version, are
+  //     refused with failed_precondition and the reason
+  //     schema_version_conflict, carrying a SchemaVersionConflict detail
+  //     with the stored version, so that an old client cannot roll a
+  //     newer schema back.
+  //
+  // What is matched by key and changed in place: a table's name and
+  // summary column; a column's name, type, format, options, hidden flag,
+  // required flag and position (columns take the declared order); the
+  // table's unique constraints and indexes, matched by index key, which
+  // are made exactly the declared ones. A rename is a new name under the
+  // same key. A key that is new is a new table or column; one that
+  // changes meaning cannot be expressed, since keys never change.
+  //
+  // Tables and columns the namespace has and the declaration lacks are
+  // left as they are, data and all, and listed in steps as kept: a
+  // declaration never deletes data because it omitted something. With
+  // remove_undeclared set they are deleted instead, in the same batch,
+  // which keeps their rows and cells so that it undoes. Undeclared
+  // unique constraints and indexes of a declared table are removed
+  // either way, which loses no data.
+  //
+  // A step is impossible, and refuses the declaration, when existing
+  // rows break it: a column made required that has empty cells, a new
+  // required column of a table that has rows, a unique constraint the
+  // rows break, or a type change some cell does not convert to (a
+  // declaration never empties a cell). A type change to
+  // COLUMN_TYPE_NUMBER that rounds a value is not refused; the step
+  // counts the cells in its rounded. That is failed_precondition with
+  // a ConstraintViolations detail listing the offending rows of every
+  // such step, capped; with dry_run set nothing is written and the
+  // response lists them instead, with the planned steps. A malformed
+  // declaration is invalid_argument, a key that another live table or
+  // column holds already_exists, and a limit
+  // resource_exhausted. A key that only a deleted table or column
+  // reserves may be declared; see Keys in the package comment.
+  //
+  // The batch is undoable as a whole, the version and digest included,
+  // and only as a whole: when any of its changes cannot be reverted,
+  // because what it changed was changed again since, or the namespace's
+  // version moved on, DataService.Undo reverts none of it and reports
+  // the changes that conflict, so that the stored version and digest
+  // always describe the schema the namespace has. Once undone, the
+  // version it declared can be declared again.
+  // A whole-database Restore puts back each namespace's version and
+  // digest along with its tables. Changes made to the namespace's
+  // schema by other calls do not change the stored version: the next
+  // higher version reconciles them, and redeclaring the stored version
+  // does not.
+  //
+  // Auth: doc_write on the owning document, as for any schema change.
+  rpc EnsureSchema(EnsureSchemaRequest) returns (EnsureSchemaResponse);
+}
+
+// SchemaDeclaration is the whole schema of a namespace as an application
+// declares it to EnsureSchema.
+message SchemaDeclaration {
+  // The version of the schema, at least 1. A changed schema needs a
+  // higher version.
+  int64 version = 1;
+  // Whether people may edit the namespace's schema; see
+  // Namespace.schema_editable.
+  bool schema_editable = 2;
+  // The namespace's tables, at most 20 by default
+  // (tables_per_namespace), each key once.
+  repeated DeclaredTable tables = 3;
+}
+
+// DeclaredTable is a table of a SchemaDeclaration.
+message DeclaredTable {
+  // The table's key, which matches it with the namespace's table of the
+  // same key. Required.
+  string key = 1;
+  // Display name. Required.
+  string name = 2;
+  // The table's columns, in the order the table has them, at most 50
+  // by default (columns_per_table), each key once.
+  repeated DeclaredColumn columns = 3;
+  // The table's unique constraints and indexes, at most 8 by default
+  // (indexes_per_table), each key once.
+  repeated DeclaredIndex indexes = 4;
+  // Key of the column DataService.Summarize summarises by default, which
+  // must be a declared column that can be summarised. Empty leaves it to
+  // the default rule; see Table.summary_column.
+  string summary_column = 5;
+}
+
+// DeclaredColumn is a column of a DeclaredTable.
+message DeclaredColumn {
+  // The column's key, which matches it with the table's column of the
+  // same key. Required.
+  string key = 1;
+  // Display name. Required.
+  string name = 2;
+  // Type of the column. Required.
+  ColumnType type = 3;
+  // Display hint; see Column.format.
+  string format = 4;
+  // The allowed values of a COLUMN_TYPE_CHOICE or COLUMN_TYPE_MULTI_CHOICE
+  // column; see Column.options.
+  repeated string options = 5;
+  // True to hide the column from the default view.
+  bool hidden = 6;
+  // True when the column refuses empty cells.
+  bool required = 7;
+}
+
+// DeclaredIndex is a unique constraint or index of a DeclaredTable.
+message DeclaredIndex {
+  // The index's key, which matches it with the table's index of the same
+  // key. Required.
+  string key = 1;
+  // Keys of the declared columns it covers, in order, at most 4 by
+  // default (columns_per_index) and each once.
+  repeated string columns = 2;
+  // True for a unique constraint, false for an index.
+  bool unique = 3;
+}
+
+// SchemaStepKind is what a step of a schema declaration does.
+enum SchemaStepKind {
+  // Not a step.
+  SCHEMA_STEP_KIND_UNSPECIFIED = 0;
+  // Creates a table, with its columns, constraints and indexes.
+  SCHEMA_STEP_KIND_CREATE_TABLE = 1;
+  // Renames a table, or sets its summary column.
+  SCHEMA_STEP_KIND_UPDATE_TABLE = 2;
+  // Deletes an undeclared table: only with remove_undeclared.
+  SCHEMA_STEP_KIND_DELETE_TABLE = 3;
+  // Leaves an undeclared table as it is.
+  SCHEMA_STEP_KIND_KEEP_TABLE = 4;
+  // Adds a column.
+  SCHEMA_STEP_KIND_ADD_COLUMN = 5;
+  // Changes a column's name, format, options, hidden flag, required flag
+  // or position.
+  SCHEMA_STEP_KIND_UPDATE_COLUMN = 6;
+  // Converts a column to another type.
+  SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE = 7;
+  // Deletes an undeclared column: only with remove_undeclared.
+  SCHEMA_STEP_KIND_DELETE_COLUMN = 8;
+  // Leaves an undeclared column as it is.
+  SCHEMA_STEP_KIND_KEEP_COLUMN = 9;
+  // Adds a unique constraint or index.
+  SCHEMA_STEP_KIND_ADD_INDEX = 10;
+  // Removes a unique constraint or index that is undeclared or declared
+  // otherwise.
+  SCHEMA_STEP_KIND_DELETE_INDEX = 11;
+  // Sets the namespace's schema_editable flag, version and digest. Every
+  // applied declaration ends with it.
+  SCHEMA_STEP_KIND_UPDATE_NAMESPACE = 12;
+}
+
+// SchemaStep is one step of applying a schema declaration.
+message SchemaStep {
+  // What the step does.
+  SchemaStepKind kind = 1;
+  // Key of the table. Empty for SCHEMA_STEP_KIND_UPDATE_NAMESPACE.
+  string table = 2;
+  // Key of the column, for a column step.
+  string column = 3;
+  // Key of the unique constraint or index, for an index step.
+  string index = 4;
+  // Human-readable description, such as "type text to integer".
+  string description = 5;
+  // For SCHEMA_STEP_KIND_CHANGE_COLUMN_TYPE, the cells whose value was,
+  // or on a dry run would be, rounded by a conversion to
+  // COLUMN_TYPE_NUMBER, as ChangeColumnTypeResponse.rounded counts them.
+  // A rounded cell is not a violation: the declaration converts it.
+  int64 rounded = 6;
+}
+
+// SchemaVersionConflict is the detail of the failed_precondition that
+// refuses a declaration whose version is lower than the stored one, or
+// equal to it with another schema.
+message SchemaVersionConflict {
+  // The version stored on the namespace.
+  int64 stored_version = 1;
+  // The digest stored on the namespace.
+  string stored_digest = 2;
+  // The digest of the refused declaration.
+  string declared_digest = 3;
+}
+
+message EnsureSchemaRequest {
+  // Database the namespace is in.
+  string database = 1;
+  // The namespace. Required. It is created when it does not exist.
+  string namespace = 2;
+  // The declaration. Required.
+  SchemaDeclaration schema = 3;
+  // Delete the tables and columns the namespace has and the declaration
+  // lacks, instead of keeping them.
+  bool remove_undeclared = 4;
+  // Plan without writing anything: the response lists the steps and the
+  // rows that would refuse them.
+  bool dry_run = 5;
+}
+
+message EnsureSchemaResponse {
+  // Id of the change batch. Empty on a dry run and when unchanged.
+  string batch = 1;
+  // Position of the change batch, or the head when nothing was written.
+  Cursor cursor = 2;
+  // True when the namespace already had this version with this schema,
+  // and nothing was done.
+  bool unchanged = 3;
+  // The namespace after the declaration; on a dry run, as it is.
+  Namespace namespace = 4;
+  // The namespace's tables after the declaration. Unset on a dry run.
+  repeated Table tables = 5;
+  // The steps the declaration took, or on a dry run would take, in
+  // order. Empty when unchanged.
+  repeated SchemaStep steps = 6;
+  // On a dry run, the rows that would refuse a step, capped at 100.
+  repeated ConstraintViolation violations = 7;
+  // On a dry run, how many rows would refuse a step, all counted.
+  int64 violation_count = 8;
+}
+
+// SchemaChange is the change batch a schema change was written as.
+message SchemaChange {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The table after the change.
+  Table table = 3;
+}
+
+message DescribeRequest {
+  // Database to describe.
+  string database = 1;
+  // Namespace to describe. Required.
+  string namespace = 2;
+}
+
+message DescribeResponse {
+  // The namespace's tables.
+  repeated Table tables = 1;
+  // The CREATE VIEW statements of the views of the namespace's tables
+  // that Query runs against, for agents writing SQL: each view is named
+  // <namespace>__<table key> and its columns by the column keys. A Query
+  // scoped to the namespace reads the same view under the table key
+  // alone.
+  string query_schema = 2;
+  // The state the catalog was read at.
+  Cursor cursor = 3;
+  // The namespace. Unset when it does not exist yet; tables is then
+  // empty.
+  Namespace namespace = 4;
+}
+
+message UpdateNamespaceRequest {
+  // Database the namespace is in.
+  string database = 1;
+  // The namespace. Required.
+  string namespace = 2;
+  // Whether people may edit the namespace's schema.
+  bool schema_editable = 3;
+}
+
+message UpdateNamespaceResponse {
+  // Id of the change batch. Empty when the flag was already set so.
+  string batch = 1;
+  // Position of the change batch, or the head when nothing was written.
+  Cursor cursor = 2;
+  // The namespace after the change.
+  Namespace namespace = 3;
+}
+
+message CreateTableRequest {
+  // Database to add the table to.
+  string database = 1;
+  // Display name of the new table.
+  string name = 2;
+  // The table's initial columns. Ids are assigned by the server, so id
+  // is ignored. A column's key is used when it is set, and made from its
+  // name otherwise.
+  repeated Column columns = 3;
+  // Namespace to create the table in. Required.
+  string namespace = 4;
+  // Key of the new table. Empty has the service make one from the name.
+  // Refused with already_exists when another table of the namespace
+  // holds or reserves it.
+  string key = 5;
+}
+
+message CreateTableResponse {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The new table.
+  Table table = 3;
+}
+
+message UpdateTableRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table to change.
+  string table = 2;
+  // New display name. Empty leaves the name unchanged.
+  string name = 3;
+  // Id or key of the new summary column, which must be a column of the table
+  // that Summarize can summarise. Unset leaves the summary column
+  // unchanged; empty sets none.
+  optional string summary_column = 4;
+  // Namespace the table is in. Required.
+  string namespace = 5;
+}
+
+message UpdateTableResponse {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The table after the change.
+  Table table = 3;
+}
+
+message DeleteTableRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table to delete.
+  string table = 2;
+  // Namespace the table is in. Required.
+  string namespace = 3;
+}
+
+message DeleteTableResponse {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+}
+
+message AddColumnRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table to add the column to.
+  string table = 2;
+  // The new column. Its id is assigned by the server. Its
+  // key is used when it is set, and made from its name otherwise;
+  // refused with already_exists when another column of the table holds
+  // or reserves it.
+  Column column = 3;
+  // Namespace the table is in. Required.
+  string namespace = 4;
+}
+
+message AddColumnResponse {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The table after the change.
+  Table table = 3;
+}
+
+message UpdateColumnRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table the column is in.
+  string table = 2;
+  // The column as it should be, matched on its id, or on its key when id
+  // is empty. type and required are ignored, and so is key
+  // when id is set: a key never changes. SetRequired changes required.
+  Column column = 3;
+  // Namespace the table is in. Required.
+  string namespace = 4;
+}
+
+message UpdateColumnResponse {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The table after the change.
+  Table table = 3;
+}
+
+message ChangeColumnTypeRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table the column is in.
+  string table = 2;
+  // Id or key of the column to convert.
+  string column = 3;
+  // The new type.
+  ColumnType type = 4;
+  // Options for a COLUMN_TYPE_CHOICE or COLUMN_TYPE_MULTI_CHOICE target.
+  // An option that contains a comma is refused as invalid. Left empty,
+  // the options are derived from the column's values, and a value that
+  // contains a comma is not derived as an option: its cell fails to
+  // convert.
+  repeated string options = 5;
+  // Report what would fail to convert without writing anything.
+  bool dry_run = 6;
+  // Namespace the table is in. Required.
+  string namespace = 7;
+}
+
+message ChangeColumnTypeResponse {
+  // Cells that converted.
+  int64 converted = 1;
+  // Cells that did not convert, capped. They become empty, and their old
+  // values are kept in the batch.
+  repeated CellError failures = 2;
+  // The change batch. Unset on a dry run.
+  SchemaChange result = 3;
+  // Cells among those that converted whose value changed on the way,
+  // because the target is COLUMN_TYPE_NUMBER and a double cannot hold
+  // the old COLUMN_TYPE_INTEGER or COLUMN_TYPE_DECIMAL value exactly: a
+  // cell is rounded when its new value does not read back as the old
+  // one. Counted on a dry run too.
+  int64 rounded = 4;
+}
+
+message DeleteColumnRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table the column is in.
+  string table = 2;
+  // Id or key of the column to delete.
+  string column = 3;
+  // Namespace the table is in. Required.
+  string namespace = 4;
+}
+
+message DeleteColumnResponse {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The table after the change.
+  Table table = 3;
+}
+
+message SetRequiredRequest {
+  // Database the table is in.
+  string database = 1;
+  // Namespace the table is in. Required.
+  string namespace = 2;
+  // Id or key of the table the column is in.
+  string table = 3;
+  // Id or key of the column.
+  string column = 4;
+  // Whether the column refuses empty cells.
+  bool required = 5;
+  // Report the rows that would refuse it without writing anything.
+  bool dry_run = 6;
+}
+
+message SetRequiredResponse {
+  // Id of the change batch. Empty on a dry run, and when the column
+  // already was so.
+  string batch = 1;
+  // Position of the change batch, or the head when nothing was written.
+  Cursor cursor = 2;
+  // The table after the change. Unset on a dry run.
+  Table table = 3;
+  // On a dry run, the rows with no value in the column, capped at 100.
+  repeated ConstraintViolation violations = 4;
+  // On a dry run, how many rows have no value in the column.
+  int64 violation_count = 5;
+}
+
+message AddIndexRequest {
+  // Database the table is in.
+  string database = 1;
+  // Namespace the table is in. Required.
+  string namespace = 2;
+  // Id or key of the table.
+  string table = 3;
+  // The unique constraint or index. Its id is assigned by the server;
+  // its columns are ids or keys, at most 4 by default and each once. Its key is
+  // made from the columns' keys when empty, and refused with
+  // already_exists when another index of the table holds it. A table
+  // cannot have two indexes over the same columns in the same order
+  // with the same unique flag: that is invalid_argument.
+  Index index = 4;
+  // Report the rows that would refuse a unique constraint without
+  // writing anything.
+  bool dry_run = 5;
+}
+
+message AddIndexResponse {
+  // Id of the change batch. Empty on a dry run.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The table after the change. Unset on a dry run.
+  Table table = 3;
+  // Id of the new index. Empty on a dry run.
+  string index = 4;
+  // On a dry run of a unique constraint, the rows that share values
+  // with an earlier row, capped at 100, each naming that row as
+  // existing_row.
+  repeated ConstraintViolation violations = 5;
+  // On a dry run, how many rows share values with an earlier row.
+  int64 violation_count = 6;
+}
+
+message DeleteIndexRequest {
+  // Database the table is in.
+  string database = 1;
+  // Namespace the table is in. Required.
+  string namespace = 2;
+  // Id or key of the table.
+  string table = 3;
+  // Id or key of the unique constraint or index.
+  string index = 4;
+}
+
+message DeleteIndexResponse {
+  // Id of the change batch.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // The table after the change.
+  Table table = 3;
+}
+
+// ---------- Data ----------
+
+// DataService reads and edits rows, runs read-only SQL, streams changes,
+// and carries suggestions and presence. Every call but Query and
+// UpdatePresence names the namespace it works in; a table, batch or
+// suggestion of another namespace is not found.
+service DataService {
+  // List reads a page of rows from a table, with optional filters, sort
+  // and projection. The response carries the cursor the page was read
+  // at, which is where a Watch should start.
+  //
+  // Auth: doc_read on the owning document.
+  rpc List(ListRequest) returns (ListResponse);
+
+  // Mutate applies a list of row operations as one transaction and one
+  // change batch. A cell write can carry the value it expects to replace;
+  // a cell that no longer holds it is a conflict and keeps its value. So
+  // is an operation on a row or column that was removed in the meantime.
+  // By default a conflicting operation is skipped and reported while the
+  // rest apply; with atomic set, any conflict fails them all.
+  //
+  // Auth: doc_write on the owning document.
+  rpc Mutate(MutateRequest) returns (MutateResponse);
+
+  // Undo reverts a change batch, as a new batch. A cell changed by a
+  // later batch is a conflict and keeps its value. A change whose revert
+  // would leave a required column empty or break a unique constraint is
+  // not reverted, and is reported with a violation. Undo is offered only
+  // within the change log window.
+  //
+  // A batch of SchemaService.EnsureSchema, and the undo of one, is
+  // undone as a whole or not at all, as an atomic Mutate is: when any of
+  // its changes cannot be reverted, nothing is written, batch is empty,
+  // the changes that cannot be reverted carry their conflict, error or
+  // violation, and the others carry no result.
+  //
+  // Auth: doc_write on the owning document.
+  rpc Undo(UndoRequest) returns (UndoResponse);
+
+  // Query runs read-only SQL against the views DescribeResponse lists,
+  // which are named by the keys of the tables and columns, so a rename
+  // changes nothing a statement names. Without a namespace it sees the
+  // views of every namespace, each named by its namespace, two
+  // underscores and the table's key. With a namespace it sees only that
+  // namespace's views, named by the table's key alone, and only that
+  // namespace's catalog rows; the service enforces this, so other
+  // namespaces cannot be reached by any SQL. The catalog tables _tables
+  // and _columns map display names to keys (columns key and name). A key
+  // that is an SQL keyword is put in double quotes.
+  // It runs on a read-only connection that can read the views and the
+  // catalog and nothing else, under a deadline, a row cap and a response
+  // size cap, and is rate limited per subject. Results carry the catalog
+  // types, so a client renders them like table rows. A statement takes
+  // its values as positional parameters (? and ?NNN) or as named ones
+  // (:name, @name, $name), never both.
+  //
+  // With snapshot set it reads a publish snapshot of the database
+  // instead of the live tables: the data as it was published, with the
+  // same views, catalog tables, namespace scoping, sandbox, caps and
+  // deadline. The live database is not touched, so a later edit changes
+  // nothing a snapshot query reads.
+  //
+  // Returns invalid_argument for SQL that does not parse or reaches past
+  // the views, for a parameter without a value and for a value no
+  // parameter uses, positional or named, and for a snapshot that is not
+  // a publish snapshot; not_found for a snapshot that is not one of the
+  // database's; failed_precondition for a snapshot whose file is
+  // missing from storage; and resource_exhausted on the rate limit or
+  // the deadline.
+  //
+  // Auth: doc_read on the owning document, for a snapshot query too.
+  rpc Query(QueryRequest) returns (QueryResponse);
+
+  // Changes reads the change log after a cursor: the unary catch-up for a
+  // client that is not holding a Watch stream.
+  //
+  // Auth: doc_read on the owning document.
+  rpc Changes(ChangesRequest) returns (ChangesResponse);
+
+  // Watch streams the changes of one namespace of a database after a
+  // cursor, as they commit, together with that namespace's presence and
+  // suggestions, and heartbeats. The first message
+  // is always a Hello carrying the stream's session id, which
+  // UpdatePresence takes. A stream opened on a pod that does not own the
+  // database is proxied to the owner.
+  //
+  // A refusal of the request comes before the first message, so it is
+  // the call's status. Once open, the stream ends with one of three
+  // reasons, carried in the error metadata under "reason":
+  //
+  //   lease_moved (code unavailable): the database moved to another pod,
+  //   in a deploy or a drain. Reconnect with the last cursor received:
+  //   the later of the last change's cursor and the last heartbeat's
+  //   resume cursor.
+  //
+  //   cursor_invalid (code failed_precondition): the cursor cannot be
+  //   continued from. Either it is older than the oldest retained
+  //   change, or it is from an older epoch and ahead of the seq the
+  //   current epoch started from, so changes the client saw were lost in
+  //   a crash of the previous owner, or it is from an epoch that
+  //   DatabasesService.RecoverDatabase skipped. Reload the tables, then offer to
+  //   re-apply the batches the client retained that the durable cursor
+  //   had not passed, through Mutate with their original values as
+  //   expected. Also the status of a Watch opened with such a cursor.
+  //
+  //   token_expired (code unauthenticated): the caller's token expired.
+  //   Resume with a fresh token and the last cursor received, which runs
+  //   the access check again.
+  //
+  // Every heartbeat carries a resume cursor (Heartbeat.resume), which
+  // moves on past the changes the stream does not send: those of other
+  // namespaces, and of tables its filter leaves out. A client that keeps
+  // the later of it and its last change's cursor never resumes from a
+  // position the change log has pruned only because its own namespace
+  // was quiet.
+  //
+  // Auth: doc_read on the owning document.
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
+
+  // Suggest proposes edits instead of making them. Any caller with the
+  // doc_suggest scope may suggest, an agent or a person, and needs no
+  // write scope. It takes the same operations as Mutate. Every
+  // cell write of a RowUpdate must carry the value it expects to
+  // replace, so that a suggestion made stale by later edits conflicts
+  // per cell when applied rather than overwriting them; the cell writes
+  // of a RowInsert write a new row and need none. For every row a delete
+  // or move targets, the service records the row's state when the
+  // suggestion is made, and applying it conflicts when the row has
+  // changed since. The suggestion reaches editors on Watch, and expires
+  // if nobody resolves it.
+  //
+  // The open suggestions of a database are limited in number, in number
+  // per token subject (Suggestion.agent) and in bytes, and one suggestion
+  // in bytes; past a limit
+  // Suggest is refused with resource_exhausted, and one too large with
+  // invalid_argument. Document references in the operations are stored
+  // with their UUID alone.
+  //
+  // Auth: doc_suggest and doc_read on the owning document; no write
+  // scope is needed.
+  rpc Suggest(SuggestRequest) returns (SuggestResponse);
+
+  // ResolveSuggestion applies or dismisses a suggestion. Applying runs it
+  // as the caller's own Mutate, attributed to the caller with via set to
+  // the subject that made it.
+  //
+  // Auth: doc_write on the owning document.
+  rpc ResolveSuggestion(ResolveSuggestionRequest) returns (ResolveSuggestionResponse);
+
+  // ListSuggestions returns the open suggestions, so a client that opens
+  // a table or reconnects starts from the full set, and Watch delivers
+  // the rest.
+  //
+  // Auth: doc_read on the owning document.
+  rpc ListSuggestions(ListSuggestionsRequest) returns (ListSuggestionsResponse);
+
+  // Summarize returns the distribution of one column without loading the
+  // rows, for a table widget at card size. A COLUMN_TYPE_CHOICE or
+  // COLUMN_TYPE_BOOLEAN column is counted per value. A COLUMN_TYPE_INTEGER,
+  // COLUMN_TYPE_NUMBER, COLUMN_TYPE_DECIMAL, COLUMN_TYPE_DATE or
+  // COLUMN_TYPE_DATETIME column is a histogram, with the buckets chosen by
+  // the service: calendar units for dates. Decimal values are compared
+  // exactly, so the bucket bounds, min, max and median of a decimal
+  // column are exact, and a value on a bound is counted in the bucket
+  // that bound starts. A bound beyond the range of an integer or a number
+  // is clamped to that type's limit. Empty cells are counted separately,
+  // and choice values beyond the bucket limit are counted together as
+  // other.
+  //
+  // Text, multi-choice, JSON and document reference columns cannot be
+  // summarised; a reference's label is a title the viewer may
+  // not be allowed to read. Returns invalid_argument for such a column,
+  // and failed_precondition when no column is given and the table has no
+  // summary column.
+  //
+  // A card holds no Watch stream: it calls Summarize again, debounced,
+  // when a data_changed or schema_changed event for the database arrives
+  // on EventsService.WatchEvents.
+  //
+  // Auth: doc_read on the owning document.
+  rpc Summarize(SummarizeRequest) returns (SummarizeResponse);
+
+  // UpdatePresence reports where the caller is looking or editing, for
+  // the session of one of its own Watch streams. Presence is ephemeral:
+  // it is not in the change log, and is gone when the stream ends.
+  //
+  // Auth: doc_read on the owning document, and the session must be one
+  // of the caller's.
+  rpc UpdatePresence(UpdatePresenceRequest) returns (UpdatePresenceResponse);
+}
+
+message ListRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table to read.
+  string table = 2;
+  // Conditions every row must meet.
+  repeated Filter filters = 3;
+  // Sort keys, most significant first. Empty sorts by the manual row
+  // order.
+  repeated Sort sort = 4;
+  // Page size; clamped server-side. 0 is the server default.
+  int32 limit = 5;
+  // Pagination token from a previous response. Empty starts from the
+  // first row. A token is refused with invalid_argument, and the client
+  // starts again from the first page, once a column it sorts or filters
+  // on has changed type, or, for the manual row order, once the table's
+  // order was rebalanced since the token's page or the change log no
+  // longer reaches back to it.
+  string page_token = 6;
+  // Ids or keys of the columns to return. Empty returns all of them.
+  // Rows key their cells by column id either way.
+  repeated string columns = 7;
+  // Namespace the table is in. Required.
+  string namespace = 8;
+  // Rows of the result to skip before the page, so that a client can
+  // read a window at any position of it. Refused with invalid_argument
+  // when negative or given together with a page token. A window is read
+  // afresh each time, so rows inserted or deleted ahead of it shift it;
+  // a client following Watch reads its window again rather than holding
+  // on to positions.
+  int32 offset = 9;
+  // Also count the rows matching the filters, into the response's total.
+  bool count = 10;
+  // Ids of the rows to read. When set, only these rows are returned, in
+  // the request's sort order, and an id with no row, such as a deleted
+  // one, is left out. Filters, sort, projection, offset, limit and count
+  // apply as usual, so the total counts the given rows that match. At
+  // most 1000 ids; more are refused with invalid_argument.
+  repeated int64 rows = 11;
+}
+
+message ListResponse {
+  // The page of rows.
+  repeated Row rows = 1;
+  // Token for the next page. Empty when there are no more pages.
+  string next_page_token = 2;
+  // The state the page was read at. Start Watch here.
+  Cursor cursor = 3;
+  // The number of rows matching the filters, at the same state as the
+  // page, when the request asked for a count; 0 otherwise.
+  int64 total = 4;
+}
+
+// CellWrite writes one cell.
+message CellWrite {
+  // Id or key of the column to write.
+  string column = 1;
+  // The value to write.
+  Value value = 2;
+  // The value the caller expects the cell to hold: a compare-and-set.
+  // When it is set and the cell holds something else, the write is a
+  // conflict. Unset writes unconditionally, except in a RowUpdate of a
+  // suggestion, which requires it. A RowInsert ignores it.
+  Value expected = 3;
+}
+
+// RowInsert inserts a row.
+message RowInsert {
+  // Caller-chosen reference, echoed back with the new row id in the
+  // MutationResult.
+  string client_ref = 1;
+  // ord of the row to place the new row after. Empty places it last.
+  string after_ord = 2;
+  // The new row's cells. Columns left out are empty.
+  repeated CellWrite cells = 3;
+}
+
+// RowUpdate writes cells of an existing row.
+message RowUpdate {
+  // Id of the row to update.
+  int64 row = 1;
+  // The cells to write.
+  repeated CellWrite cells = 2;
+}
+
+// RowMove moves a row in the manual row order, between two neighbours.
+message RowMove {
+  // Id of the row to move.
+  int64 row = 1;
+  // ord of the row to place it after. Empty places it first.
+  string after_ord = 2;
+  // ord of the row to place it before. Empty places it last.
+  string before_ord = 3;
+}
+
+// Mutation is one row operation.
+message Mutation {
+  oneof op {
+    // Insert a row.
+    RowInsert insert = 1;
+    // Update cells of a row.
+    RowUpdate update = 2;
+    // Delete the row with this id.
+    int64 delete = 3;
+    // Move a row in the manual order.
+    RowMove move = 4;
+  }
+}
+
+message MutateRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table to change.
+  string table = 2;
+  // The operations, applied in order in one transaction and one change
+  // batch.
+  repeated Mutation mutations = 3;
+  // Fail every operation on any conflict. By default conflicting
+  // operations are skipped and the rest apply.
+  bool atomic = 4;
+  // Namespace the table is in. Required.
+  string namespace = 5;
+}
+
+// MutationResult is the outcome of one operation.
+message MutationResult {
+  // Index of the operation in the request.
+  int32 index = 1;
+  // Unset for an operation that was not applied because another one
+  // failed an atomic request.
+  oneof result {
+    // Id of the inserted or touched row: the operation applied.
+    int64 row = 2;
+    // The operation conflicted with a later change and was not applied.
+    CellConflict conflict = 3;
+    // The operation failed: the row or column is gone, or a value does
+    // not fit the column's type.
+    string error = 5;
+    // The operation would have left a required column empty or broken a
+    // unique constraint, and was not applied.
+    ConstraintViolation violation = 6;
+  }
+  // client_ref of the RowInsert, echoed back.
+  string client_ref = 4;
+}
+
+message MutateResponse {
+  // Id of the change batch. Empty when nothing applied.
+  string batch = 1;
+  // Position of the change batch.
+  Cursor cursor = 2;
+  // One result per operation, in request order.
+  repeated MutationResult results = 3;
+}
+
+message UndoRequest {
+  // Database the batch was written to.
+  string database = 1;
+  // Id of the change batch to undo.
+  string batch = 2;
+  // Namespace the batch is in. Required. The undo is a batch in the same
+  // namespace.
+  string namespace = 3;
+}
+
+message UndoResponse {
+  // Id of the undo's own change batch. Empty when nothing applied.
+  string batch = 1;
+  // Position of the undo's change batch.
+  Cursor cursor = 2;
+  // One result per reverting operation, in change log order.
+  repeated MutationResult results = 3;
+}
+
+message QueryRequest {
+  // Database to query.
+  string database = 1;
+  // A read-only SQL statement against the views.
+  string sql = 2;
+  // Values for the statement's positional parameters (? and ?NNN), in
+  // order. Every parameter needs a value, and a value past the
+  // statement's highest parameter number is refused. A statement takes
+  // positional parameters or named ones, so params and named_params are
+  // not both given.
+  repeated Value params = 3;
+  // Maximum rows to return; clamped to the server's row cap. 0 is the
+  // server default.
+  int32 limit = 4;
+  // Namespace to scope the statement to, optional. With one, the
+  // statement sees only that namespace's views, each named by its
+  // table's key alone, and only that namespace's rows of the catalog
+  // tables _tables and _columns. The prefixed view names and other
+  // namespaces' rows are out of its reach. A namespace that does not
+  // exist yet has no views. Without one, the statement sees every
+  // namespace's views under <namespace>__<key> and the whole catalog,
+  // and can join across namespaces.
+  string namespace = 5;
+  // Values for the statement's named parameters, keyed by the name
+  // without its prefix: the entry "status" binds :status, @status and
+  // $status alike. A name is [A-Za-z_][A-Za-z0-9_]*. The TCL forms
+  // $name(...) and names holding "::" are refused, as is #name. Every
+  // named parameter of the statement needs a value, and a value the
+  // statement does not use is refused too. params and named_params count
+  // together against the server's parameter cap.
+  map<string, Value> named_params = 6;
+  // Id of a publish snapshot to query, optional: the snapshot a
+  // publication names (Publication.snapshot), or one ListSnapshots
+  // lists. With one, the statement reads the database as that snapshot
+  // holds it, every table as it was published, and not the live tables;
+  // the views, _tables and _columns are the snapshot's. Without one, the
+  // live database.
+  //
+  // The snapshot must be one of database's, which is required either
+  // way and resolves to the database of the document's current
+  // generation, as for a live query. So a snapshot of a deleted
+  // database, or of an earlier generation's, is not_found, as an id
+  // that names no snapshot is, and as GetSnapshot answers both. A
+  // snapshot of another purpose, an export or a restore point, is
+  // invalid_argument.
+  //
+  // The response's cursor is then the snapshot's (Snapshot.cursor), not
+  // the live database's head.
+  string snapshot = 7;
+}
+
+// QueryColumn is a column of a query result.
+message QueryColumn {
+  // Name of the result column.
+  string name = 1;
+  // Catalog type of the column. COLUMN_TYPE_UNSPECIFIED for a computed
+  // expression.
+  ColumnType type = 2;
+}
+
+// QueryRow is a row of a query result.
+message QueryRow {
+  // The row's values, in column order.
+  repeated Value values = 1;
+}
+
+message QueryResponse {
+  // The result's columns.
+  repeated QueryColumn columns = 1;
+  // The result's rows.
+  repeated QueryRow rows = 2;
+  // True when the result was cut off at the row or size cap.
+  bool truncated = 3;
+  // The state the query read: the live database's head, or, for a
+  // query of a snapshot, the snapshot's cursor.
+  Cursor cursor = 4;
+}
+
+// Change is one entry in a database's change log.
+message Change {
+  // Position of the change.
+  Cursor cursor = 1;
+  // Id of the change batch it belongs to.
+  string batch = 2;
+  // When the change was made.
+  google.protobuf.Timestamp at = 3;
+  // Subject that made the change: a user or an agent.
+  string actor = 4;
+  // The operation: row_insert, row_update, row_delete, row_move, one of
+  // table_* and column_*, namespace_update, import or restore.
+  string op = 5;
+  // Id of the table it touched. Empty for a namespace_update.
+  string table = 6;
+  // Id of the row it touched, for row operations.
+  int64 row = 7;
+  // Id of the column it touched, for cell and column operations.
+  string column = 8;
+  // The value before the change.
+  Value old = 9;
+  // The value after the change.
+  Value new = 10;
+  // The full row, for inserts.
+  Row row_state = 11;
+  // The full table after the change, for schema operations.
+  Table table_state = 12;
+  // Subject that made the suggestion that was applied (Suggestion.agent),
+  // when the change came from one.
+  string via = 13;
+  // True for the summary of a large batch, which is sent instead of a
+  // change per cell: re-read the table.
+  bool reload = 14;
+  // The namespace of the change's batch.
+  string namespace = 15;
+  // The namespace after the change, for a namespace_update.
+  Namespace namespace_state = 16;
+}
+
+message ChangesRequest {
+  // Database to read the change log of.
+  string database = 1;
+  // Return changes after this cursor.
+  Cursor after = 2;
+  // Maximum changes to return; clamped server-side. 0 is the server
+  // default.
+  int32 limit = 3;
+  // Namespace to read the changes of. Required. Changes of other
+  // namespaces are skipped.
+  string namespace = 4;
+}
+
+message ChangesResponse {
+  // The changes of the namespace, oldest first.
+  repeated Change changes = 1;
+  // True when the cursor cannot be continued from, for the reasons a
+  // Watch ends with cursor_invalid. Reload and start over.
+  bool cursor_invalid = 2;
+  // How far the read reached: the last change returned when the limit
+  // was reached, else the head the log was read at, past the changes of
+  // other namespaces. Read on with it as after. Unset with
+  // cursor_invalid.
+  Cursor cursor = 3;
+}
+
+message WatchRequest {
+  // Database to watch.
+  string database = 1;
+  // Stream changes after this cursor.
+  Cursor after = 2;
+  // Ids or keys of the tables to stream changes for. Empty streams all
+  // of the namespace's. A key follows the key as the stream runs: it
+  // matches the table that holds it when the stream opens, and every
+  // table the key is given to while the stream runs, from that table's
+  // table_create on, such as a table an application's EnsureSchema
+  // creates after the stream opened, or one an undo or restore brings
+  // back under the key. A key no table holds matches nothing until a
+  // table is created under it. An id matches that table only.
+  repeated string tables = 3;
+  // This client's initial presence.
+  Presence presence = 4;
+  // Namespace to watch. Required. The stream carries the changes,
+  // suggestions and presence of this namespace only; heartbeats carry
+  // the database's cursors.
+  string namespace = 5;
+}
+
+// Presence is where a client is looking or editing. It is relayed to
+// the other clients as it was sent: its table and column are not
+// resolved, so clients agree among themselves to send ids.
+message Presence {
+  // Id of the table.
+  string table = 1;
+  // Id of the row.
+  int64 row = 2;
+  // Id of the column.
+  string column = 3;
+  // True when the client is editing the cell rather than looking at it.
+  bool editing = 4;
+}
+
+// PresenceUpdate is another client's presence, as streamed on Watch.
+message PresenceUpdate {
+  // Session id of the other client's Watch stream.
+  string session = 1;
+  // Subject of the other client.
+  string actor = 2;
+  // The other client's presence.
+  Presence presence = 3;
+  // True when the other client's stream has ended.
+  bool left = 4;
+}
+
+// Heartbeat carries the cursors a client needs to show saved state: a
+// batch is saved once the durable cursor has passed it.
+message Heartbeat {
+  // The latest change of the database, of any namespace. Not a position
+  // to resume a stream from: changes of the stream's namespace before it
+  // may not have been sent yet.
+  Cursor head = 1;
+  // The latest change replicated to S3.
+  Cursor durable = 2;
+  // The position the stream may be resumed from: every change of the
+  // stream's namespace up to it that the stream's table filter lets
+  // through has been sent before this heartbeat. It moves past the
+  // changes of other namespaces, and of tables the filter leaves out,
+  // which a Watch never sends, so a client of a quiet namespace keeps a
+  // cursor the change log still holds. A client resumes from the later
+  // of this and the cursor of the last change received.
+  Cursor resume = 3;
+}
+
+// Hello is the first message of a Watch stream.
+message Hello {
+  // The stream's session id, for UpdatePresence.
+  string session = 1;
+}
+
+// WatchResponse is one message of a Watch stream. DataService.Watch
+// documents how the stream ends.
+message WatchResponse {
+  oneof msg {
+    // A change committed after the client's cursor.
+    Change change = 1;
+    // Another client's presence.
+    PresenceUpdate presence = 2;
+    // The head and durable cursors.
+    Heartbeat heartbeat = 3;
+    // A suggestion that was made, applied, dismissed or expired. One too
+    // large for the stream to carry whole comes as a notice: only its
+    // id, database, namespace, table, agent, state, resolved_by, created
+    // and expires are set, and its mutations are empty, which those of a
+    // suggestion never are. ListSuggestions reads an open one whole.
+    Suggestion suggestion = 4;
+    // The first message of the stream.
+    Hello hello = 5;
+  }
+}
+
+message SummarizeRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table to summarise.
+  string table = 2;
+  // Id or key of the column to summarise. Empty summarises the table's
+  // summary_column.
+  string column = 3;
+  // Conditions every counted row must meet.
+  repeated Filter filters = 4;
+  // Maximum number of buckets; clamped server-side. 0 is the server
+  // default.
+  int32 max_buckets = 5;
+  // Namespace the table is in. Required.
+  string namespace = 6;
+}
+
+// SummaryBucket is one bar of a summary: the rows holding one value, or
+// the rows in one range.
+message SummaryBucket {
+  // The choice or boolean value counted, or the inclusive lower bound of
+  // a range.
+  Value value = 1;
+  // The exclusive upper bound of a range. Unset for a value bucket.
+  Value upper = 2;
+  // Rows in the bucket.
+  int64 count = 3;
+}
+
+message SummarizeResponse {
+  // Id of the column summarised, which tells the caller which column an
+  // empty request column resolved to.
+  string column = 1;
+  // The buckets: per value for a choice or boolean column, in ascending
+  // ranges for a histogram.
+  repeated SummaryBucket buckets = 2;
+  // Rows with an empty cell, which are in no bucket.
+  int64 empty = 3;
+  // Rows holding a choice value beyond the bucket limit, which are in no
+  // bucket. Always 0 for a histogram.
+  int64 other = 4;
+  // The calendar unit of a date or datetime histogram's buckets: day,
+  // week, month or year. Empty for other columns.
+  string unit = 5;
+  // The smallest value, for a histogram. Unset for a value summary or
+  // when every cell is empty.
+  Value min = 6;
+  // The largest value, for a histogram. Unset as min is.
+  Value max = 7;
+  // The median value, for a histogram. Unset as min is.
+  Value median = 8;
+  // Rows counted: every row that meets the filters, empty cells included.
+  int64 rows = 9;
+  // The state the summary was read at.
+  Cursor cursor = 10;
+}
+
+message UpdatePresenceRequest {
+  // Database the stream is watching.
+  string database = 1;
+  // Session id from the stream's Hello.
+  string session = 2;
+  // The caller's new presence.
+  Presence presence = 3;
+}
+
+message UpdatePresenceResponse {}
+
+message SuggestRequest {
+  // Database the table is in.
+  string database = 1;
+  // Id or key of the table the suggestion changes.
+  string table = 2;
+  // The proposed operations. Every CellWrite of a RowUpdate must set
+  // expected; those of a RowInsert need not. Columns may be named by
+  // key; the suggestion stores and returns them by id.
+  repeated Mutation mutations = 3;
+  // A short rationale, shown to the editor deciding on it.
+  string rationale = 4;
+  // Namespace the table is in. Required.
+  string namespace = 5;
+}
+
+message SuggestResponse {
+  // The new suggestion.
+  Suggestion suggestion = 1;
+}
+
+// SuggestionState is where a suggestion is in its life.
+enum SuggestionState {
+  // Not set.
+  SUGGESTION_STATE_UNSPECIFIED = 0;
+  // Awaiting an editor.
+  SUGGESTION_STATE_OPEN = 1;
+  // Applied by an editor.
+  SUGGESTION_STATE_APPLIED = 2;
+  // Dismissed by an editor.
+  SUGGESTION_STATE_DISMISSED = 3;
+  // Expired unresolved.
+  SUGGESTION_STATE_EXPIRED = 4;
+}
+
+// Suggestion is an edit a caller with the doc_suggest scope proposed.
+message Suggestion {
+  // Suggestion id.
+  string id = 1;
+  // Database the suggestion is for.
+  string database = 2;
+  // Id of the table the suggestion changes.
+  string table = 3;
+  // Token subject of the caller that made the suggestion: an agent or a
+  // person, since nothing in a token marks an agent. The field is named
+  // for the usual case. The per-subject limit on open suggestions counts
+  // by it.
+  string agent = 4;
+  // The proposed operations.
+  repeated Mutation mutations = 5;
+  // The rationale given with the suggestion.
+  string rationale = 6;
+  // Where the suggestion is in its life.
+  SuggestionState state = 7;
+  // Subject of the editor that applied or dismissed it.
+  string resolved_by = 8;
+  // When the suggestion was made.
+  google.protobuf.Timestamp created = 9;
+  // When an open suggestion expires. Expiry is read from this time, so
+  // it holds for a database no pod has open.
+  google.protobuf.Timestamp expires = 10;
+  // Namespace of the table the suggestion changes. Applying it is a
+  // batch in this namespace.
+  string namespace = 11;
+}
+
+message ResolveSuggestionRequest {
+  // Database the suggestion is for.
+  string database = 1;
+  // Id of the suggestion.
+  string suggestion = 2;
+  // True to apply the suggestion, false to dismiss it.
+  bool apply = 3;
+  // As in MutateRequest: fail every operation on any conflict.
+  bool atomic = 4;
+  // Namespace the suggestion is in. Required.
+  string namespace = 5;
+}
+
+message ResolveSuggestionResponse {
+  // The suggestion after resolving it.
+  Suggestion suggestion = 1;
+  // The outcome of the Mutate the suggestion was applied as. Unset when
+  // it was dismissed.
+  MutateResponse result = 2;
+}
+
+message ListSuggestionsRequest {
+  // Database to list suggestions for.
+  string database = 1;
+  // Ids or keys of the tables to list suggestions for. Empty lists all
+  // of the namespace's.
+  repeated string tables = 2;
+  // Namespace to list suggestions for. Required.
+  string namespace = 3;
+}
+
+message ListSuggestionsResponse {
+  // The open suggestions.
+  repeated Suggestion suggestions = 1;
+}
+
+// ---------- Snapshots ----------
+
+// SnapshotsService takes and reads snapshots, and publishes. A snapshot
+// is an immutable copy of a whole database at a cursor. A publication is
+// the data actually made public: rendered from a publish snapshot by a
+// publication spec, and possibly a subset of it. Distribution and
+// end-user products read publications, or query the publish snapshot a
+// publication was rendered from (DataService.Query with snapshot set),
+// never the live tables.
+service SnapshotsService {
+  // CreateSnapshot takes an export snapshot, for downloads, round trips
+  // and agent hand-offs. Publish snapshots are taken by Publish, and
+  // restore points by DatabasesService.Restore. Every snapshot is synced
+  // to the replica before it is recorded. Taking one again at the same
+  // cursor returns the one already taken, its expiry renewed, unless it
+  // has expired.
+  //
+  // Auth: doc_read on the owning document.
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+
+  // GetSnapshot returns a snapshot's metadata and catalog, read without
+  // opening the file, and a short-lived download URL.
+  //
+  // Auth: doc_read on the owning document. Snapshots are for the service
+  // and for editors, for history and diffing; distribution reads
+  // publications, or queries a publish snapshot with DataService.Query.
+  // An id that names no snapshot is answered exactly as one the caller
+  // may not read.
+  rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
+
+  // ListSnapshots lists a database's snapshots, newest first. Paginated.
+  //
+  // Auth: doc_read on the owning document.
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+
+  // Publish renders a publication. It forces a sync and waits until the
+  // durable head covers the current state, takes a publish snapshot, and
+  // renders the spec's tables, columns and rows from the snapshot alone,
+  // as deterministic JSON. With snapshot set it re-renders from an
+  // existing publish snapshot instead, without touching the live tables.
+  //
+  // Idempotent: a snapshot is keyed by its cursor and a publication by
+  // its snapshot and spec, so a retry returns the existing ones. The
+  // caller then sets the document status with a link to the publication.
+  //
+  // Auth: doc_write on the owning document.
+  rpc Publish(PublishRequest) returns (PublishResponse);
+
+  // GetPublication returns a publication's metadata, its spec, the
+  // catalog of the published columns, and a short-lived URL to download
+  // the rendered JSON from.
+  //
+  // Auth: doc_read on the owning document. An id that names no
+  // publication is answered exactly as one the caller may not read.
+  rpc GetPublication(GetPublicationRequest) returns (GetPublicationResponse);
+}
+
+// SnapshotPurpose is why a snapshot was taken, which decides how long it
+// is kept and who reads it.
+enum SnapshotPurpose {
+  // Not set.
+  SNAPSHOT_PURPOSE_UNSPECIFIED = 0;
+  // The internal source of publications. Never distributed.
+  SNAPSHOT_PURPOSE_PUBLISH = 1;
+  // A download, round trip or agent hand-off.
+  SNAPSHOT_PURPOSE_EXPORT = 2;
+  // Taken automatically before every restore.
+  SNAPSHOT_PURPOSE_RESTORE_POINT = 3;
+}
+
+// ExportFormat is the file format of a snapshot.
+enum ExportFormat {
+  // Not set.
+  EXPORT_FORMAT_UNSPECIFIED = 0;
+  // A SQLite database, with its _meta table and catalog, so it round
+  // trips.
+  EXPORT_FORMAT_SQLITE = 1;
+  // An Excel workbook: a sheet per table, and a hidden _elephant sheet
+  // with the ids a round trip maps back by.
+  EXPORT_FORMAT_XLSX = 2;
+  // CSV of a single table. Does not round trip.
+  EXPORT_FORMAT_CSV = 3;
+}
+
+// Snapshot is an immutable copy of a database at a cursor.
+message Snapshot {
+  // Snapshot id.
+  string id = 1;
+  // Database the snapshot is of.
+  string database = 2;
+  // The state the snapshot holds.
+  Cursor cursor = 3;
+  // Litestream TXID of a position of the database's replica, in the
+  // cursor's epoch, that holds the snapshot's state: every change up to
+  // the cursor, and possibly a few more. The snapshot is synced before
+  // it is recorded, so the replica reaches it.
+  int64 txid = 4;
+  // SHA-256 of the snapshot file, hex encoded.
+  string sha256 = 5;
+  // Size of the snapshot file in bytes.
+  int64 size = 6;
+  // Why the snapshot was taken.
+  SnapshotPurpose purpose = 7;
+  // File format of the snapshot.
+  ExportFormat format = 8;
+  // True when a document status links to a publication rendered from it,
+  // which keeps it from garbage collection.
+  bool pinned = 9;
+  // When the snapshot was taken.
+  google.protobuf.Timestamp created = 10;
+  // When the snapshot is deleted. Set for exports and restore points;
+  // unset for publish snapshots, which are kept while a publication of
+  // theirs is linked.
+  google.protobuf.Timestamp expires = 11;
+}
+
+message CreateSnapshotRequest {
+  // Database to snapshot.
+  string database = 1;
+  // Why the snapshot is taken. Only SNAPSHOT_PURPOSE_EXPORT is accepted.
+  SnapshotPurpose purpose = 2;
+  // File format of the snapshot.
+  ExportFormat format = 3;
+  // Ids of the tables to export. Empty exports all of them;
+  // EXPORT_FORMAT_CSV takes exactly one.
+  repeated string tables = 4;
+}
+
+message CreateSnapshotResponse {
+  // The new snapshot.
+  Snapshot snapshot = 1;
+}
+
+message GetSnapshotRequest {
+  // Snapshot id.
+  string id = 1;
+}
+
+message GetSnapshotResponse {
+  // The snapshot.
+  Snapshot snapshot = 1;
+  // The snapshot's catalog, read without opening the file: the tables of
+  // every namespace, each naming its namespace.
+  repeated Table tables = 2;
+  // Short-lived URL to download the snapshot file from. Never handed to
+  // distribution.
+  string download_url = 3;
+}
+
+message ListSnapshotsRequest {
+  // Database to list snapshots of.
+  string database = 1;
+  // Pagination token from a previous response. Empty starts from the
+  // newest snapshot.
+  string page_token = 2;
+}
+
+message ListSnapshotsResponse {
+  // The page of snapshots, newest first.
+  repeated Snapshot snapshots = 1;
+  // Token for the next page. Empty when there are no more pages.
+  string next_page_token = 2;
+}
+
+// TableSelection is what a publication carries from one table.
+message TableSelection {
+  // Id of the table.
+  string table = 1;
+  // Ids or keys of the columns to publish, in output order.
+  repeated string columns = 2;
+  // Conditions every published row must meet.
+  repeated Filter filters = 3;
+  // Sort keys, most significant first. Empty publishes in the manual row
+  // order.
+  repeated Sort sort = 4;
+  // Maximum rows to publish. 0 publishes every matching row.
+  int32 limit = 5;
+}
+
+// PublicationSpec decides what is made public. It is stored with the
+// document version, not with the database.
+message PublicationSpec {
+  // The tables to publish, and what of each.
+  repeated TableSelection tables = 1;
+}
+
+message PublishRequest {
+  // Database to publish from.
+  string database = 1;
+  // What to publish.
+  PublicationSpec spec = 2;
+  // Id of an existing publish snapshot to re-render from. Empty takes a
+  // new snapshot of the current state.
+  string snapshot = 3;
+}
+
+message PublishResponse {
+  // The publication.
+  Publication publication = 1;
+}
+
+// Publication is the rendered data a published document version links
+// to, as rel table-publication with the URI
+// core://tables/{document}/publication/{id}.
+message Publication {
+  // Publication id.
+  string id = 1;
+  // Id of the publish snapshot it was rendered from.
+  string snapshot = 2;
+  // SHA-256 of the publication spec, hex encoded.
+  string spec_sha256 = 3;
+  // SHA-256 of the rendered publication, hex encoded.
+  string sha256 = 4;
+  // Size of the rendered publication in bytes.
+  int64 size = 5;
+  // Media type of the rendered publication: application/json.
+  string content_type = 6;
+  // True when a document status links to it, which keeps it from garbage
+  // collection.
+  bool pinned = 7;
+  // When it was rendered.
+  google.protobuf.Timestamp created = 8;
+}
+
+message GetPublicationRequest {
+  // Publication id.
+  string id = 1;
+}
+
+message GetPublicationResponse {
+  // The publication.
+  Publication publication = 1;
+  // The spec it was rendered by.
+  PublicationSpec spec = 2;
+  // Catalog of the published columns only.
+  repeated Table tables = 3;
+  // Short-lived URL to download the rendered publication from.
+  string download_url = 4;
+}
+
+// ---------- Imports ----------
+
+// ImportsService imports tabular files, and tables from other databases.
+// An import is a change batch on the live database, never a copy swapped
+// in for it: other people keep editing while it is prepared, see it land
+// live, and their edits survive it. It is attributed and undoes as one
+// unit.
+//
+// The flow is CreateUpload, a PUT of the file to the returned URL,
+// Analyze, any adjustments to the plan, and Apply. An import targets one
+// namespace of the target database, and is one batch in it.
+//
+// Auth: doc_write on the target's owning document, and for an import
+// from another database doc_read on that database's owning document. An
+// upload is bound to the subject that created it, and only that subject
+// can analyze or apply it.
+service ImportsService {
+  // CreateUpload returns a presigned URL to PUT a file to, bound to a
+  // target database, to the caller and to the file's declared size. A
+  // caller holds a limited number of uploads to a database that no plan
+  // has been applied to; past it, CreateUpload is refused with
+  // resource_exhausted until older ones are applied or expire.
+  rpc CreateUpload(CreateUploadRequest) returns (CreateUploadResponse);
+
+  // Analyze reads an uploaded file, or another database, and returns an
+  // editable import plan: the candidate tables, their header rows and
+  // ranges, inferred column types with how many cells fit, warnings, and
+  // for each candidate that targets an existing table a preview diff
+  // computed at a recorded base cursor.
+  //
+  // A file the service does not accept, such as a legacy .xls or
+  // password-protected workbook, is refused with invalid_argument: the
+  // caller saves it in another form. An import the service does not do
+  // yet, from source_database or of an uploaded SQLite database, is
+  // refused with unimplemented. Apply refuses a plan without an upload
+  // the same way; the job of a plan pointed at an uploaded SQLite
+  // database fails with this message.
+  rpc Analyze(AnalyzeRequest) returns (AnalyzeResponse);
+
+  // Apply starts an import job for a plan. The job recomputes the diff
+  // against the current state inside one write transaction. A cell
+  // someone else changed after the plan's base cursor is a conflict: it
+  // keeps their value and is reported, unless the plan opts into
+  // overwriting conflicts. IMPORT_MODE_REPLACE_ROWS cannot see conflicts
+  // at cell level, so a plan that uses it must set confirm_replace.
+  //
+  // A plan for an import the service does not do yet, one without an
+  // upload (from another database) or with a round trip, is refused with
+  // unimplemented and the message Analyze refuses it with. A plan pointed
+  // at a file Analyze would refuse is accepted, since Apply does not read
+  // the file; its job fails with Analyze's message.
+  rpc Apply(ApplyRequest) returns (ApplyResponse);
+
+  // GetJob returns the state of an import job.
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+}
+
+message CreateUploadRequest {
+  // Name of the file being uploaded.
+  string filename = 1;
+  // Media type of the file being uploaded.
+  string content_type = 2;
+  // The target database. The upload is bound to it and to the caller.
+  string database = 3;
+  // Size of the file in bytes. Required. The URL takes a PUT of exactly
+  // this many bytes, so the PUT must send this Content-Length; a size past
+  // the service's file size limit is refused with resource_exhausted.
+  int64 size = 4;
+}
+
+message CreateUploadResponse {
+  // Upload id, for Analyze.
+  string upload = 1;
+  // Presigned URL to PUT the file to.
+  string put_url = 2;
+}
+
+message AnalyzeRequest {
+  // Upload id from CreateUpload. Empty when source_database is set.
+  string upload = 1;
+  // The target database. Must match the upload's.
+  string database = 2;
+  // Database to import tables from instead of a file. upload is then
+  // empty.
+  string source_database = 3;
+  // The point in source_database's history to import from. Unset imports
+  // its current state.
+  PointInTime source_at = 4;
+  // The namespace of the target the plan imports into. Required. New
+  // tables are created in it, and every existing table a candidate
+  // targets must be in it. The tables of every namespace of
+  // source_database are candidates.
+  string namespace = 5;
+}
+
+message AnalyzeResponse {
+  // The import plan, to adjust and pass to Apply.
+  ImportPlan plan = 1;
+}
+
+// SourceKind is what an import candidate was found as.
+enum SourceKind {
+  // Not set.
+  SOURCE_KIND_UNSPECIFIED = 0;
+  // A whole sheet.
+  SOURCE_KIND_SHEET = 1;
+  // A clearly separated range within a sheet.
+  SOURCE_KIND_RANGE = 2;
+  // An Excel table object.
+  SOURCE_KIND_EXCEL_TABLE = 3;
+  // A CSV or TSV file.
+  SOURCE_KIND_CSV = 4;
+  // A user table in an uploaded SQLite database.
+  SOURCE_KIND_SQLITE_TABLE = 5;
+  // A table in another database of this service.
+  SOURCE_KIND_DATABASE_TABLE = 6;
+}
+
+// ImportMode is what an import does to the live table, chosen per
+// candidate.
+enum ImportMode {
+  // Not set.
+  IMPORT_MODE_UNSPECIFIED = 0;
+  // Add a new table.
+  IMPORT_MODE_NEW_TABLE = 1;
+  // Insert the source's rows.
+  IMPORT_MODE_APPEND_ROWS = 2;
+  // Match rows on the key columns, update matched cells, insert new rows,
+  // and optionally delete rows missing from the source.
+  IMPORT_MODE_UPSERT_ROWS = 3;
+  // Delete all rows and insert the source's. Only for data with no usable
+  // key; it sees no cell-level conflicts, so it needs confirm_replace.
+  IMPORT_MODE_REPLACE_ROWS = 4;
+  // Do nothing with this candidate.
+  IMPORT_MODE_SKIP = 5;
+}
+
+// ImportColumn is a column of an import candidate, with the column it is
+// imported as.
+message ImportColumn {
+  // Header text, or the SQLite column name.
+  string source_name = 1;
+  // Position of the column in the source, from 0.
+  int32 source_index = 2;
+  // The proposed column: its name and type. A new column's required
+  // flag is honoured: an imported row that leaves it empty is refused
+  // and reported as a failure, and a new required column of a table
+  // that already has rows refuses the whole import.
+  Column column = 3;
+  // Non-empty cells in the source column.
+  int32 cells = 4;
+  // Cells that fit the proposed type.
+  int32 cells_fitting = 5;
+  // A few sample values from the source column.
+  repeated string samples = 6;
+  // Id or key of the existing column to import into. Empty creates a new
+  // column, with column's key when it is set, and one made from its name
+  // otherwise.
+  string target_column = 7;
+  // True to leave the column out of the import.
+  bool skip = 8;
+}
+
+// DiffSummary counts what an import does, or would do, to a table.
+message DiffSummary {
+  // Rows inserted.
+  int64 rows_inserted = 1;
+  // Rows updated.
+  int64 rows_updated = 2;
+  // Rows deleted.
+  int64 rows_deleted = 3;
+  // Cells changed.
+  int64 cells_changed = 4;
+  // Cells others changed after the base cursor.
+  int64 conflicts = 5;
+  // Rows others edited after the base cursor, which
+  // IMPORT_MODE_REPLACE_ROWS discards without seeing them as conflicts.
+  int64 rows_edited_since_base = 6;
+}
+
+// ImportCandidate is one table found in the source, and what to do with
+// it.
+message ImportCandidate {
+  // Candidate id, stable within the plan.
+  string id = 1;
+  // What the candidate was found as.
+  SourceKind kind = 2;
+  // Where it is in the source: a sheet such as "Blad1", a range such as
+  // "Blad1!A3:F23", or a table name.
+  string source = 3;
+  // Row of the header in the source, counted from 1 as a spreadsheet
+  // numbers its rows. 0 means the candidate has no header row: every row
+  // is data and the columns are named by their position.
+  int32 header_row = 4;
+  // What to do with the candidate.
+  ImportMode mode = 5;
+  // Display name of the new table, for IMPORT_MODE_NEW_TABLE.
+  string table_name = 6;
+  // Id or key of the existing table to import into, for the other modes.
+  string target_table = 7;
+  // Ids or keys of the columns rows are matched on, for
+  // IMPORT_MODE_UPSERT_ROWS.
+  // In a round trip, rows are matched on their row ids.
+  repeated string key_columns = 8;
+  // Delete rows missing from the source, for IMPORT_MODE_UPSERT_ROWS.
+  // They are deleted before the source's rows are written, so a source
+  // row may take over a unique constraint's values from a row the
+  // import deletes.
+  bool delete_missing = 9;
+  // The candidate's columns.
+  repeated ImportColumn columns = 10;
+  // What the analysis noticed, for a person to read.
+  repeated string warnings = 11;
+  // What the import would do, computed at the plan's base cursor.
+  DiffSummary preview = 12;
+  // Key of the new table, for IMPORT_MODE_NEW_TABLE. Empty has the
+  // service make one from table_name. A key another table of the
+  // namespace holds or reserves fails the import.
+  string table_key = 13;
+}
+
+// RoundTrip identifies a file exported by this service, which an import
+// maps back exactly, as a three-way merge against the base.
+message RoundTrip {
+  // Database the file was exported from. Must match the target.
+  string database = 1;
+  // The state the file was exported at: the merge base.
+  Cursor base = 2;
+}
+
+// ImportPlan is what an import will do. Analyze proposes it; a person or
+// an agent adjusts it and passes it to Apply.
+message ImportPlan {
+  // Upload id. Empty for an import from another database.
+  string upload = 1;
+  // The target database.
+  string database = 2;
+  // The state the previews were computed at. Changes after it are
+  // conflicts.
+  Cursor base = 3;
+  // Set for files exported by this service.
+  RoundTrip round_trip = 4;
+  // The tables found in the source.
+  repeated ImportCandidate candidates = 5;
+  // Overwrite cells others changed after the base instead of keeping
+  // their values.
+  bool overwrite_conflicts = 6;
+  // Confirms the use of IMPORT_MODE_REPLACE_ROWS, which Apply refuses
+  // without it.
+  bool confirm_replace = 7;
+  // The namespace of the target the plan imports into, from
+  // AnalyzeRequest. The import is one batch in it.
+  string namespace = 8;
+}
+
+message ApplyRequest {
+  // The plan to apply, as returned by Analyze and adjusted.
+  ImportPlan plan = 1;
+}
+
+message ApplyResponse {
+  // The started job.
+  ImportJob job = 1;
+}
+
+message GetJobRequest {
+  // Import job id.
+  string job = 1;
+}
+
+message GetJobResponse {
+  // The job.
+  ImportJob job = 1;
+}
+
+// ImportJob is an import being applied.
+message ImportJob {
+  // Import job id.
+  string job = 1;
+  // State of the job: queued, running, done or failed.
+  string state = 2;
+  // The target database.
+  string database = 3;
+  // Id of the import's change batch, for undo. Set once done.
+  string batch = 4;
+  // Position of the import's change batch. Set once done.
+  Cursor cursor = 5;
+  // What the import did.
+  DiffSummary applied = 6;
+  // Cells others changed after the base, which kept their values.
+  repeated CellConflict conflicts = 7;
+  // Cells that did not convert, by source coordinates.
+  repeated CellError failures = 8;
+  // Why the job failed, for a person to read. Set when state is failed.
+  string error = 9;
+  // Namespace the import writes to, the plan's: batch is in it, so an
+  // Undo of the import names it.
+  string namespace = 10;
+}
+
+// ---------- Events ----------
+
+// EventsService serves the coarse event log for the whole tenant: what
+// happened to which database, without the row-level detail, which never
+// leaves the service. Agents and other services follow it, and open a
+// Watch only for the databases they display or act on.
+service EventsService {
+  // WatchEvents streams the events after an event id, in order, and goes
+  // on streaming them as they happen. The first message is a heartbeat,
+  // sent as soon as the stream is open.
+  //
+  // The stream carries only the events of databases whose owning
+  // document the caller may read, checked with the caller's token as
+  // every database-scoped call is. Ids increase but, for that reason,
+  // need not be consecutive on one stream. Events carry ids and cursors,
+  // never table contents.
+  //
+  // deleted and undeleted cannot be checked that way, since the
+  // repository answers nothing for a deleted document. They are sent
+  // only when the caller's token was found to give read access to the
+  // document before it was deleted: earlier on the same stream, or in
+  // the service's short-lived cache of such answers. A stream finds that
+  // out from the first event of the database it passes, of whichever
+  // namespace: an event of another namespace is not sent, but its
+  // database is checked once, so a stream whose own namespace was quiet
+  // still learns that a database it could read is gone. Otherwise they are
+  // withheld, so a client that needs to know that a database is gone
+  // should keep its stream open. A change of the document's ACL makes
+  // the stream forget that the caller could read it. When the document
+  // exists, as it does after a caller deleted its database with
+  // DeleteDatabase or once it is restored, deleted and undeleted are
+  // also sent when the document is readable with the caller's token, and
+  // withheld when it is not.
+  //
+  // Events are filtered by owning document, not by generation: between a
+  // document's re-creation under a deleted one's UUID and the service
+  // applying that deletion, a caller who may read the new document is
+  // sent events of the old generation's database too. database_id and
+  // document_nonce tell them apart.
+  //
+  // A caller whose token carries the eventlog_read scope, the scope the
+  // repository's own event log asks for, is an administrative reader:
+  // it gets every event, unfiltered, and needs no doc_read.
+  //
+  // Every message carries position, the id of the last event the stream
+  // has passed, sent or withheld. Heartbeats go on while the stream
+  // passes over withheld events, at least every 30 seconds, so a client
+  // whose events are all withheld still sees its position advance.
+  //
+  // The stream ends with token_expired (code unauthenticated) when the
+  // caller's token expires, and with lease_moved (code unavailable) when
+  // the serving pod shuts down. Either way the client resumes with after
+  // set to the highest position it received. It ends with cursor_invalid
+  // (code failed_precondition) when after is past the newest event, or
+  // the events after it are older than the log's retention and gone:
+  // the client starts over from 0 and reloads what it follows. The
+  // reason is in the error metadata under "reason".
+  //
+  // Auth: the doc_read scope, and read permission on an event's owning
+  // document for the event to be sent; or the eventlog_read scope, for
+  // every event.
+  rpc WatchEvents(WatchEventsRequest) returns (stream WatchEventsResponse);
+}
+
+message WatchEventsRequest {
+  // Resume after this event id. 0 starts from the oldest retained event.
+  int64 after = 1;
+  // Namespace to follow. Required. The stream carries the events of this
+  // namespace, and the events that concern a whole database, which carry
+  // no namespace: database_created, forked, published, recovered,
+  // deleted and undeleted, and a schema_changed for changes that left
+  // the change log before they became events, whose namespace is not
+  // known. Events of other namespaces are withheld, and position passes
+  // over them.
+  string namespace = 2;
+}
+
+message WatchEventsResponse {
+  // The next event. Unset on a heartbeat: the first message of a stream,
+  // and one every 30 seconds in which no event was sent, so that the
+  // client knows the stream is open and alive.
+  Event event = 1;
+  // The id of the last event the stream has passed, whether it was sent
+  // or withheld: the event's own id on an event, and on a heartbeat how
+  // far the stream has read. A client resumes with after set to the
+  // highest position it received. On the first heartbeat it is the
+  // request's after.
+  int64 position = 2;
+}
+
+// Event is an entry in the coarse event log.
+message Event {
+  // Event id: increasing, without gaps.
+  int64 id = 1;
+  // What happened: database_created, schema_changed, data_changed,
+  // imported, restored, recovered, forked, published, deleted or
+  // undeleted. data_changed is debounced and carries the latest cursor.
+  // restored is a database, or one namespace of it, restored in place to
+  // an earlier point, one event per namespace the restore changed.
+  // recovered follows a RecoverDatabase, after which cursors from the
+  // skipped epochs are invalid. deleted is a database archived with its
+  // deleted owning document generation, or deleted by a caller with
+  // DeleteDatabase, and undeleted the database live again, with its
+  // data: once a restore of the document is bound to that generation
+  // (which waits for the repository to report the generation a restore
+  // came from), or once a caller brought back a database a caller
+  // deleted, with DatabasesService.UndeleteDatabase within its
+  // retention. A restore never brings back a database a caller deleted.
+  // Neither has a cursor.
+  string type = 2;
+  // UUID of the owning document of the database it happened to, by which
+  // requests name the database.
+  string database = 3;
+  // UUID of the owning document. Always equal to database.
+  string owner_document = 4;
+  // Position in the database's change log the event reflects.
+  Cursor cursor = 5;
+  // Id of the snapshot involved, for published and restored.
+  string snapshot = 6;
+  // When the event was logged.
+  google.protobuf.Timestamp created = 7;
+  // The namespace the event is in: the namespace of the batch for
+  // schema_changed, data_changed, imported and restored, which are
+  // debounced and logged per namespace. Empty for an event that concerns
+  // the whole database.
+  string namespace = 8;
+  // The database's own id (DatabaseInfo.id), which tells the events of
+  // two databases of one document apart: of two generations, or a
+  // database a caller deleted and the one created after it.
+  string database_id = 9;
+  // The nonce of the document generation the database belonged to when
+  // the event happened. A restore that later binds the database to the
+  // restored generation does not change it for events that happened
+  // before.
+  string document_nonce = 10;
+}
+
+// ---------- Admin ----------
+
+// AdminService is for operators. The repository event-log follower
+// applies what the repository does to a document that concerns its
+// database: a deletion archives the database, a restore brings it back.
+// An event that fails to apply three times, for a reason that is about
+// the event rather than about Postgres being unavailable, is skipped so
+// that it does not hold up every later event, and recorded: the
+// database it concerns, or the document when it had none, is then out
+// of sync with its document, and refused with out_of_sync until it is
+// reconciled. The document's later deletions and restores are held back
+// behind the skipped event, recorded with it rather than applied, so
+// that reconciling can apply them in order. ListOutOfSync and Reconcile
+// list what is out of sync and reconcile it.
+//
+// GetLimits and UpdateLimits read and change the data limits of the
+// deployment: how many columns a table holds, how many rows, how large a
+// cell, a request, an upload or a database may be. Each limit has a
+// default built into the service; a value an operator sets overrides it
+// for every database until it is reset.
+//
+// They are not database-scoped and not forwarded: any pod serves them.
+service AdminService {
+  // ListOutOfSync lists the skipped and held-back events not yet
+  // reconciled, oldest first, a page at a time.
+  //
+  // Auth: the tables_admin scope.
+  rpc ListOutOfSync(ListOutOfSyncRequest) returns (ListOutOfSyncResponse);
+
+  // Reconcile brings a document's databases in line with the document,
+  // for every skipped or held-back event of it: it reads the document's
+  // current state from the repository, and applies what each event would
+  // have done, in the order the repository made them. A deletion
+  // archives the deleted generation's database, or records the
+  // generation as deleted when it had none; a restore binds the
+  // restored-from generation's database to the restored generation; any
+  // other event changes nothing. Then, when the repository reports the
+  // document's current generation restored from another, it binds that
+  // generation's database to the current one as CreateDatabase would,
+  // which changes nothing when the restore was applied already. The
+  // records are then cleared, and the database is served again if it is
+  // live.
+  //
+  // Returns not_found when the document has no skipped event. Returns
+  // unavailable when the repository could not be read, and the call is
+  // retried; nothing is changed then.
+  //
+  // Auth: the tables_admin scope.
+  rpc Reconcile(ReconcileRequest) returns (ReconcileResponse);
+
+  // GetLimits returns every data limit in effect, with its default and
+  // the range UpdateLimits accepts, ordered by name.
+  //
+  // Auth: the tables_admin scope.
+  rpc GetLimits(GetLimitsRequest) returns (GetLimitsResponse);
+
+  // UpdateLimits sets some limits and resets others to their defaults,
+  // in one change, and returns every limit as GetLimits does. The pod
+  // that serves the call applies the change at once; the other pods read
+  // the limits again about every 30 seconds.
+  //
+  // A lowered limit refuses new writes only: data already past it stays
+  // readable, and may be edited in ways that do not take it further
+  // past. A hard database size cap below a database's file size refuses
+  // every write that would grow the file.
+  //
+  // Returns invalid_argument, changing nothing, for an unknown name, a
+  // name both set and reset, a value outside the limit's range, or
+  // values that contradict each other: a default page size or bucket
+  // count above its maximum, or a soft database size cap above the hard
+  // one.
+  //
+  // Auth: the tables_admin scope.
+  rpc UpdateLimits(UpdateLimitsRequest) returns (UpdateLimitsResponse);
+}
+
+// DataLimit is one of the deployment's data limits. Values are counts,
+// or bytes for a name that ends in _bytes; option_length is in
+// characters.
+//
+// The names: namespaces_per_database, tables_per_namespace,
+// columns_per_table, options_per_column, option_length, cell_bytes,
+// rows_per_table, indexes_per_table, columns_per_index,
+// operations_per_mutate, operations_per_suggestion, filters,
+// filter_values, filter_bound_values, filter_conditions, sort_keys,
+// list_default_page_size, list_max_page_size,
+// changes_default_page_size, changes_max_page_size,
+// summary_default_buckets, summary_max_buckets, published_rows,
+// suggestion_bytes, open_suggestions, open_suggestions_per_subject,
+// open_suggestion_bytes, query_rows, query_result_bytes,
+// query_row_bytes, query_value_bytes, query_columns,
+// query_statement_bytes, query_params, import_upload_bytes,
+// import_unzipped_bytes, import_zip_entries, import_cells,
+// import_text_bytes, import_sheets, import_rows, import_area,
+// import_pending_uploads, database_size_bytes and
+// soft_database_size_bytes. A later version of the service may add
+// names.
+message DataLimit {
+  // Name of the limit, such as columns_per_table.
+  string name = 1;
+  // The value in effect.
+  int64 value = 2;
+  // The service's built-in default.
+  int64 default_value = 3;
+  // True when an operator's value overrides the default.
+  bool overridden = 4;
+  // The smallest value UpdateLimits accepts.
+  int64 min_value = 5;
+  // The largest value UpdateLimits accepts: past it the service, or
+  // SQLite under it, cannot work.
+  int64 max_value = 6;
+  // What the limit bounds, for a person to read.
+  string description = 7;
+}
+
+message GetLimitsRequest {}
+
+message GetLimitsResponse {
+  // Every limit, by name.
+  repeated DataLimit limits = 1;
+}
+
+message UpdateLimitsRequest {
+  // Values to set, by limit name.
+  map<string, int64> set = 1;
+  // Names of limits to reset to their defaults. Resetting a limit that
+  // is not overridden changes nothing.
+  repeated string reset_to_default = 2;
+}
+
+message UpdateLimitsResponse {
+  // Every limit after the change, by name.
+  repeated DataLimit limits = 1;
+}
+
+// SkippedEvent is a repository event the follower skipped, which left
+// a document's database out of sync with the document, or a later
+// deletion or restore of the document it held back behind one; the
+// error of a held-back event says so.
+message SkippedEvent {
+  // Id of the event in the repository's event log.
+  int64 event_id = 1;
+  // The repository's event type, such as delete_document or
+  // restore_finished.
+  string event_type = 2;
+  // UUID of the document the event is about.
+  string document = 3;
+  // The database's own id (DatabaseInfo.id) the event concerned: for a
+  // deletion the deleted generation's database, for a restore the
+  // restored-from generation's. Empty when the document had no such
+  // database when the event was skipped.
+  string database_id = 4;
+  // Why the event failed to apply, for a person to read.
+  string error = 5;
+  // When the event was skipped.
+  google.protobuf.Timestamp skipped = 6;
+}
+
+message ListOutOfSyncRequest {
+  // Resume after this event id, the last event_id of the previous page.
+  // 0 starts from the oldest.
+  int64 after = 1;
+  // Events per page; 0 means 100, and at most 1000 are returned.
+  int32 limit = 2;
+}
+
+message ListOutOfSyncResponse {
+  // The skipped events after the request's after, by event id.
+  repeated SkippedEvent events = 1;
+}
+
+message ReconcileRequest {
+  // UUID of the document to reconcile. Required.
+  string document = 1;
+}
+
+// ReconciledEvent is what Reconcile did for one skipped event.
+message ReconciledEvent {
+  // The skipped event.
+  SkippedEvent event = 1;
+  // What was applied: archived (the deleted generation's database was
+  // archived), deleted (the deleted generation had no live database and
+  // was recorded as deleted), restored (the restored-from generation's
+  // database was bound to the restored generation) or nothing.
+  string action = 2;
+  // The database's own id the action applied to. Empty for nothing and
+  // deleted.
+  string database_id = 3;
+}
+
+message ReconcileResponse {
+  // What was done for each skipped event of the document, by event id.
+  repeated ReconciledEvent events = 1;
+}
