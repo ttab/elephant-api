@@ -203,6 +203,9 @@
 //	refused this way, and so are CreateDatabase and Fork into the
 //	document, until an operator reconciles it with
 //	AdminService.Reconcile. The client can only retry later.
+//
+// DatabasesService.UndeleteDatabase refuses with reasons of its own,
+// listed there.
 package tablesv1connect
 
 import (
@@ -266,6 +269,9 @@ const (
 	// DatabasesServiceDeleteDatabaseProcedure is the fully-qualified name of the DatabasesService's
 	// DeleteDatabase RPC.
 	DatabasesServiceDeleteDatabaseProcedure = "/elephant.tables.v1.DatabasesService/DeleteDatabase"
+	// DatabasesServiceUndeleteDatabaseProcedure is the fully-qualified name of the DatabasesService's
+	// UndeleteDatabase RPC.
+	DatabasesServiceUndeleteDatabaseProcedure = "/elephant.tables.v1.DatabasesService/UndeleteDatabase"
 	// SchemaServiceDescribeProcedure is the fully-qualified name of the SchemaService's Describe RPC.
 	SchemaServiceDescribeProcedure = "/elephant.tables.v1.SchemaService/Describe"
 	// SchemaServiceUpdateNamespaceProcedure is the fully-qualified name of the SchemaService's
@@ -503,9 +509,9 @@ type DatabasesServiceClient interface {
 	// imports do not run while it is deleted; its forks,
 	// which belong to other documents, are not touched. The service keeps
 	// the archived database for a retention window, 30 days by default,
-	// and then deletes it for good; within the window an operator can
-	// bring it back, but no call can. A document restore never brings it
-	// back either.
+	// and then deletes it for good; within the window UndeleteDatabase
+	// brings it back, while the document's generation is the same. A
+	// document restore never brings it back.
 	//
 	// The document may get a new database afterwards with CreateDatabase
 	// or Fork, numbered on within the generation, with an id of its own.
@@ -514,6 +520,57 @@ type DatabasesServiceClient interface {
 	//
 	// Auth: doc_write on the owning document, and read permission on it.
 	DeleteDatabase(context.Context, *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error)
+	// UndeleteDatabase brings back a database a caller deleted with
+	// DeleteDatabase, within its retention window. It is live again as it
+	// was when it was deleted, with every change made before the delete,
+	// under its own id and number; its snapshots, publications and uploads
+	// are its own again, and its pending imports run. An undeleted event is
+	// logged. Nothing is opened: the next call that names the document
+	// opens the database.
+	//
+	// The database brought back is the document's most recently deleted
+	// one, or the one of the document's current generation that
+	// generation names. It must belong to the document's current
+	// generation, which the service reads from the repository with the
+	// caller's token: a database deleted before the document was deleted,
+	// re-created or restored stays deleted. A document has at most one
+	// live database, so one created or forked into the document since
+	// the delete has to be deleted first.
+	//
+	// A call for a document without a deleted database, or with no
+	// database of the given number in its current generation, is not
+	// found. The other refusals carry a reason, all with code
+	// failed_precondition:
+	//
+	//   not_deleted: the database named by generation is live. A second
+	//   call naming it is refused this way rather than succeeding again,
+	//   as a second DeleteDatabase is not found.
+	//
+	//   deleted_with_document: the database was archived when its
+	//   document generation was deleted, not by DeleteDatabase. Only a
+	//   restore of the document in the repository brings it back.
+	//
+	//   generation_ended: the database belongs to an earlier generation
+	//   of the document, which was deleted, created again or restored
+	//   since.
+	//
+	//   newer_database: the document has a live database, created or
+	//   forked after the delete.
+	//
+	//   purging: the retention window has passed and the service has
+	//   started deleting the database's storage.
+	//
+	//   purged: the database's storage is gone.
+	//
+	// A document the service recorded as out of sync is refused with
+	// out_of_sync, as for CreateDatabase. When the document's live
+	// database is of an earlier generation, whose deletion the service has
+	// not applied yet, the call is refused with unavailable, and succeeds
+	// once it has. When the document's generation changes during the
+	// call, it is refused with aborted, and the caller retries.
+	//
+	// Auth: doc_write on the owning document, and read permission on it.
+	UndeleteDatabase(context.Context, *connect.Request[v1.UndeleteDatabaseRequest]) (*connect.Response[v1.UndeleteDatabaseResponse], error)
 }
 
 // NewDatabasesServiceClient constructs a client for the elephant.tables.v1.DatabasesService
@@ -569,18 +626,25 @@ func NewDatabasesServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(databasesServiceMethods.ByName("DeleteDatabase")),
 			connect.WithClientOptions(opts...),
 		),
+		undeleteDatabase: connect.NewClient[v1.UndeleteDatabaseRequest, v1.UndeleteDatabaseResponse](
+			httpClient,
+			baseURL+DatabasesServiceUndeleteDatabaseProcedure,
+			connect.WithSchema(databasesServiceMethods.ByName("UndeleteDatabase")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // databasesServiceClient implements DatabasesServiceClient.
 type databasesServiceClient struct {
-	createDatabase  *connect.Client[v1.CreateDatabaseRequest, v1.CreateDatabaseResponse]
-	getDatabase     *connect.Client[v1.GetDatabaseRequest, v1.GetDatabaseResponse]
-	fork            *connect.Client[v1.ForkRequest, v1.ForkResponse]
-	restore         *connect.Client[v1.RestoreRequest, v1.RestoreResponse]
-	history         *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
-	recoverDatabase *connect.Client[v1.RecoverDatabaseRequest, v1.RecoverDatabaseResponse]
-	deleteDatabase  *connect.Client[v1.DeleteDatabaseRequest, v1.DeleteDatabaseResponse]
+	createDatabase   *connect.Client[v1.CreateDatabaseRequest, v1.CreateDatabaseResponse]
+	getDatabase      *connect.Client[v1.GetDatabaseRequest, v1.GetDatabaseResponse]
+	fork             *connect.Client[v1.ForkRequest, v1.ForkResponse]
+	restore          *connect.Client[v1.RestoreRequest, v1.RestoreResponse]
+	history          *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
+	recoverDatabase  *connect.Client[v1.RecoverDatabaseRequest, v1.RecoverDatabaseResponse]
+	deleteDatabase   *connect.Client[v1.DeleteDatabaseRequest, v1.DeleteDatabaseResponse]
+	undeleteDatabase *connect.Client[v1.UndeleteDatabaseRequest, v1.UndeleteDatabaseResponse]
 }
 
 // CreateDatabase calls elephant.tables.v1.DatabasesService.CreateDatabase.
@@ -616,6 +680,11 @@ func (c *databasesServiceClient) RecoverDatabase(ctx context.Context, req *conne
 // DeleteDatabase calls elephant.tables.v1.DatabasesService.DeleteDatabase.
 func (c *databasesServiceClient) DeleteDatabase(ctx context.Context, req *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error) {
 	return c.deleteDatabase.CallUnary(ctx, req)
+}
+
+// UndeleteDatabase calls elephant.tables.v1.DatabasesService.UndeleteDatabase.
+func (c *databasesServiceClient) UndeleteDatabase(ctx context.Context, req *connect.Request[v1.UndeleteDatabaseRequest]) (*connect.Response[v1.UndeleteDatabaseResponse], error) {
+	return c.undeleteDatabase.CallUnary(ctx, req)
 }
 
 // DatabasesServiceHandler is an implementation of the elephant.tables.v1.DatabasesService service.
@@ -755,9 +824,9 @@ type DatabasesServiceHandler interface {
 	// imports do not run while it is deleted; its forks,
 	// which belong to other documents, are not touched. The service keeps
 	// the archived database for a retention window, 30 days by default,
-	// and then deletes it for good; within the window an operator can
-	// bring it back, but no call can. A document restore never brings it
-	// back either.
+	// and then deletes it for good; within the window UndeleteDatabase
+	// brings it back, while the document's generation is the same. A
+	// document restore never brings it back.
 	//
 	// The document may get a new database afterwards with CreateDatabase
 	// or Fork, numbered on within the generation, with an id of its own.
@@ -766,6 +835,57 @@ type DatabasesServiceHandler interface {
 	//
 	// Auth: doc_write on the owning document, and read permission on it.
 	DeleteDatabase(context.Context, *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error)
+	// UndeleteDatabase brings back a database a caller deleted with
+	// DeleteDatabase, within its retention window. It is live again as it
+	// was when it was deleted, with every change made before the delete,
+	// under its own id and number; its snapshots, publications and uploads
+	// are its own again, and its pending imports run. An undeleted event is
+	// logged. Nothing is opened: the next call that names the document
+	// opens the database.
+	//
+	// The database brought back is the document's most recently deleted
+	// one, or the one of the document's current generation that
+	// generation names. It must belong to the document's current
+	// generation, which the service reads from the repository with the
+	// caller's token: a database deleted before the document was deleted,
+	// re-created or restored stays deleted. A document has at most one
+	// live database, so one created or forked into the document since
+	// the delete has to be deleted first.
+	//
+	// A call for a document without a deleted database, or with no
+	// database of the given number in its current generation, is not
+	// found. The other refusals carry a reason, all with code
+	// failed_precondition:
+	//
+	//   not_deleted: the database named by generation is live. A second
+	//   call naming it is refused this way rather than succeeding again,
+	//   as a second DeleteDatabase is not found.
+	//
+	//   deleted_with_document: the database was archived when its
+	//   document generation was deleted, not by DeleteDatabase. Only a
+	//   restore of the document in the repository brings it back.
+	//
+	//   generation_ended: the database belongs to an earlier generation
+	//   of the document, which was deleted, created again or restored
+	//   since.
+	//
+	//   newer_database: the document has a live database, created or
+	//   forked after the delete.
+	//
+	//   purging: the retention window has passed and the service has
+	//   started deleting the database's storage.
+	//
+	//   purged: the database's storage is gone.
+	//
+	// A document the service recorded as out of sync is refused with
+	// out_of_sync, as for CreateDatabase. When the document's live
+	// database is of an earlier generation, whose deletion the service has
+	// not applied yet, the call is refused with unavailable, and succeeds
+	// once it has. When the document's generation changes during the
+	// call, it is refused with aborted, and the caller retries.
+	//
+	// Auth: doc_write on the owning document, and read permission on it.
+	UndeleteDatabase(context.Context, *connect.Request[v1.UndeleteDatabaseRequest]) (*connect.Response[v1.UndeleteDatabaseResponse], error)
 }
 
 // NewDatabasesServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -817,6 +937,12 @@ func NewDatabasesServiceHandler(svc DatabasesServiceHandler, opts ...connect.Han
 		connect.WithSchema(databasesServiceMethods.ByName("DeleteDatabase")),
 		connect.WithHandlerOptions(opts...),
 	)
+	databasesServiceUndeleteDatabaseHandler := connect.NewUnaryHandler(
+		DatabasesServiceUndeleteDatabaseProcedure,
+		svc.UndeleteDatabase,
+		connect.WithSchema(databasesServiceMethods.ByName("UndeleteDatabase")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/elephant.tables.v1.DatabasesService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DatabasesServiceCreateDatabaseProcedure:
@@ -833,6 +959,8 @@ func NewDatabasesServiceHandler(svc DatabasesServiceHandler, opts ...connect.Han
 			databasesServiceRecoverDatabaseHandler.ServeHTTP(w, r)
 		case DatabasesServiceDeleteDatabaseProcedure:
 			databasesServiceDeleteDatabaseHandler.ServeHTTP(w, r)
+		case DatabasesServiceUndeleteDatabaseProcedure:
+			databasesServiceUndeleteDatabaseHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -868,6 +996,10 @@ func (UnimplementedDatabasesServiceHandler) RecoverDatabase(context.Context, *co
 
 func (UnimplementedDatabasesServiceHandler) DeleteDatabase(context.Context, *connect.Request[v1.DeleteDatabaseRequest]) (*connect.Response[v1.DeleteDatabaseResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.DatabasesService.DeleteDatabase is not implemented"))
+}
+
+func (UnimplementedDatabasesServiceHandler) UndeleteDatabase(context.Context, *connect.Request[v1.UndeleteDatabaseRequest]) (*connect.Response[v1.UndeleteDatabaseResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.DatabasesService.UndeleteDatabase is not implemented"))
 }
 
 // SchemaServiceClient is a client for the elephant.tables.v1.SchemaService service.

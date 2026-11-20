@@ -201,6 +201,9 @@ syntax = "proto3";
 //   refused this way, and so are CreateDatabase and Fork into the
 //   document, until an operator reconciles it with
 //   AdminService.Reconcile. The client can only retry later.
+//
+// DatabasesService.UndeleteDatabase refuses with reasons of its own,
+// listed there.
 package elephant.tables.v1;
 
 import "google/protobuf/timestamp.proto";
@@ -561,8 +564,8 @@ message Sort {
 
 // ---------- Databases ----------
 
-// DatabasesService creates, describes, forks, restores, recovers and
-// deletes databases. A document has at most one database that is not
+// DatabasesService creates, describes, forks, restores, recovers,
+// deletes and undeletes databases. A document has at most one database that is not
 // archived: the current generation's. A generation has more than one
 // database only when callers deleted the earlier ones. See Generations
 // in the package comment.
@@ -708,9 +711,9 @@ service DatabasesService {
   // imports do not run while it is deleted; its forks,
   // which belong to other documents, are not touched. The service keeps
   // the archived database for a retention window, 30 days by default,
-  // and then deletes it for good; within the window an operator can
-  // bring it back, but no call can. A document restore never brings it
-  // back either.
+  // and then deletes it for good; within the window UndeleteDatabase
+  // brings it back, while the document's generation is the same. A
+  // document restore never brings it back.
   //
   // The document may get a new database afterwards with CreateDatabase
   // or Fork, numbered on within the generation, with an id of its own.
@@ -719,6 +722,58 @@ service DatabasesService {
   //
   // Auth: doc_write on the owning document, and read permission on it.
   rpc DeleteDatabase(DeleteDatabaseRequest) returns (DeleteDatabaseResponse);
+
+  // UndeleteDatabase brings back a database a caller deleted with
+  // DeleteDatabase, within its retention window. It is live again as it
+  // was when it was deleted, with every change made before the delete,
+  // under its own id and number; its snapshots, publications and uploads
+  // are its own again, and its pending imports run. An undeleted event is
+  // logged. Nothing is opened: the next call that names the document
+  // opens the database.
+  //
+  // The database brought back is the document's most recently deleted
+  // one, or the one of the document's current generation that
+  // generation names. It must belong to the document's current
+  // generation, which the service reads from the repository with the
+  // caller's token: a database deleted before the document was deleted,
+  // re-created or restored stays deleted. A document has at most one
+  // live database, so one created or forked into the document since
+  // the delete has to be deleted first.
+  //
+  // A call for a document without a deleted database, or with no
+  // database of the given number in its current generation, is not
+  // found. The other refusals carry a reason, all with code
+  // failed_precondition:
+  //
+  //   not_deleted: the database named by generation is live. A second
+  //   call naming it is refused this way rather than succeeding again,
+  //   as a second DeleteDatabase is not found.
+  //
+  //   deleted_with_document: the database was archived when its
+  //   document generation was deleted, not by DeleteDatabase. Only a
+  //   restore of the document in the repository brings it back.
+  //
+  //   generation_ended: the database belongs to an earlier generation
+  //   of the document, which was deleted, created again or restored
+  //   since.
+  //
+  //   newer_database: the document has a live database, created or
+  //   forked after the delete.
+  //
+  //   purging: the retention window has passed and the service has
+  //   started deleting the database's storage.
+  //
+  //   purged: the database's storage is gone.
+  //
+  // A document the service recorded as out of sync is refused with
+  // out_of_sync, as for CreateDatabase. When the document's live
+  // database is of an earlier generation, whose deletion the service has
+  // not applied yet, the call is refused with unavailable, and succeeds
+  // once it has. When the document's generation changes during the
+  // call, it is refused with aborted, and the caller retries.
+  //
+  // Auth: doc_write on the owning document, and read permission on it.
+  rpc UndeleteDatabase(UndeleteDatabaseRequest) returns (UndeleteDatabaseResponse);
 }
 
 // DatabaseInfo describes a database.
@@ -773,7 +828,8 @@ message DatabaseInfo {
   // nothing has been written to the database since, or for up to 30
   // seconds while writes continue: it can trail the head by that long.
   // Unset when the response does not open the database: in
-  // CreateDatabaseResponse, and with a recovery in GetDatabaseResponse.
+  // CreateDatabaseResponse and UndeleteDatabaseResponse, and with a
+  // recovery in GetDatabaseResponse.
   optional int64 data_size = 13;
   // The soft size cap in bytes: the data_size past which a client should
   // warn that the database is large. It is reported, never enforced;
@@ -979,6 +1035,23 @@ message DeleteDatabaseRequest {
 }
 
 message DeleteDatabaseResponse {}
+
+message UndeleteDatabaseRequest {
+  // UUID of the owning document, as every request names a database.
+  // Required.
+  string database = 1;
+  // The number of the database to bring back among the databases of
+  // the document's current generation (DatabaseInfo.generation). Unset
+  // brings back the document's most recently deleted database.
+  optional int32 generation = 2;
+}
+
+message UndeleteDatabaseResponse {
+  // The database brought back, as GetDatabase describes it, except that
+  // it is not opened: without head, durable, namespaces and data_size,
+  // which GetDatabase reads from the database.
+  DatabaseInfo info = 1;
+}
 
 // ---------- Schema ----------
 
@@ -2992,9 +3065,10 @@ message Event {
   // DeleteDatabase, and undeleted the database live again, with its
   // data: once a restore of the document is bound to that generation
   // (which waits for the repository to report the generation a restore
-  // came from), or once an operator brought back a database a caller
-  // deleted, within its retention. A restore never brings back a
-  // database a caller deleted. Neither has a cursor.
+  // came from), or once a caller brought back a database a caller
+  // deleted, with DatabasesService.UndeleteDatabase within its
+  // retention. A restore never brings back a database a caller deleted.
+  // Neither has a cursor.
   string type = 2;
   // UUID of the owning document of the database it happened to, by which
   // requests name the database.

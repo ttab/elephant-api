@@ -10,7 +10,7 @@ pull requests hold the detail.
 elephant-tables, which gives a document its own tabular data in a SQLite
 database of the document's current generation. It is seven services in one
 package: `DatabasesService` (create, describe, fork, restore in place,
-history, recovery from a lost replica, and delete), `SchemaService`
+history, recovery from a lost replica, delete and undelete), `SchemaService`
 (namespaces, tables, columns, constraints, indexes, type changes with a
 dry run and declared schemas), `DataService`
 (rows, mutations, undo, read-only SQL, column summaries, agent
@@ -64,7 +64,7 @@ Changes:
   a `deleted` event and ends the database's `Watch` streams; a second
   call is `not_found`. The service keeps the archived database for a
   retention window before deleting it, and a document restore never
-  brings it back; an operator can within the window, which logs
+  brings it back; `UndeleteDatabase` can within the window, which logs
   `undeleted`. Its pending imports do not run while it is deleted.
   `CreateDatabase` and `Fork` then give the generation a
   new, empty database, numbered on within the generation in
@@ -267,6 +267,16 @@ Changes:
   unknown name, a value out of range or values that contradict each
   other with `invalid_argument`. Both need `tables_admin`. The limit
   numbers the comments give are now the defaults.
+- Undelete: `DatabasesService.UndeleteDatabase` brings back a database
+  a caller deleted, within its retention, as it was when deleted, and
+  logs `undeleted`. It takes the document's UUID in `database` and, to
+  pick an earlier one, the database's number in the current generation
+  in `generation`; unset brings back the most recently deleted.
+  `UndeleteDatabaseResponse.info` describes the database without opening
+  it. It needs what `DeleteDatabase` needs, and is refused with
+  `failed_precondition` and the reason `not_deleted`,
+  `deleted_with_document`, `generation_ended`, `newer_database`,
+  `purging` or `purged` when it cannot.
 
 ## [v0.30.0] - 2026-11-18
 
