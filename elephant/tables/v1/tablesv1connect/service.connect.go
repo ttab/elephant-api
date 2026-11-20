@@ -68,8 +68,11 @@
 // "widget" or "plan_board". A malformed one is refused with
 // invalid_argument. A namespace exists once a table has been created in
 // it or SchemaService.UpdateNamespace has set its flag. A database holds
-// at most 20 namespaces, and a namespace at most 200 tables; past either
-// a call is refused with resource_exhausted. The database size cap, the
+// at most 10 namespaces, and a namespace at most 20 tables, by default;
+// past either a call is refused with resource_exhausted. These and the
+// service's other data limits are the deployment's, which an operator
+// reads and changes with AdminService.GetLimits and UpdateLimits. The
+// database size cap, the
 // change log and the single writer are shared by every namespace.
 //
 // Keys: a table has a key, unique within its namespace, and a column a
@@ -356,6 +359,11 @@ const (
 	AdminServiceListOutOfSyncProcedure = "/elephant.tables.v1.AdminService/ListOutOfSync"
 	// AdminServiceReconcileProcedure is the fully-qualified name of the AdminService's Reconcile RPC.
 	AdminServiceReconcileProcedure = "/elephant.tables.v1.AdminService/Reconcile"
+	// AdminServiceGetLimitsProcedure is the fully-qualified name of the AdminService's GetLimits RPC.
+	AdminServiceGetLimitsProcedure = "/elephant.tables.v1.AdminService/GetLimits"
+	// AdminServiceUpdateLimitsProcedure is the fully-qualified name of the AdminService's UpdateLimits
+	// RPC.
+	AdminServiceUpdateLimitsProcedure = "/elephant.tables.v1.AdminService/UpdateLimits"
 )
 
 // DatabasesServiceClient is a client for the elephant.tables.v1.DatabasesService service.
@@ -917,7 +925,8 @@ type SchemaServiceClient interface {
 	// constraint that existing rows break is refused with
 	// failed_precondition and a ConstraintViolations detail; with dry_run
 	// set nothing is written and the response lists those rows. A table
-	// holds at most 16 unique constraints and indexes; past that the call
+	// holds at most 8 unique constraints and indexes by default
+	// (indexes_per_table); past that the call
 	// is refused with resource_exhausted.
 	AddIndex(context.Context, *connect.Request[v1.AddIndexRequest]) (*connect.Response[v1.AddIndexResponse], error)
 	// DeleteIndex removes a unique constraint or an index.
@@ -1221,7 +1230,8 @@ type SchemaServiceHandler interface {
 	// constraint that existing rows break is refused with
 	// failed_precondition and a ConstraintViolations detail; with dry_run
 	// set nothing is written and the response lists those rows. A table
-	// holds at most 16 unique constraints and indexes; past that the call
+	// holds at most 8 unique constraints and indexes by default
+	// (indexes_per_table); past that the call
 	// is refused with resource_exhausted.
 	AddIndex(context.Context, *connect.Request[v1.AddIndexRequest]) (*connect.Response[v1.AddIndexResponse], error)
 	// DeleteIndex removes a unique constraint or an index.
@@ -2763,6 +2773,29 @@ type AdminServiceClient interface {
 	//
 	// Auth: the tables_admin scope.
 	Reconcile(context.Context, *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error)
+	// GetLimits returns every data limit in effect, with its default and
+	// the range UpdateLimits accepts, ordered by name.
+	//
+	// Auth: the tables_admin scope.
+	GetLimits(context.Context, *connect.Request[v1.GetLimitsRequest]) (*connect.Response[v1.GetLimitsResponse], error)
+	// UpdateLimits sets some limits and resets others to their defaults,
+	// in one change, and returns every limit as GetLimits does. The pod
+	// that serves the call applies the change at once; the other pods read
+	// the limits again about every 30 seconds.
+	//
+	// A lowered limit refuses new writes only: data already past it stays
+	// readable, and may be edited in ways that do not take it further
+	// past. A hard database size cap below a database's file size refuses
+	// every write that would grow the file.
+	//
+	// Returns invalid_argument, changing nothing, for an unknown name, a
+	// name both set and reset, a value outside the limit's range, or
+	// values that contradict each other: a default page size or bucket
+	// count above its maximum, or a soft database size cap above the hard
+	// one.
+	//
+	// Auth: the tables_admin scope.
+	UpdateLimits(context.Context, *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error)
 }
 
 // NewAdminServiceClient constructs a client for the elephant.tables.v1.AdminService service. By
@@ -2788,6 +2821,18 @@ func NewAdminServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(adminServiceMethods.ByName("Reconcile")),
 			connect.WithClientOptions(opts...),
 		),
+		getLimits: connect.NewClient[v1.GetLimitsRequest, v1.GetLimitsResponse](
+			httpClient,
+			baseURL+AdminServiceGetLimitsProcedure,
+			connect.WithSchema(adminServiceMethods.ByName("GetLimits")),
+			connect.WithClientOptions(opts...),
+		),
+		updateLimits: connect.NewClient[v1.UpdateLimitsRequest, v1.UpdateLimitsResponse](
+			httpClient,
+			baseURL+AdminServiceUpdateLimitsProcedure,
+			connect.WithSchema(adminServiceMethods.ByName("UpdateLimits")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -2795,6 +2840,8 @@ func NewAdminServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 type adminServiceClient struct {
 	listOutOfSync *connect.Client[v1.ListOutOfSyncRequest, v1.ListOutOfSyncResponse]
 	reconcile     *connect.Client[v1.ReconcileRequest, v1.ReconcileResponse]
+	getLimits     *connect.Client[v1.GetLimitsRequest, v1.GetLimitsResponse]
+	updateLimits  *connect.Client[v1.UpdateLimitsRequest, v1.UpdateLimitsResponse]
 }
 
 // ListOutOfSync calls elephant.tables.v1.AdminService.ListOutOfSync.
@@ -2805,6 +2852,16 @@ func (c *adminServiceClient) ListOutOfSync(ctx context.Context, req *connect.Req
 // Reconcile calls elephant.tables.v1.AdminService.Reconcile.
 func (c *adminServiceClient) Reconcile(ctx context.Context, req *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error) {
 	return c.reconcile.CallUnary(ctx, req)
+}
+
+// GetLimits calls elephant.tables.v1.AdminService.GetLimits.
+func (c *adminServiceClient) GetLimits(ctx context.Context, req *connect.Request[v1.GetLimitsRequest]) (*connect.Response[v1.GetLimitsResponse], error) {
+	return c.getLimits.CallUnary(ctx, req)
+}
+
+// UpdateLimits calls elephant.tables.v1.AdminService.UpdateLimits.
+func (c *adminServiceClient) UpdateLimits(ctx context.Context, req *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error) {
+	return c.updateLimits.CallUnary(ctx, req)
 }
 
 // AdminServiceHandler is an implementation of the elephant.tables.v1.AdminService service.
@@ -2834,6 +2891,29 @@ type AdminServiceHandler interface {
 	//
 	// Auth: the tables_admin scope.
 	Reconcile(context.Context, *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error)
+	// GetLimits returns every data limit in effect, with its default and
+	// the range UpdateLimits accepts, ordered by name.
+	//
+	// Auth: the tables_admin scope.
+	GetLimits(context.Context, *connect.Request[v1.GetLimitsRequest]) (*connect.Response[v1.GetLimitsResponse], error)
+	// UpdateLimits sets some limits and resets others to their defaults,
+	// in one change, and returns every limit as GetLimits does. The pod
+	// that serves the call applies the change at once; the other pods read
+	// the limits again about every 30 seconds.
+	//
+	// A lowered limit refuses new writes only: data already past it stays
+	// readable, and may be edited in ways that do not take it further
+	// past. A hard database size cap below a database's file size refuses
+	// every write that would grow the file.
+	//
+	// Returns invalid_argument, changing nothing, for an unknown name, a
+	// name both set and reset, a value outside the limit's range, or
+	// values that contradict each other: a default page size or bucket
+	// count above its maximum, or a soft database size cap above the hard
+	// one.
+	//
+	// Auth: the tables_admin scope.
+	UpdateLimits(context.Context, *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error)
 }
 
 // NewAdminServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -2855,12 +2935,28 @@ func NewAdminServiceHandler(svc AdminServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(adminServiceMethods.ByName("Reconcile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	adminServiceGetLimitsHandler := connect.NewUnaryHandler(
+		AdminServiceGetLimitsProcedure,
+		svc.GetLimits,
+		connect.WithSchema(adminServiceMethods.ByName("GetLimits")),
+		connect.WithHandlerOptions(opts...),
+	)
+	adminServiceUpdateLimitsHandler := connect.NewUnaryHandler(
+		AdminServiceUpdateLimitsProcedure,
+		svc.UpdateLimits,
+		connect.WithSchema(adminServiceMethods.ByName("UpdateLimits")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/elephant.tables.v1.AdminService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AdminServiceListOutOfSyncProcedure:
 			adminServiceListOutOfSyncHandler.ServeHTTP(w, r)
 		case AdminServiceReconcileProcedure:
 			adminServiceReconcileHandler.ServeHTTP(w, r)
+		case AdminServiceGetLimitsProcedure:
+			adminServiceGetLimitsHandler.ServeHTTP(w, r)
+		case AdminServiceUpdateLimitsProcedure:
+			adminServiceUpdateLimitsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2876,4 +2972,12 @@ func (UnimplementedAdminServiceHandler) ListOutOfSync(context.Context, *connect.
 
 func (UnimplementedAdminServiceHandler) Reconcile(context.Context, *connect.Request[v1.ReconcileRequest]) (*connect.Response[v1.ReconcileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.AdminService.Reconcile is not implemented"))
+}
+
+func (UnimplementedAdminServiceHandler) GetLimits(context.Context, *connect.Request[v1.GetLimitsRequest]) (*connect.Response[v1.GetLimitsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.AdminService.GetLimits is not implemented"))
+}
+
+func (UnimplementedAdminServiceHandler) UpdateLimits(context.Context, *connect.Request[v1.UpdateLimitsRequest]) (*connect.Response[v1.UpdateLimitsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.tables.v1.AdminService.UpdateLimits is not implemented"))
 }

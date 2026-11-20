@@ -70,8 +70,11 @@
 // "widget" or "plan_board". A malformed one is refused with
 // invalid_argument. A namespace exists once a table has been created in
 // it or SchemaService.UpdateNamespace has set its flag. A database holds
-// at most 20 namespaces, and a namespace at most 200 tables; past either
-// a call is refused with resource_exhausted. The database size cap, the
+// at most 10 namespaces, and a namespace at most 20 tables, by default;
+// past either a call is refused with resource_exhausted. These and the
+// service's other data limits are the deployment's, which an operator
+// reads and changes with AdminService.GetLimits and UpdateLimits. The
+// database size cap, the
 // change log and the single writer are shared by every namespace.
 //
 // Keys: a table has a key, unique within its namespace, and a column a
@@ -1416,7 +1419,8 @@ type Index struct {
 	// AddIndex, or made by the service from its columns' keys. A key is an
 	// identifier as a column key is.
 	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Ids of the columns, in order, at most 8. AddIndex takes keys too.
+	// Ids of the columns, in order, at most 4 by default
+	// (columns_per_index). AddIndex takes keys too.
 	Columns []string `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
 	// True for a unique constraint, false for an index.
 	Unique        bool `protobuf:"varint,4,opt,name=unique,proto3" json:"unique,omitempty"`
@@ -3537,7 +3541,8 @@ type SchemaDeclaration struct {
 	// Whether people may edit the namespace's schema; see
 	// Namespace.schema_editable.
 	SchemaEditable bool `protobuf:"varint,2,opt,name=schema_editable,json=schemaEditable,proto3" json:"schema_editable,omitempty"`
-	// The namespace's tables, at most 200, each key once.
+	// The namespace's tables, at most 20 by default
+	// (tables_per_namespace), each key once.
 	Tables        []*DeclaredTable `protobuf:"bytes,3,rep,name=tables,proto3" json:"tables,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3602,11 +3607,11 @@ type DeclaredTable struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Display name. Required.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The table's columns, in the order the table has them, at most 500,
-	// each key once.
+	// The table's columns, in the order the table has them, at most 50
+	// by default (columns_per_table), each key once.
 	Columns []*DeclaredColumn `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
-	// The table's unique constraints and indexes, at most 16, each key
-	// once.
+	// The table's unique constraints and indexes, at most 8 by default
+	// (indexes_per_table), each key once.
 	Indexes []*DeclaredIndex `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
 	// Key of the column DataService.Summarize summarises by default, which
 	// must be a declared column that can be summarised. Empty leaves it to
@@ -3789,8 +3794,8 @@ type DeclaredIndex struct {
 	// The index's key, which matches it with the table's index of the same
 	// key. Required.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// Keys of the declared columns it covers, in order, at most 8 and each
-	// once.
+	// Keys of the declared columns it covers, in order, at most 4 by
+	// default (columns_per_index) and each once.
 	Columns []string `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
 	// True for a unique constraint, false for an index.
 	Unique        bool `protobuf:"varint,3,opt,name=unique,proto3" json:"unique,omitempty"`
@@ -5705,7 +5710,7 @@ type AddIndexRequest struct {
 	// Id or key of the table.
 	Table string `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
 	// The unique constraint or index. Its id is assigned by the server;
-	// its columns are ids or keys, at most 8 and each once. Its key is
+	// its columns are ids or keys, at most 4 by default and each once. Its key is
 	// made from the columns' keys when empty, and refused with
 	// already_exists when another index of the table holds it. A table
 	// cannot have two indexes over the same columns in the same order
@@ -11351,6 +11356,308 @@ func (x *Event) GetDocumentNonce() string {
 	return ""
 }
 
+// DataLimit is one of the deployment's data limits. Values are counts,
+// or bytes for a name that ends in _bytes; option_length is in
+// characters.
+//
+// The names: namespaces_per_database, tables_per_namespace,
+// columns_per_table, options_per_column, option_length, cell_bytes,
+// rows_per_table, indexes_per_table, columns_per_index,
+// operations_per_mutate, operations_per_suggestion, filters,
+// filter_values, filter_bound_values, filter_conditions, sort_keys,
+// list_default_page_size, list_max_page_size,
+// changes_default_page_size, changes_max_page_size,
+// summary_default_buckets, summary_max_buckets, published_rows,
+// suggestion_bytes, open_suggestions, open_suggestions_per_subject,
+// open_suggestion_bytes, query_rows, query_result_bytes,
+// query_row_bytes, query_value_bytes, query_columns,
+// query_statement_bytes, query_params, import_upload_bytes,
+// import_unzipped_bytes, import_zip_entries, import_cells,
+// import_text_bytes, import_sheets, import_rows, import_area,
+// import_pending_uploads, database_size_bytes and
+// soft_database_size_bytes. A later version of the service may add
+// names.
+type DataLimit struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name of the limit, such as columns_per_table.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The value in effect.
+	Value int64 `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
+	// The service's built-in default.
+	DefaultValue int64 `protobuf:"varint,3,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
+	// True when an operator's value overrides the default.
+	Overridden bool `protobuf:"varint,4,opt,name=overridden,proto3" json:"overridden,omitempty"`
+	// The smallest value UpdateLimits accepts.
+	MinValue int64 `protobuf:"varint,5,opt,name=min_value,json=minValue,proto3" json:"min_value,omitempty"`
+	// The largest value UpdateLimits accepts: past it the service, or
+	// SQLite under it, cannot work.
+	MaxValue int64 `protobuf:"varint,6,opt,name=max_value,json=maxValue,proto3" json:"max_value,omitempty"`
+	// What the limit bounds, for a person to read.
+	Description   string `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DataLimit) Reset() {
+	*x = DataLimit{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[135]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DataLimit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataLimit) ProtoMessage() {}
+
+func (x *DataLimit) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[135]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataLimit.ProtoReflect.Descriptor instead.
+func (*DataLimit) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{135}
+}
+
+func (x *DataLimit) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DataLimit) GetValue() int64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+func (x *DataLimit) GetDefaultValue() int64 {
+	if x != nil {
+		return x.DefaultValue
+	}
+	return 0
+}
+
+func (x *DataLimit) GetOverridden() bool {
+	if x != nil {
+		return x.Overridden
+	}
+	return false
+}
+
+func (x *DataLimit) GetMinValue() int64 {
+	if x != nil {
+		return x.MinValue
+	}
+	return 0
+}
+
+func (x *DataLimit) GetMaxValue() int64 {
+	if x != nil {
+		return x.MaxValue
+	}
+	return 0
+}
+
+func (x *DataLimit) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+type GetLimitsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLimitsRequest) Reset() {
+	*x = GetLimitsRequest{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[136]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLimitsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLimitsRequest) ProtoMessage() {}
+
+func (x *GetLimitsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[136]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLimitsRequest.ProtoReflect.Descriptor instead.
+func (*GetLimitsRequest) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{136}
+}
+
+type GetLimitsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every limit, by name.
+	Limits        []*DataLimit `protobuf:"bytes,1,rep,name=limits,proto3" json:"limits,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLimitsResponse) Reset() {
+	*x = GetLimitsResponse{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[137]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLimitsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLimitsResponse) ProtoMessage() {}
+
+func (x *GetLimitsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[137]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLimitsResponse.ProtoReflect.Descriptor instead.
+func (*GetLimitsResponse) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{137}
+}
+
+func (x *GetLimitsResponse) GetLimits() []*DataLimit {
+	if x != nil {
+		return x.Limits
+	}
+	return nil
+}
+
+type UpdateLimitsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Values to set, by limit name.
+	Set map[string]int64 `protobuf:"bytes,1,rep,name=set,proto3" json:"set,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	// Names of limits to reset to their defaults. Resetting a limit that
+	// is not overridden changes nothing.
+	ResetToDefault []string `protobuf:"bytes,2,rep,name=reset_to_default,json=resetToDefault,proto3" json:"reset_to_default,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *UpdateLimitsRequest) Reset() {
+	*x = UpdateLimitsRequest{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[138]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateLimitsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateLimitsRequest) ProtoMessage() {}
+
+func (x *UpdateLimitsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[138]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateLimitsRequest.ProtoReflect.Descriptor instead.
+func (*UpdateLimitsRequest) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{138}
+}
+
+func (x *UpdateLimitsRequest) GetSet() map[string]int64 {
+	if x != nil {
+		return x.Set
+	}
+	return nil
+}
+
+func (x *UpdateLimitsRequest) GetResetToDefault() []string {
+	if x != nil {
+		return x.ResetToDefault
+	}
+	return nil
+}
+
+type UpdateLimitsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every limit after the change, by name.
+	Limits        []*DataLimit `protobuf:"bytes,1,rep,name=limits,proto3" json:"limits,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateLimitsResponse) Reset() {
+	*x = UpdateLimitsResponse{}
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[139]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateLimitsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateLimitsResponse) ProtoMessage() {}
+
+func (x *UpdateLimitsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[139]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateLimitsResponse.ProtoReflect.Descriptor instead.
+func (*UpdateLimitsResponse) Descriptor() ([]byte, []int) {
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{139}
+}
+
+func (x *UpdateLimitsResponse) GetLimits() []*DataLimit {
+	if x != nil {
+		return x.Limits
+	}
+	return nil
+}
+
 // SkippedEvent is a repository event the follower skipped, which left
 // a document's database out of sync with the document, or a later
 // deletion or restore of the document it held back behind one; the
@@ -11379,7 +11686,7 @@ type SkippedEvent struct {
 
 func (x *SkippedEvent) Reset() {
 	*x = SkippedEvent{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[135]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11391,7 +11698,7 @@ func (x *SkippedEvent) String() string {
 func (*SkippedEvent) ProtoMessage() {}
 
 func (x *SkippedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[135]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11404,7 +11711,7 @@ func (x *SkippedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkippedEvent.ProtoReflect.Descriptor instead.
 func (*SkippedEvent) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{135}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *SkippedEvent) GetEventId() int64 {
@@ -11462,7 +11769,7 @@ type ListOutOfSyncRequest struct {
 
 func (x *ListOutOfSyncRequest) Reset() {
 	*x = ListOutOfSyncRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[136]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11474,7 +11781,7 @@ func (x *ListOutOfSyncRequest) String() string {
 func (*ListOutOfSyncRequest) ProtoMessage() {}
 
 func (x *ListOutOfSyncRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[136]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11487,7 +11794,7 @@ func (x *ListOutOfSyncRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOutOfSyncRequest.ProtoReflect.Descriptor instead.
 func (*ListOutOfSyncRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{136}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *ListOutOfSyncRequest) GetAfter() int64 {
@@ -11514,7 +11821,7 @@ type ListOutOfSyncResponse struct {
 
 func (x *ListOutOfSyncResponse) Reset() {
 	*x = ListOutOfSyncResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[137]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11526,7 +11833,7 @@ func (x *ListOutOfSyncResponse) String() string {
 func (*ListOutOfSyncResponse) ProtoMessage() {}
 
 func (x *ListOutOfSyncResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[137]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11539,7 +11846,7 @@ func (x *ListOutOfSyncResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOutOfSyncResponse.ProtoReflect.Descriptor instead.
 func (*ListOutOfSyncResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{137}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *ListOutOfSyncResponse) GetEvents() []*SkippedEvent {
@@ -11559,7 +11866,7 @@ type ReconcileRequest struct {
 
 func (x *ReconcileRequest) Reset() {
 	*x = ReconcileRequest{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[138]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11571,7 +11878,7 @@ func (x *ReconcileRequest) String() string {
 func (*ReconcileRequest) ProtoMessage() {}
 
 func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[138]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11584,7 +11891,7 @@ func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileRequest.ProtoReflect.Descriptor instead.
 func (*ReconcileRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{138}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *ReconcileRequest) GetDocument() string {
@@ -11613,7 +11920,7 @@ type ReconciledEvent struct {
 
 func (x *ReconciledEvent) Reset() {
 	*x = ReconciledEvent{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[139]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11625,7 +11932,7 @@ func (x *ReconciledEvent) String() string {
 func (*ReconciledEvent) ProtoMessage() {}
 
 func (x *ReconciledEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[139]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11638,7 +11945,7 @@ func (x *ReconciledEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconciledEvent.ProtoReflect.Descriptor instead.
 func (*ReconciledEvent) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{139}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *ReconciledEvent) GetEvent() *SkippedEvent {
@@ -11672,7 +11979,7 @@ type ReconcileResponse struct {
 
 func (x *ReconcileResponse) Reset() {
 	*x = ReconcileResponse{}
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[140]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11684,7 +11991,7 @@ func (x *ReconcileResponse) String() string {
 func (*ReconcileResponse) ProtoMessage() {}
 
 func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_tables_v1_service_proto_msgTypes[140]
+	mi := &file_elephant_tables_v1_service_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11697,7 +12004,7 @@ func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileResponse.ProtoReflect.Descriptor instead.
 func (*ReconcileResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{140}
+	return file_elephant_tables_v1_service_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *ReconcileResponse) GetEvents() []*ReconciledEvent {
@@ -12480,7 +12787,28 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\vdatabase_id\x18\t \x01(\tR\n" +
 	"databaseId\x12%\n" +
 	"\x0edocument_nonce\x18\n" +
-	" \x01(\tR\rdocumentNonce\"\xd1\x01\n" +
+	" \x01(\tR\rdocumentNonce\"\xd6\x01\n" +
+	"\tDataLimit\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value\x12#\n" +
+	"\rdefault_value\x18\x03 \x01(\x03R\fdefaultValue\x12\x1e\n" +
+	"\n" +
+	"overridden\x18\x04 \x01(\bR\n" +
+	"overridden\x12\x1b\n" +
+	"\tmin_value\x18\x05 \x01(\x03R\bminValue\x12\x1b\n" +
+	"\tmax_value\x18\x06 \x01(\x03R\bmaxValue\x12 \n" +
+	"\vdescription\x18\a \x01(\tR\vdescription\"\x12\n" +
+	"\x10GetLimitsRequest\"J\n" +
+	"\x11GetLimitsResponse\x125\n" +
+	"\x06limits\x18\x01 \x03(\v2\x1d.elephant.tables.v1.DataLimitR\x06limits\"\xbb\x01\n" +
+	"\x13UpdateLimitsRequest\x12B\n" +
+	"\x03set\x18\x01 \x03(\v20.elephant.tables.v1.UpdateLimitsRequest.SetEntryR\x03set\x12(\n" +
+	"\x10reset_to_default\x18\x02 \x03(\tR\x0eresetToDefault\x1a6\n" +
+	"\bSetEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"M\n" +
+	"\x14UpdateLimitsResponse\x125\n" +
+	"\x06limits\x18\x01 \x03(\v2\x1d.elephant.tables.v1.DataLimitR\x06limits\"\xd1\x01\n" +
 	"\fSkippedEvent\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x1d\n" +
 	"\n" +
@@ -12613,10 +12941,12 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x05Apply\x12 .elephant.tables.v1.ApplyRequest\x1a!.elephant.tables.v1.ApplyResponse\x12O\n" +
 	"\x06GetJob\x12!.elephant.tables.v1.GetJobRequest\x1a\".elephant.tables.v1.GetJobResponse2q\n" +
 	"\rEventsService\x12`\n" +
-	"\vWatchEvents\x12&.elephant.tables.v1.WatchEventsRequest\x1a'.elephant.tables.v1.WatchEventsResponse0\x012\xce\x01\n" +
+	"\vWatchEvents\x12&.elephant.tables.v1.WatchEventsRequest\x1a'.elephant.tables.v1.WatchEventsResponse0\x012\x8b\x03\n" +
 	"\fAdminService\x12d\n" +
 	"\rListOutOfSync\x12(.elephant.tables.v1.ListOutOfSyncRequest\x1a).elephant.tables.v1.ListOutOfSyncResponse\x12X\n" +
-	"\tReconcile\x12$.elephant.tables.v1.ReconcileRequest\x1a%.elephant.tables.v1.ReconcileResponseB:Z8github.com/ttab/elephant-api/elephant/tables/v1;tablesv1b\x06proto3"
+	"\tReconcile\x12$.elephant.tables.v1.ReconcileRequest\x1a%.elephant.tables.v1.ReconcileResponse\x12X\n" +
+	"\tGetLimits\x12$.elephant.tables.v1.GetLimitsRequest\x1a%.elephant.tables.v1.GetLimitsResponse\x12a\n" +
+	"\fUpdateLimits\x12'.elephant.tables.v1.UpdateLimitsRequest\x1a(.elephant.tables.v1.UpdateLimitsResponseB:Z8github.com/ttab/elephant-api/elephant/tables/v1;tablesv1b\x06proto3"
 
 var (
 	file_elephant_tables_v1_service_proto_rawDescOnce sync.Once
@@ -12631,7 +12961,7 @@ func file_elephant_tables_v1_service_proto_rawDescGZIP() []byte {
 }
 
 var file_elephant_tables_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_elephant_tables_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 143)
+var file_elephant_tables_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 149)
 var file_elephant_tables_v1_service_proto_goTypes = []any{
 	(ColumnType)(0),                   // 0: elephant.tables.v1.ColumnType
 	(SchemaStepKind)(0),               // 1: elephant.tables.v1.SchemaStepKind
@@ -12775,15 +13105,21 @@ var file_elephant_tables_v1_service_proto_goTypes = []any{
 	(*WatchEventsRequest)(nil),        // 139: elephant.tables.v1.WatchEventsRequest
 	(*WatchEventsResponse)(nil),       // 140: elephant.tables.v1.WatchEventsResponse
 	(*Event)(nil),                     // 141: elephant.tables.v1.Event
-	(*SkippedEvent)(nil),              // 142: elephant.tables.v1.SkippedEvent
-	(*ListOutOfSyncRequest)(nil),      // 143: elephant.tables.v1.ListOutOfSyncRequest
-	(*ListOutOfSyncResponse)(nil),     // 144: elephant.tables.v1.ListOutOfSyncResponse
-	(*ReconcileRequest)(nil),          // 145: elephant.tables.v1.ReconcileRequest
-	(*ReconciledEvent)(nil),           // 146: elephant.tables.v1.ReconciledEvent
-	(*ReconcileResponse)(nil),         // 147: elephant.tables.v1.ReconcileResponse
-	nil,                               // 148: elephant.tables.v1.Row.CellsEntry
-	nil,                               // 149: elephant.tables.v1.QueryRequest.NamedParamsEntry
-	(*timestamppb.Timestamp)(nil),     // 150: google.protobuf.Timestamp
+	(*DataLimit)(nil),                 // 142: elephant.tables.v1.DataLimit
+	(*GetLimitsRequest)(nil),          // 143: elephant.tables.v1.GetLimitsRequest
+	(*GetLimitsResponse)(nil),         // 144: elephant.tables.v1.GetLimitsResponse
+	(*UpdateLimitsRequest)(nil),       // 145: elephant.tables.v1.UpdateLimitsRequest
+	(*UpdateLimitsResponse)(nil),      // 146: elephant.tables.v1.UpdateLimitsResponse
+	(*SkippedEvent)(nil),              // 147: elephant.tables.v1.SkippedEvent
+	(*ListOutOfSyncRequest)(nil),      // 148: elephant.tables.v1.ListOutOfSyncRequest
+	(*ListOutOfSyncResponse)(nil),     // 149: elephant.tables.v1.ListOutOfSyncResponse
+	(*ReconcileRequest)(nil),          // 150: elephant.tables.v1.ReconcileRequest
+	(*ReconciledEvent)(nil),           // 151: elephant.tables.v1.ReconciledEvent
+	(*ReconcileResponse)(nil),         // 152: elephant.tables.v1.ReconcileResponse
+	nil,                               // 153: elephant.tables.v1.Row.CellsEntry
+	nil,                               // 154: elephant.tables.v1.QueryRequest.NamedParamsEntry
+	nil,                               // 155: elephant.tables.v1.UpdateLimitsRequest.SetEntry
+	(*timestamppb.Timestamp)(nil),     // 156: google.protobuf.Timestamp
 }
 var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	8,   // 0: elephant.tables.v1.Value.multi_choice:type_name -> elephant.tables.v1.StringList
@@ -12792,32 +13128,32 @@ var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	14,  // 3: elephant.tables.v1.ConstraintViolations.violations:type_name -> elephant.tables.v1.ConstraintViolation
 	12,  // 4: elephant.tables.v1.Table.columns:type_name -> elephant.tables.v1.Column
 	13,  // 5: elephant.tables.v1.Table.indexes:type_name -> elephant.tables.v1.Index
-	148, // 6: elephant.tables.v1.Row.cells:type_name -> elephant.tables.v1.Row.CellsEntry
+	153, // 6: elephant.tables.v1.Row.cells:type_name -> elephant.tables.v1.Row.CellsEntry
 	7,   // 7: elephant.tables.v1.CellConflict.current:type_name -> elephant.tables.v1.Value
 	7,   // 8: elephant.tables.v1.CellConflict.proposed:type_name -> elephant.tables.v1.Value
 	10,  // 9: elephant.tables.v1.CellConflict.changed_at:type_name -> elephant.tables.v1.Cursor
-	150, // 10: elephant.tables.v1.PointInTime.time:type_name -> google.protobuf.Timestamp
+	156, // 10: elephant.tables.v1.PointInTime.time:type_name -> google.protobuf.Timestamp
 	7,   // 11: elephant.tables.v1.Filter.values:type_name -> elephant.tables.v1.Value
 	10,  // 12: elephant.tables.v1.DatabaseInfo.parent_cursor:type_name -> elephant.tables.v1.Cursor
 	10,  // 13: elephant.tables.v1.DatabaseInfo.head:type_name -> elephant.tables.v1.Cursor
 	10,  // 14: elephant.tables.v1.DatabaseInfo.durable:type_name -> elephant.tables.v1.Cursor
-	150, // 15: elephant.tables.v1.DatabaseInfo.created:type_name -> google.protobuf.Timestamp
+	156, // 15: elephant.tables.v1.DatabaseInfo.created:type_name -> google.protobuf.Timestamp
 	11,  // 16: elephant.tables.v1.DatabaseInfo.namespaces:type_name -> elephant.tables.v1.Namespace
 	23,  // 17: elephant.tables.v1.CreateDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	23,  // 18: elephant.tables.v1.GetDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	28,  // 19: elephant.tables.v1.GetDatabaseResponse.recovery:type_name -> elephant.tables.v1.DatabaseRecovery
-	150, // 20: elephant.tables.v1.DatabaseRecovery.lost_saved:type_name -> google.protobuf.Timestamp
-	150, // 21: elephant.tables.v1.DatabaseRecovery.offered_saved:type_name -> google.protobuf.Timestamp
+	156, // 20: elephant.tables.v1.DatabaseRecovery.lost_saved:type_name -> google.protobuf.Timestamp
+	156, // 21: elephant.tables.v1.DatabaseRecovery.offered_saved:type_name -> google.protobuf.Timestamp
 	20,  // 22: elephant.tables.v1.ForkRequest.at:type_name -> elephant.tables.v1.PointInTime
 	23,  // 23: elephant.tables.v1.ForkResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	20,  // 24: elephant.tables.v1.RestoreRequest.at:type_name -> elephant.tables.v1.PointInTime
 	10,  // 25: elephant.tables.v1.RestoreResponse.cursor:type_name -> elephant.tables.v1.Cursor
 	33,  // 26: elephant.tables.v1.RestoreResponse.batches:type_name -> elephant.tables.v1.NamespaceBatch
-	150, // 27: elephant.tables.v1.HistoryRequest.from:type_name -> google.protobuf.Timestamp
-	150, // 28: elephant.tables.v1.HistoryRequest.to:type_name -> google.protobuf.Timestamp
-	150, // 29: elephant.tables.v1.RestorePoint.time:type_name -> google.protobuf.Timestamp
+	156, // 27: elephant.tables.v1.HistoryRequest.from:type_name -> google.protobuf.Timestamp
+	156, // 28: elephant.tables.v1.HistoryRequest.to:type_name -> google.protobuf.Timestamp
+	156, // 29: elephant.tables.v1.RestorePoint.time:type_name -> google.protobuf.Timestamp
 	35,  // 30: elephant.tables.v1.HistoryResponse.points:type_name -> elephant.tables.v1.RestorePoint
-	150, // 31: elephant.tables.v1.HistoryResponse.retained_from:type_name -> google.protobuf.Timestamp
+	156, // 31: elephant.tables.v1.HistoryResponse.retained_from:type_name -> google.protobuf.Timestamp
 	23,  // 32: elephant.tables.v1.RecoverDatabaseResponse.info:type_name -> elephant.tables.v1.DatabaseInfo
 	42,  // 33: elephant.tables.v1.SchemaDeclaration.tables:type_name -> elephant.tables.v1.DeclaredTable
 	43,  // 34: elephant.tables.v1.DeclaredTable.columns:type_name -> elephant.tables.v1.DeclaredColumn
@@ -12882,14 +13218,14 @@ var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	10,  // 93: elephant.tables.v1.UndoResponse.cursor:type_name -> elephant.tables.v1.Cursor
 	82,  // 94: elephant.tables.v1.UndoResponse.results:type_name -> elephant.tables.v1.MutationResult
 	7,   // 95: elephant.tables.v1.QueryRequest.params:type_name -> elephant.tables.v1.Value
-	149, // 96: elephant.tables.v1.QueryRequest.named_params:type_name -> elephant.tables.v1.QueryRequest.NamedParamsEntry
+	154, // 96: elephant.tables.v1.QueryRequest.named_params:type_name -> elephant.tables.v1.QueryRequest.NamedParamsEntry
 	0,   // 97: elephant.tables.v1.QueryColumn.type:type_name -> elephant.tables.v1.ColumnType
 	7,   // 98: elephant.tables.v1.QueryRow.values:type_name -> elephant.tables.v1.Value
 	87,  // 99: elephant.tables.v1.QueryResponse.columns:type_name -> elephant.tables.v1.QueryColumn
 	88,  // 100: elephant.tables.v1.QueryResponse.rows:type_name -> elephant.tables.v1.QueryRow
 	10,  // 101: elephant.tables.v1.QueryResponse.cursor:type_name -> elephant.tables.v1.Cursor
 	10,  // 102: elephant.tables.v1.Change.cursor:type_name -> elephant.tables.v1.Cursor
-	150, // 103: elephant.tables.v1.Change.at:type_name -> google.protobuf.Timestamp
+	156, // 103: elephant.tables.v1.Change.at:type_name -> google.protobuf.Timestamp
 	7,   // 104: elephant.tables.v1.Change.old:type_name -> elephant.tables.v1.Value
 	7,   // 105: elephant.tables.v1.Change.new:type_name -> elephant.tables.v1.Value
 	17,  // 106: elephant.tables.v1.Change.row_state:type_name -> elephant.tables.v1.Row
@@ -12922,16 +13258,16 @@ var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	106, // 133: elephant.tables.v1.SuggestResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
 	80,  // 134: elephant.tables.v1.Suggestion.mutations:type_name -> elephant.tables.v1.Mutation
 	2,   // 135: elephant.tables.v1.Suggestion.state:type_name -> elephant.tables.v1.SuggestionState
-	150, // 136: elephant.tables.v1.Suggestion.created:type_name -> google.protobuf.Timestamp
-	150, // 137: elephant.tables.v1.Suggestion.expires:type_name -> google.protobuf.Timestamp
+	156, // 136: elephant.tables.v1.Suggestion.created:type_name -> google.protobuf.Timestamp
+	156, // 137: elephant.tables.v1.Suggestion.expires:type_name -> google.protobuf.Timestamp
 	106, // 138: elephant.tables.v1.ResolveSuggestionResponse.suggestion:type_name -> elephant.tables.v1.Suggestion
 	83,  // 139: elephant.tables.v1.ResolveSuggestionResponse.result:type_name -> elephant.tables.v1.MutateResponse
 	106, // 140: elephant.tables.v1.ListSuggestionsResponse.suggestions:type_name -> elephant.tables.v1.Suggestion
 	10,  // 141: elephant.tables.v1.Snapshot.cursor:type_name -> elephant.tables.v1.Cursor
 	3,   // 142: elephant.tables.v1.Snapshot.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
 	4,   // 143: elephant.tables.v1.Snapshot.format:type_name -> elephant.tables.v1.ExportFormat
-	150, // 144: elephant.tables.v1.Snapshot.created:type_name -> google.protobuf.Timestamp
-	150, // 145: elephant.tables.v1.Snapshot.expires:type_name -> google.protobuf.Timestamp
+	156, // 144: elephant.tables.v1.Snapshot.created:type_name -> google.protobuf.Timestamp
+	156, // 145: elephant.tables.v1.Snapshot.expires:type_name -> google.protobuf.Timestamp
 	3,   // 146: elephant.tables.v1.CreateSnapshotRequest.purpose:type_name -> elephant.tables.v1.SnapshotPurpose
 	4,   // 147: elephant.tables.v1.CreateSnapshotRequest.format:type_name -> elephant.tables.v1.ExportFormat
 	111, // 148: elephant.tables.v1.CreateSnapshotResponse.snapshot:type_name -> elephant.tables.v1.Snapshot
@@ -12943,7 +13279,7 @@ var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	118, // 154: elephant.tables.v1.PublicationSpec.tables:type_name -> elephant.tables.v1.TableSelection
 	119, // 155: elephant.tables.v1.PublishRequest.spec:type_name -> elephant.tables.v1.PublicationSpec
 	122, // 156: elephant.tables.v1.PublishResponse.publication:type_name -> elephant.tables.v1.Publication
-	150, // 157: elephant.tables.v1.Publication.created:type_name -> google.protobuf.Timestamp
+	156, // 157: elephant.tables.v1.Publication.created:type_name -> google.protobuf.Timestamp
 	122, // 158: elephant.tables.v1.GetPublicationResponse.publication:type_name -> elephant.tables.v1.Publication
 	119, // 159: elephant.tables.v1.GetPublicationResponse.spec:type_name -> elephant.tables.v1.PublicationSpec
 	16,  // 160: elephant.tables.v1.GetPublicationResponse.tables:type_name -> elephant.tables.v1.Table
@@ -12967,104 +13303,111 @@ var file_elephant_tables_v1_service_proto_depIdxs = []int32{
 	19,  // 178: elephant.tables.v1.ImportJob.failures:type_name -> elephant.tables.v1.CellError
 	141, // 179: elephant.tables.v1.WatchEventsResponse.event:type_name -> elephant.tables.v1.Event
 	10,  // 180: elephant.tables.v1.Event.cursor:type_name -> elephant.tables.v1.Cursor
-	150, // 181: elephant.tables.v1.Event.created:type_name -> google.protobuf.Timestamp
-	150, // 182: elephant.tables.v1.SkippedEvent.skipped:type_name -> google.protobuf.Timestamp
-	142, // 183: elephant.tables.v1.ListOutOfSyncResponse.events:type_name -> elephant.tables.v1.SkippedEvent
-	142, // 184: elephant.tables.v1.ReconciledEvent.event:type_name -> elephant.tables.v1.SkippedEvent
-	146, // 185: elephant.tables.v1.ReconcileResponse.events:type_name -> elephant.tables.v1.ReconciledEvent
-	7,   // 186: elephant.tables.v1.Row.CellsEntry.value:type_name -> elephant.tables.v1.Value
-	7,   // 187: elephant.tables.v1.QueryRequest.NamedParamsEntry.value:type_name -> elephant.tables.v1.Value
-	24,  // 188: elephant.tables.v1.DatabasesService.CreateDatabase:input_type -> elephant.tables.v1.CreateDatabaseRequest
-	26,  // 189: elephant.tables.v1.DatabasesService.GetDatabase:input_type -> elephant.tables.v1.GetDatabaseRequest
-	29,  // 190: elephant.tables.v1.DatabasesService.Fork:input_type -> elephant.tables.v1.ForkRequest
-	31,  // 191: elephant.tables.v1.DatabasesService.Restore:input_type -> elephant.tables.v1.RestoreRequest
-	34,  // 192: elephant.tables.v1.DatabasesService.History:input_type -> elephant.tables.v1.HistoryRequest
-	37,  // 193: elephant.tables.v1.DatabasesService.RecoverDatabase:input_type -> elephant.tables.v1.RecoverDatabaseRequest
-	39,  // 194: elephant.tables.v1.DatabasesService.DeleteDatabase:input_type -> elephant.tables.v1.DeleteDatabaseRequest
-	50,  // 195: elephant.tables.v1.SchemaService.Describe:input_type -> elephant.tables.v1.DescribeRequest
-	52,  // 196: elephant.tables.v1.SchemaService.UpdateNamespace:input_type -> elephant.tables.v1.UpdateNamespaceRequest
-	54,  // 197: elephant.tables.v1.SchemaService.CreateTable:input_type -> elephant.tables.v1.CreateTableRequest
-	56,  // 198: elephant.tables.v1.SchemaService.UpdateTable:input_type -> elephant.tables.v1.UpdateTableRequest
-	58,  // 199: elephant.tables.v1.SchemaService.DeleteTable:input_type -> elephant.tables.v1.DeleteTableRequest
-	60,  // 200: elephant.tables.v1.SchemaService.AddColumn:input_type -> elephant.tables.v1.AddColumnRequest
-	62,  // 201: elephant.tables.v1.SchemaService.UpdateColumn:input_type -> elephant.tables.v1.UpdateColumnRequest
-	64,  // 202: elephant.tables.v1.SchemaService.ChangeColumnType:input_type -> elephant.tables.v1.ChangeColumnTypeRequest
-	66,  // 203: elephant.tables.v1.SchemaService.DeleteColumn:input_type -> elephant.tables.v1.DeleteColumnRequest
-	68,  // 204: elephant.tables.v1.SchemaService.SetRequired:input_type -> elephant.tables.v1.SetRequiredRequest
-	70,  // 205: elephant.tables.v1.SchemaService.AddIndex:input_type -> elephant.tables.v1.AddIndexRequest
-	72,  // 206: elephant.tables.v1.SchemaService.DeleteIndex:input_type -> elephant.tables.v1.DeleteIndexRequest
-	47,  // 207: elephant.tables.v1.SchemaService.EnsureSchema:input_type -> elephant.tables.v1.EnsureSchemaRequest
-	74,  // 208: elephant.tables.v1.DataService.List:input_type -> elephant.tables.v1.ListRequest
-	81,  // 209: elephant.tables.v1.DataService.Mutate:input_type -> elephant.tables.v1.MutateRequest
-	84,  // 210: elephant.tables.v1.DataService.Undo:input_type -> elephant.tables.v1.UndoRequest
-	86,  // 211: elephant.tables.v1.DataService.Query:input_type -> elephant.tables.v1.QueryRequest
-	91,  // 212: elephant.tables.v1.DataService.Changes:input_type -> elephant.tables.v1.ChangesRequest
-	93,  // 213: elephant.tables.v1.DataService.Watch:input_type -> elephant.tables.v1.WatchRequest
-	104, // 214: elephant.tables.v1.DataService.Suggest:input_type -> elephant.tables.v1.SuggestRequest
-	107, // 215: elephant.tables.v1.DataService.ResolveSuggestion:input_type -> elephant.tables.v1.ResolveSuggestionRequest
-	109, // 216: elephant.tables.v1.DataService.ListSuggestions:input_type -> elephant.tables.v1.ListSuggestionsRequest
-	99,  // 217: elephant.tables.v1.DataService.Summarize:input_type -> elephant.tables.v1.SummarizeRequest
-	102, // 218: elephant.tables.v1.DataService.UpdatePresence:input_type -> elephant.tables.v1.UpdatePresenceRequest
-	112, // 219: elephant.tables.v1.SnapshotsService.CreateSnapshot:input_type -> elephant.tables.v1.CreateSnapshotRequest
-	114, // 220: elephant.tables.v1.SnapshotsService.GetSnapshot:input_type -> elephant.tables.v1.GetSnapshotRequest
-	116, // 221: elephant.tables.v1.SnapshotsService.ListSnapshots:input_type -> elephant.tables.v1.ListSnapshotsRequest
-	120, // 222: elephant.tables.v1.SnapshotsService.Publish:input_type -> elephant.tables.v1.PublishRequest
-	123, // 223: elephant.tables.v1.SnapshotsService.GetPublication:input_type -> elephant.tables.v1.GetPublicationRequest
-	125, // 224: elephant.tables.v1.ImportsService.CreateUpload:input_type -> elephant.tables.v1.CreateUploadRequest
-	127, // 225: elephant.tables.v1.ImportsService.Analyze:input_type -> elephant.tables.v1.AnalyzeRequest
-	134, // 226: elephant.tables.v1.ImportsService.Apply:input_type -> elephant.tables.v1.ApplyRequest
-	136, // 227: elephant.tables.v1.ImportsService.GetJob:input_type -> elephant.tables.v1.GetJobRequest
-	139, // 228: elephant.tables.v1.EventsService.WatchEvents:input_type -> elephant.tables.v1.WatchEventsRequest
-	143, // 229: elephant.tables.v1.AdminService.ListOutOfSync:input_type -> elephant.tables.v1.ListOutOfSyncRequest
-	145, // 230: elephant.tables.v1.AdminService.Reconcile:input_type -> elephant.tables.v1.ReconcileRequest
-	25,  // 231: elephant.tables.v1.DatabasesService.CreateDatabase:output_type -> elephant.tables.v1.CreateDatabaseResponse
-	27,  // 232: elephant.tables.v1.DatabasesService.GetDatabase:output_type -> elephant.tables.v1.GetDatabaseResponse
-	30,  // 233: elephant.tables.v1.DatabasesService.Fork:output_type -> elephant.tables.v1.ForkResponse
-	32,  // 234: elephant.tables.v1.DatabasesService.Restore:output_type -> elephant.tables.v1.RestoreResponse
-	36,  // 235: elephant.tables.v1.DatabasesService.History:output_type -> elephant.tables.v1.HistoryResponse
-	38,  // 236: elephant.tables.v1.DatabasesService.RecoverDatabase:output_type -> elephant.tables.v1.RecoverDatabaseResponse
-	40,  // 237: elephant.tables.v1.DatabasesService.DeleteDatabase:output_type -> elephant.tables.v1.DeleteDatabaseResponse
-	51,  // 238: elephant.tables.v1.SchemaService.Describe:output_type -> elephant.tables.v1.DescribeResponse
-	53,  // 239: elephant.tables.v1.SchemaService.UpdateNamespace:output_type -> elephant.tables.v1.UpdateNamespaceResponse
-	55,  // 240: elephant.tables.v1.SchemaService.CreateTable:output_type -> elephant.tables.v1.CreateTableResponse
-	57,  // 241: elephant.tables.v1.SchemaService.UpdateTable:output_type -> elephant.tables.v1.UpdateTableResponse
-	59,  // 242: elephant.tables.v1.SchemaService.DeleteTable:output_type -> elephant.tables.v1.DeleteTableResponse
-	61,  // 243: elephant.tables.v1.SchemaService.AddColumn:output_type -> elephant.tables.v1.AddColumnResponse
-	63,  // 244: elephant.tables.v1.SchemaService.UpdateColumn:output_type -> elephant.tables.v1.UpdateColumnResponse
-	65,  // 245: elephant.tables.v1.SchemaService.ChangeColumnType:output_type -> elephant.tables.v1.ChangeColumnTypeResponse
-	67,  // 246: elephant.tables.v1.SchemaService.DeleteColumn:output_type -> elephant.tables.v1.DeleteColumnResponse
-	69,  // 247: elephant.tables.v1.SchemaService.SetRequired:output_type -> elephant.tables.v1.SetRequiredResponse
-	71,  // 248: elephant.tables.v1.SchemaService.AddIndex:output_type -> elephant.tables.v1.AddIndexResponse
-	73,  // 249: elephant.tables.v1.SchemaService.DeleteIndex:output_type -> elephant.tables.v1.DeleteIndexResponse
-	48,  // 250: elephant.tables.v1.SchemaService.EnsureSchema:output_type -> elephant.tables.v1.EnsureSchemaResponse
-	75,  // 251: elephant.tables.v1.DataService.List:output_type -> elephant.tables.v1.ListResponse
-	83,  // 252: elephant.tables.v1.DataService.Mutate:output_type -> elephant.tables.v1.MutateResponse
-	85,  // 253: elephant.tables.v1.DataService.Undo:output_type -> elephant.tables.v1.UndoResponse
-	89,  // 254: elephant.tables.v1.DataService.Query:output_type -> elephant.tables.v1.QueryResponse
-	92,  // 255: elephant.tables.v1.DataService.Changes:output_type -> elephant.tables.v1.ChangesResponse
-	98,  // 256: elephant.tables.v1.DataService.Watch:output_type -> elephant.tables.v1.WatchResponse
-	105, // 257: elephant.tables.v1.DataService.Suggest:output_type -> elephant.tables.v1.SuggestResponse
-	108, // 258: elephant.tables.v1.DataService.ResolveSuggestion:output_type -> elephant.tables.v1.ResolveSuggestionResponse
-	110, // 259: elephant.tables.v1.DataService.ListSuggestions:output_type -> elephant.tables.v1.ListSuggestionsResponse
-	101, // 260: elephant.tables.v1.DataService.Summarize:output_type -> elephant.tables.v1.SummarizeResponse
-	103, // 261: elephant.tables.v1.DataService.UpdatePresence:output_type -> elephant.tables.v1.UpdatePresenceResponse
-	113, // 262: elephant.tables.v1.SnapshotsService.CreateSnapshot:output_type -> elephant.tables.v1.CreateSnapshotResponse
-	115, // 263: elephant.tables.v1.SnapshotsService.GetSnapshot:output_type -> elephant.tables.v1.GetSnapshotResponse
-	117, // 264: elephant.tables.v1.SnapshotsService.ListSnapshots:output_type -> elephant.tables.v1.ListSnapshotsResponse
-	121, // 265: elephant.tables.v1.SnapshotsService.Publish:output_type -> elephant.tables.v1.PublishResponse
-	124, // 266: elephant.tables.v1.SnapshotsService.GetPublication:output_type -> elephant.tables.v1.GetPublicationResponse
-	126, // 267: elephant.tables.v1.ImportsService.CreateUpload:output_type -> elephant.tables.v1.CreateUploadResponse
-	128, // 268: elephant.tables.v1.ImportsService.Analyze:output_type -> elephant.tables.v1.AnalyzeResponse
-	135, // 269: elephant.tables.v1.ImportsService.Apply:output_type -> elephant.tables.v1.ApplyResponse
-	137, // 270: elephant.tables.v1.ImportsService.GetJob:output_type -> elephant.tables.v1.GetJobResponse
-	140, // 271: elephant.tables.v1.EventsService.WatchEvents:output_type -> elephant.tables.v1.WatchEventsResponse
-	144, // 272: elephant.tables.v1.AdminService.ListOutOfSync:output_type -> elephant.tables.v1.ListOutOfSyncResponse
-	147, // 273: elephant.tables.v1.AdminService.Reconcile:output_type -> elephant.tables.v1.ReconcileResponse
-	231, // [231:274] is the sub-list for method output_type
-	188, // [188:231] is the sub-list for method input_type
-	188, // [188:188] is the sub-list for extension type_name
-	188, // [188:188] is the sub-list for extension extendee
-	0,   // [0:188] is the sub-list for field type_name
+	156, // 181: elephant.tables.v1.Event.created:type_name -> google.protobuf.Timestamp
+	142, // 182: elephant.tables.v1.GetLimitsResponse.limits:type_name -> elephant.tables.v1.DataLimit
+	155, // 183: elephant.tables.v1.UpdateLimitsRequest.set:type_name -> elephant.tables.v1.UpdateLimitsRequest.SetEntry
+	142, // 184: elephant.tables.v1.UpdateLimitsResponse.limits:type_name -> elephant.tables.v1.DataLimit
+	156, // 185: elephant.tables.v1.SkippedEvent.skipped:type_name -> google.protobuf.Timestamp
+	147, // 186: elephant.tables.v1.ListOutOfSyncResponse.events:type_name -> elephant.tables.v1.SkippedEvent
+	147, // 187: elephant.tables.v1.ReconciledEvent.event:type_name -> elephant.tables.v1.SkippedEvent
+	151, // 188: elephant.tables.v1.ReconcileResponse.events:type_name -> elephant.tables.v1.ReconciledEvent
+	7,   // 189: elephant.tables.v1.Row.CellsEntry.value:type_name -> elephant.tables.v1.Value
+	7,   // 190: elephant.tables.v1.QueryRequest.NamedParamsEntry.value:type_name -> elephant.tables.v1.Value
+	24,  // 191: elephant.tables.v1.DatabasesService.CreateDatabase:input_type -> elephant.tables.v1.CreateDatabaseRequest
+	26,  // 192: elephant.tables.v1.DatabasesService.GetDatabase:input_type -> elephant.tables.v1.GetDatabaseRequest
+	29,  // 193: elephant.tables.v1.DatabasesService.Fork:input_type -> elephant.tables.v1.ForkRequest
+	31,  // 194: elephant.tables.v1.DatabasesService.Restore:input_type -> elephant.tables.v1.RestoreRequest
+	34,  // 195: elephant.tables.v1.DatabasesService.History:input_type -> elephant.tables.v1.HistoryRequest
+	37,  // 196: elephant.tables.v1.DatabasesService.RecoverDatabase:input_type -> elephant.tables.v1.RecoverDatabaseRequest
+	39,  // 197: elephant.tables.v1.DatabasesService.DeleteDatabase:input_type -> elephant.tables.v1.DeleteDatabaseRequest
+	50,  // 198: elephant.tables.v1.SchemaService.Describe:input_type -> elephant.tables.v1.DescribeRequest
+	52,  // 199: elephant.tables.v1.SchemaService.UpdateNamespace:input_type -> elephant.tables.v1.UpdateNamespaceRequest
+	54,  // 200: elephant.tables.v1.SchemaService.CreateTable:input_type -> elephant.tables.v1.CreateTableRequest
+	56,  // 201: elephant.tables.v1.SchemaService.UpdateTable:input_type -> elephant.tables.v1.UpdateTableRequest
+	58,  // 202: elephant.tables.v1.SchemaService.DeleteTable:input_type -> elephant.tables.v1.DeleteTableRequest
+	60,  // 203: elephant.tables.v1.SchemaService.AddColumn:input_type -> elephant.tables.v1.AddColumnRequest
+	62,  // 204: elephant.tables.v1.SchemaService.UpdateColumn:input_type -> elephant.tables.v1.UpdateColumnRequest
+	64,  // 205: elephant.tables.v1.SchemaService.ChangeColumnType:input_type -> elephant.tables.v1.ChangeColumnTypeRequest
+	66,  // 206: elephant.tables.v1.SchemaService.DeleteColumn:input_type -> elephant.tables.v1.DeleteColumnRequest
+	68,  // 207: elephant.tables.v1.SchemaService.SetRequired:input_type -> elephant.tables.v1.SetRequiredRequest
+	70,  // 208: elephant.tables.v1.SchemaService.AddIndex:input_type -> elephant.tables.v1.AddIndexRequest
+	72,  // 209: elephant.tables.v1.SchemaService.DeleteIndex:input_type -> elephant.tables.v1.DeleteIndexRequest
+	47,  // 210: elephant.tables.v1.SchemaService.EnsureSchema:input_type -> elephant.tables.v1.EnsureSchemaRequest
+	74,  // 211: elephant.tables.v1.DataService.List:input_type -> elephant.tables.v1.ListRequest
+	81,  // 212: elephant.tables.v1.DataService.Mutate:input_type -> elephant.tables.v1.MutateRequest
+	84,  // 213: elephant.tables.v1.DataService.Undo:input_type -> elephant.tables.v1.UndoRequest
+	86,  // 214: elephant.tables.v1.DataService.Query:input_type -> elephant.tables.v1.QueryRequest
+	91,  // 215: elephant.tables.v1.DataService.Changes:input_type -> elephant.tables.v1.ChangesRequest
+	93,  // 216: elephant.tables.v1.DataService.Watch:input_type -> elephant.tables.v1.WatchRequest
+	104, // 217: elephant.tables.v1.DataService.Suggest:input_type -> elephant.tables.v1.SuggestRequest
+	107, // 218: elephant.tables.v1.DataService.ResolveSuggestion:input_type -> elephant.tables.v1.ResolveSuggestionRequest
+	109, // 219: elephant.tables.v1.DataService.ListSuggestions:input_type -> elephant.tables.v1.ListSuggestionsRequest
+	99,  // 220: elephant.tables.v1.DataService.Summarize:input_type -> elephant.tables.v1.SummarizeRequest
+	102, // 221: elephant.tables.v1.DataService.UpdatePresence:input_type -> elephant.tables.v1.UpdatePresenceRequest
+	112, // 222: elephant.tables.v1.SnapshotsService.CreateSnapshot:input_type -> elephant.tables.v1.CreateSnapshotRequest
+	114, // 223: elephant.tables.v1.SnapshotsService.GetSnapshot:input_type -> elephant.tables.v1.GetSnapshotRequest
+	116, // 224: elephant.tables.v1.SnapshotsService.ListSnapshots:input_type -> elephant.tables.v1.ListSnapshotsRequest
+	120, // 225: elephant.tables.v1.SnapshotsService.Publish:input_type -> elephant.tables.v1.PublishRequest
+	123, // 226: elephant.tables.v1.SnapshotsService.GetPublication:input_type -> elephant.tables.v1.GetPublicationRequest
+	125, // 227: elephant.tables.v1.ImportsService.CreateUpload:input_type -> elephant.tables.v1.CreateUploadRequest
+	127, // 228: elephant.tables.v1.ImportsService.Analyze:input_type -> elephant.tables.v1.AnalyzeRequest
+	134, // 229: elephant.tables.v1.ImportsService.Apply:input_type -> elephant.tables.v1.ApplyRequest
+	136, // 230: elephant.tables.v1.ImportsService.GetJob:input_type -> elephant.tables.v1.GetJobRequest
+	139, // 231: elephant.tables.v1.EventsService.WatchEvents:input_type -> elephant.tables.v1.WatchEventsRequest
+	148, // 232: elephant.tables.v1.AdminService.ListOutOfSync:input_type -> elephant.tables.v1.ListOutOfSyncRequest
+	150, // 233: elephant.tables.v1.AdminService.Reconcile:input_type -> elephant.tables.v1.ReconcileRequest
+	143, // 234: elephant.tables.v1.AdminService.GetLimits:input_type -> elephant.tables.v1.GetLimitsRequest
+	145, // 235: elephant.tables.v1.AdminService.UpdateLimits:input_type -> elephant.tables.v1.UpdateLimitsRequest
+	25,  // 236: elephant.tables.v1.DatabasesService.CreateDatabase:output_type -> elephant.tables.v1.CreateDatabaseResponse
+	27,  // 237: elephant.tables.v1.DatabasesService.GetDatabase:output_type -> elephant.tables.v1.GetDatabaseResponse
+	30,  // 238: elephant.tables.v1.DatabasesService.Fork:output_type -> elephant.tables.v1.ForkResponse
+	32,  // 239: elephant.tables.v1.DatabasesService.Restore:output_type -> elephant.tables.v1.RestoreResponse
+	36,  // 240: elephant.tables.v1.DatabasesService.History:output_type -> elephant.tables.v1.HistoryResponse
+	38,  // 241: elephant.tables.v1.DatabasesService.RecoverDatabase:output_type -> elephant.tables.v1.RecoverDatabaseResponse
+	40,  // 242: elephant.tables.v1.DatabasesService.DeleteDatabase:output_type -> elephant.tables.v1.DeleteDatabaseResponse
+	51,  // 243: elephant.tables.v1.SchemaService.Describe:output_type -> elephant.tables.v1.DescribeResponse
+	53,  // 244: elephant.tables.v1.SchemaService.UpdateNamespace:output_type -> elephant.tables.v1.UpdateNamespaceResponse
+	55,  // 245: elephant.tables.v1.SchemaService.CreateTable:output_type -> elephant.tables.v1.CreateTableResponse
+	57,  // 246: elephant.tables.v1.SchemaService.UpdateTable:output_type -> elephant.tables.v1.UpdateTableResponse
+	59,  // 247: elephant.tables.v1.SchemaService.DeleteTable:output_type -> elephant.tables.v1.DeleteTableResponse
+	61,  // 248: elephant.tables.v1.SchemaService.AddColumn:output_type -> elephant.tables.v1.AddColumnResponse
+	63,  // 249: elephant.tables.v1.SchemaService.UpdateColumn:output_type -> elephant.tables.v1.UpdateColumnResponse
+	65,  // 250: elephant.tables.v1.SchemaService.ChangeColumnType:output_type -> elephant.tables.v1.ChangeColumnTypeResponse
+	67,  // 251: elephant.tables.v1.SchemaService.DeleteColumn:output_type -> elephant.tables.v1.DeleteColumnResponse
+	69,  // 252: elephant.tables.v1.SchemaService.SetRequired:output_type -> elephant.tables.v1.SetRequiredResponse
+	71,  // 253: elephant.tables.v1.SchemaService.AddIndex:output_type -> elephant.tables.v1.AddIndexResponse
+	73,  // 254: elephant.tables.v1.SchemaService.DeleteIndex:output_type -> elephant.tables.v1.DeleteIndexResponse
+	48,  // 255: elephant.tables.v1.SchemaService.EnsureSchema:output_type -> elephant.tables.v1.EnsureSchemaResponse
+	75,  // 256: elephant.tables.v1.DataService.List:output_type -> elephant.tables.v1.ListResponse
+	83,  // 257: elephant.tables.v1.DataService.Mutate:output_type -> elephant.tables.v1.MutateResponse
+	85,  // 258: elephant.tables.v1.DataService.Undo:output_type -> elephant.tables.v1.UndoResponse
+	89,  // 259: elephant.tables.v1.DataService.Query:output_type -> elephant.tables.v1.QueryResponse
+	92,  // 260: elephant.tables.v1.DataService.Changes:output_type -> elephant.tables.v1.ChangesResponse
+	98,  // 261: elephant.tables.v1.DataService.Watch:output_type -> elephant.tables.v1.WatchResponse
+	105, // 262: elephant.tables.v1.DataService.Suggest:output_type -> elephant.tables.v1.SuggestResponse
+	108, // 263: elephant.tables.v1.DataService.ResolveSuggestion:output_type -> elephant.tables.v1.ResolveSuggestionResponse
+	110, // 264: elephant.tables.v1.DataService.ListSuggestions:output_type -> elephant.tables.v1.ListSuggestionsResponse
+	101, // 265: elephant.tables.v1.DataService.Summarize:output_type -> elephant.tables.v1.SummarizeResponse
+	103, // 266: elephant.tables.v1.DataService.UpdatePresence:output_type -> elephant.tables.v1.UpdatePresenceResponse
+	113, // 267: elephant.tables.v1.SnapshotsService.CreateSnapshot:output_type -> elephant.tables.v1.CreateSnapshotResponse
+	115, // 268: elephant.tables.v1.SnapshotsService.GetSnapshot:output_type -> elephant.tables.v1.GetSnapshotResponse
+	117, // 269: elephant.tables.v1.SnapshotsService.ListSnapshots:output_type -> elephant.tables.v1.ListSnapshotsResponse
+	121, // 270: elephant.tables.v1.SnapshotsService.Publish:output_type -> elephant.tables.v1.PublishResponse
+	124, // 271: elephant.tables.v1.SnapshotsService.GetPublication:output_type -> elephant.tables.v1.GetPublicationResponse
+	126, // 272: elephant.tables.v1.ImportsService.CreateUpload:output_type -> elephant.tables.v1.CreateUploadResponse
+	128, // 273: elephant.tables.v1.ImportsService.Analyze:output_type -> elephant.tables.v1.AnalyzeResponse
+	135, // 274: elephant.tables.v1.ImportsService.Apply:output_type -> elephant.tables.v1.ApplyResponse
+	137, // 275: elephant.tables.v1.ImportsService.GetJob:output_type -> elephant.tables.v1.GetJobResponse
+	140, // 276: elephant.tables.v1.EventsService.WatchEvents:output_type -> elephant.tables.v1.WatchEventsResponse
+	149, // 277: elephant.tables.v1.AdminService.ListOutOfSync:output_type -> elephant.tables.v1.ListOutOfSyncResponse
+	152, // 278: elephant.tables.v1.AdminService.Reconcile:output_type -> elephant.tables.v1.ReconcileResponse
+	144, // 279: elephant.tables.v1.AdminService.GetLimits:output_type -> elephant.tables.v1.GetLimitsResponse
+	146, // 280: elephant.tables.v1.AdminService.UpdateLimits:output_type -> elephant.tables.v1.UpdateLimitsResponse
+	236, // [236:281] is the sub-list for method output_type
+	191, // [191:236] is the sub-list for method input_type
+	191, // [191:191] is the sub-list for extension type_name
+	191, // [191:191] is the sub-list for extension extendee
+	0,   // [0:191] is the sub-list for field type_name
 }
 
 func init() { file_elephant_tables_v1_service_proto_init() }
@@ -13124,7 +13467,7 @@ func file_elephant_tables_v1_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_elephant_tables_v1_service_proto_rawDesc), len(file_elephant_tables_v1_service_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   143,
+			NumMessages:   149,
 			NumExtensions: 0,
 			NumServices:   7,
 		},

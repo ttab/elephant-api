@@ -66,8 +66,11 @@ syntax = "proto3";
 // "widget" or "plan_board". A malformed one is refused with
 // invalid_argument. A namespace exists once a table has been created in
 // it or SchemaService.UpdateNamespace has set its flag. A database holds
-// at most 20 namespaces, and a namespace at most 200 tables; past either
-// a call is refused with resource_exhausted. The database size cap, the
+// at most 10 namespaces, and a namespace at most 20 tables, by default;
+// past either a call is refused with resource_exhausted. These and the
+// service's other data limits are the deployment's, which an operator
+// reads and changes with AdminService.GetLimits and UpdateLimits. The
+// database size cap, the
 // change log and the single writer are shared by every namespace.
 //
 // Keys: a table has a key, unique within its namespace, and a column a
@@ -393,7 +396,8 @@ message Index {
   // AddIndex, or made by the service from its columns' keys. A key is an
   // identifier as a column key is.
   string key = 2;
-  // Ids of the columns, in order, at most 8. AddIndex takes keys too.
+  // Ids of the columns, in order, at most 4 by default
+  // (columns_per_index). AddIndex takes keys too.
   repeated string columns = 3;
   // True for a unique constraint, false for an index.
   bool unique = 4;
@@ -1055,7 +1059,8 @@ service SchemaService {
   // constraint that existing rows break is refused with
   // failed_precondition and a ConstraintViolations detail; with dry_run
   // set nothing is written and the response lists those rows. A table
-  // holds at most 16 unique constraints and indexes; past that the call
+  // holds at most 8 unique constraints and indexes by default
+  // (indexes_per_table); past that the call
   // is refused with resource_exhausted.
   rpc AddIndex(AddIndexRequest) returns (AddIndexResponse);
 
@@ -1141,7 +1146,8 @@ message SchemaDeclaration {
   // Whether people may edit the namespace's schema; see
   // Namespace.schema_editable.
   bool schema_editable = 2;
-  // The namespace's tables, at most 200, each key once.
+  // The namespace's tables, at most 20 by default
+  // (tables_per_namespace), each key once.
   repeated DeclaredTable tables = 3;
 }
 
@@ -1152,11 +1158,11 @@ message DeclaredTable {
   string key = 1;
   // Display name. Required.
   string name = 2;
-  // The table's columns, in the order the table has them, at most 500,
-  // each key once.
+  // The table's columns, in the order the table has them, at most 50
+  // by default (columns_per_table), each key once.
   repeated DeclaredColumn columns = 3;
-  // The table's unique constraints and indexes, at most 16, each key
-  // once.
+  // The table's unique constraints and indexes, at most 8 by default
+  // (indexes_per_table), each key once.
   repeated DeclaredIndex indexes = 4;
   // Key of the column DataService.Summarize summarises by default, which
   // must be a declared column that can be summarised. Empty leaves it to
@@ -1189,8 +1195,8 @@ message DeclaredIndex {
   // The index's key, which matches it with the table's index of the same
   // key. Required.
   string key = 1;
-  // Keys of the declared columns it covers, in order, at most 8 and each
-  // once.
+  // Keys of the declared columns it covers, in order, at most 4 by
+  // default (columns_per_index) and each once.
   repeated string columns = 2;
   // True for a unique constraint, false for an index.
   bool unique = 3;
@@ -1552,7 +1558,7 @@ message AddIndexRequest {
   // Id or key of the table.
   string table = 3;
   // The unique constraint or index. Its id is assigned by the server;
-  // its columns are ids or keys, at most 8 and each once. Its key is
+  // its columns are ids or keys, at most 4 by default and each once. Its key is
   // made from the columns' keys when empty, and refused with
   // already_exists when another index of the table holds it. A table
   // cannot have two indexes over the same columns in the same order
@@ -3029,8 +3035,15 @@ message Event {
 // of sync with its document, and refused with out_of_sync until it is
 // reconciled. The document's later deletions and restores are held back
 // behind the skipped event, recorded with it rather than applied, so
-// that reconciling can apply them in order. These calls list what is out
-// of sync and reconcile it.
+// that reconciling can apply them in order. ListOutOfSync and Reconcile
+// list what is out of sync and reconcile it.
+//
+// GetLimits and UpdateLimits read and change the data limits of the
+// deployment: how many columns a table holds, how many rows, how large a
+// cell, a request, an upload or a database may be. Each limit has a
+// default built into the service; a value an operator sets overrides it
+// for every database until it is reset.
+//
 // They are not database-scoped and not forwarded: any pod serves them.
 service AdminService {
   // ListOutOfSync lists the skipped and held-back events not yet
@@ -3059,6 +3072,90 @@ service AdminService {
   //
   // Auth: the tables_admin scope.
   rpc Reconcile(ReconcileRequest) returns (ReconcileResponse);
+
+  // GetLimits returns every data limit in effect, with its default and
+  // the range UpdateLimits accepts, ordered by name.
+  //
+  // Auth: the tables_admin scope.
+  rpc GetLimits(GetLimitsRequest) returns (GetLimitsResponse);
+
+  // UpdateLimits sets some limits and resets others to their defaults,
+  // in one change, and returns every limit as GetLimits does. The pod
+  // that serves the call applies the change at once; the other pods read
+  // the limits again about every 30 seconds.
+  //
+  // A lowered limit refuses new writes only: data already past it stays
+  // readable, and may be edited in ways that do not take it further
+  // past. A hard database size cap below a database's file size refuses
+  // every write that would grow the file.
+  //
+  // Returns invalid_argument, changing nothing, for an unknown name, a
+  // name both set and reset, a value outside the limit's range, or
+  // values that contradict each other: a default page size or bucket
+  // count above its maximum, or a soft database size cap above the hard
+  // one.
+  //
+  // Auth: the tables_admin scope.
+  rpc UpdateLimits(UpdateLimitsRequest) returns (UpdateLimitsResponse);
+}
+
+// DataLimit is one of the deployment's data limits. Values are counts,
+// or bytes for a name that ends in _bytes; option_length is in
+// characters.
+//
+// The names: namespaces_per_database, tables_per_namespace,
+// columns_per_table, options_per_column, option_length, cell_bytes,
+// rows_per_table, indexes_per_table, columns_per_index,
+// operations_per_mutate, operations_per_suggestion, filters,
+// filter_values, filter_bound_values, filter_conditions, sort_keys,
+// list_default_page_size, list_max_page_size,
+// changes_default_page_size, changes_max_page_size,
+// summary_default_buckets, summary_max_buckets, published_rows,
+// suggestion_bytes, open_suggestions, open_suggestions_per_subject,
+// open_suggestion_bytes, query_rows, query_result_bytes,
+// query_row_bytes, query_value_bytes, query_columns,
+// query_statement_bytes, query_params, import_upload_bytes,
+// import_unzipped_bytes, import_zip_entries, import_cells,
+// import_text_bytes, import_sheets, import_rows, import_area,
+// import_pending_uploads, database_size_bytes and
+// soft_database_size_bytes. A later version of the service may add
+// names.
+message DataLimit {
+  // Name of the limit, such as columns_per_table.
+  string name = 1;
+  // The value in effect.
+  int64 value = 2;
+  // The service's built-in default.
+  int64 default_value = 3;
+  // True when an operator's value overrides the default.
+  bool overridden = 4;
+  // The smallest value UpdateLimits accepts.
+  int64 min_value = 5;
+  // The largest value UpdateLimits accepts: past it the service, or
+  // SQLite under it, cannot work.
+  int64 max_value = 6;
+  // What the limit bounds, for a person to read.
+  string description = 7;
+}
+
+message GetLimitsRequest {}
+
+message GetLimitsResponse {
+  // Every limit, by name.
+  repeated DataLimit limits = 1;
+}
+
+message UpdateLimitsRequest {
+  // Values to set, by limit name.
+  map<string, int64> set = 1;
+  // Names of limits to reset to their defaults. Resetting a limit that
+  // is not overridden changes nothing.
+  repeated string reset_to_default = 2;
+}
+
+message UpdateLimitsResponse {
+  // Every limit after the change, by name.
+  repeated DataLimit limits = 1;
 }
 
 // SkippedEvent is a repository event the follower skipped, which left

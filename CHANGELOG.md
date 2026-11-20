@@ -18,8 +18,8 @@ suggestions, presence, and the `Watch` change stream), `SnapshotsService`
 (export snapshots and publications), `ImportsService` (upload, analyze,
 apply), `EventsService` (the tenant's coarse event log, over the
 `WatchEvents` stream) and, for operators, `AdminService` (databases out
-of sync with their documents). It is declared at
-`elephant/tables/v1/service.proto`; Go consumers import
+of sync with their documents, and the deployment's data limits). It is
+declared at `elephant/tables/v1/service.proto`; Go consumers import
 `github.com/ttab/elephant-api/elephant/tables/v1` and
 `github.com/ttab/elephant-api/elephant/tables/v1/tablesv1connect`, and the
 README's service table and Connect client section describe it.
@@ -260,6 +260,13 @@ Changes:
   then every call naming the database, and `CreateDatabase` and `Fork`
   into the document, are refused with `failed_precondition` and the
   reason `out_of_sync`.
+- Data limits: `AdminService.GetLimits` returns the deployment's data
+  limits (`DataLimit`), each with its value in effect, its built-in
+  default, whether an operator overrides it, and the range accepted;
+  `UpdateLimits` sets some and resets others in one change, refusing an
+  unknown name, a value out of range or values that contradict each
+  other with `invalid_argument`. Both need `tables_admin`. The limit
+  numbers the comments give are now the defaults.
 
 ## [v0.30.0] - 2026-11-18
 
