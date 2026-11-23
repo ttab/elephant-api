@@ -22,6 +22,7 @@ Consuming the Go code needs Go 1.27 or later.
 | **Replicant** | `elephant.replicant` | Document replication between repository instances. Configure replication targets that follow a source repository's event log and replicate documents onward. | [proto](replicant/service.proto) |
 | **User** | `elephant.user` | Per-user settings, messaging and document comments. Store user settings documents and key-value properties, push/poll user and inbox messages, and keep comment threads on repository documents. The target user is taken from the bearer token's `sub` claim. | [proto](user/service.proto) |
 | **Collab** | `elephant.collab.v1` | Collaborative editing. Materialize live Y.Doc state into repository versions, manage freezes and sketches, inspect and administer sessions, and edit live over the `Collaborate` stream. | [proto](elephant/collab/v1/service.proto) |
+| **Tables** | `elephant.tables.v1` | Tabular data owned by documents: databases, schemas, rows and read-only SQL, live changes over `Watch`, snapshots and publications, imports, and a coarse event log. | [proto](elephant/tables/v1/service.proto) |
 | **Stream** | `elephant.stream.v1` | Live events and their media, served by elephant-stream. The event lifecycle (`ControlService`), signed playback URLs and downloads (`PlaybackService`), clips (`ClipService`), audio for transcription (`AudioService`), transcripts (`TranscriptService`), chunked uploads (`UploadService`) and the photo outbox (`PhotoService`). | [protos](elephant/stream/v1/) |
 | **Delegate** | `elephant.delegate.v1` | Tokens for the Elephant CMS app's native shell, served by elephant-delegate. Every token is derived from the caller's own and carries no more power than it. | [proto](elephant/delegate/v1/service.proto) |
 | **Notifications** | `elephant.user.v1` | The notification feed. Stream and list the caller's notifications, subscribe users to documents, and ingest events about documents from producers. | [proto](elephant/user/v1/service.proto) |
@@ -33,14 +34,15 @@ document model used across the services. It is generated from the
 `elephant.repositorysocket` declares only message types, so it has no clients
 and no `…connect` package.
 
-`elephant.collab.v1` is Connect-only, and the one service that is not on the
-plain protobuf service interface. It declares a bidirectional stream,
-`Collaborate`, which an interface returning a single response has no room for,
-so neither Twirp nor the Connect adapters are generated for it: there is no
-`/twirp/` mount and no `New<Service>ServiceClient`. Its clients and handlers
-are connect-go's own, described under [Connect clients](#connect-clients). It
-is also the first declaration in the versioned layout, `elephant/collab/v1/`,
-which is where new services go.
+`elephant.collab.v1` and `elephant.tables.v1` are Connect-only, and are not
+on the plain protobuf service interface. Both declare streams — collab the
+bidirectional `Collaborate`, tables the server streams `DataService.Watch` and
+`EventsService.WatchEvents` — which an interface returning a single response
+has no room for, so neither Twirp nor the Connect adapters are generated for
+them: there is no `/twirp/` mount and no `New<Service>ServiceClient`. Their
+clients and handlers are connect-go's own, described under
+[Connect clients](#connect-clients). Collab was the first declaration in the
+versioned layout, `elephant/collab/v1/`, which is where new services go.
 
 `elephant.stream.v1` and `elephant.delegate.v1` are in the versioned layout
 too, and so are Connect-only in the same way: no Twirp and no plain interface,
@@ -113,6 +115,12 @@ writes `*connect.Request[T]` and `*connect.Response[T]` directly. The
 transport; the unary RPCs on the same service do not.
 `elephant/user/v1/userv1connect` is the same shape, with
 `NewNotificationsServiceClient` and `NewNotificationsServiceHandler`.
+
+`elephant/tables/v1/tablesv1connect` is the same: connect-go's
+`New<Service>Client` and `New<Service>Handler` for each of `DatabasesService`,
+`SchemaService`, `DataService`, `SnapshotsService`, `ImportsService` and
+`EventsService`, and nothing else. Its streams are server streams, which
+Connect also carries over HTTP/1.1, so they need no HTTP/2 transport.
 
 #### Twirp clients
 
