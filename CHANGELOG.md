@@ -296,6 +296,9 @@ Changes:
   client may not read through its planning item is left out like one that
   does not exist. New messages `BulkGetAssignmentInfoRequest`,
   `BulkGetAssignmentInfoResponse` and `AssignmentInfo`.
+- Requires `connectrpc.com/connect` v1.21.1, up from v1.20.0, so consumers
+  move to it with this release. The generators are unchanged: `ttab/mage`
+  v0.17.0 pins the same ones as v0.15.0.
 
 ## [v0.30.0] - 2026-11-18
 
