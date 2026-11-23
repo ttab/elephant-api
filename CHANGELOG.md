@@ -36,9 +36,9 @@ Changes:
   owning document, the repository's nonce. Requests name a database by
   the document's UUID and are served from the current generation's, read
   with the caller's token, so every database-scoped call needs read
-  permission on the document. `DatabaseInfo.id` (10) is the database's
-  own id, `DatabaseInfo.document_nonce` (11) its generation and
-  `DatabaseInfo.parent_id` (12) its parent's id; `Event.database_id` (9)
+  permission on the document. `DatabaseInfo.id` (9) is the database's
+  own id, `DatabaseInfo.document_nonce` (10) its generation and
+  `DatabaseInfo.parent_id` (11) its parent's id; `Event.database_id` (9)
   and `Event.document_nonce` (10) name the database and the generation it
   was bound to when the event happened. `database` and `parent_database`
   fields name owning documents. `CreateDatabase` binds to the current
@@ -54,10 +54,10 @@ Changes:
   `doc_read`, and read permission on the document; any caller holding the
   scope may suggest, an agent or a person. `Suggestion.agent` is the token
   subject of whoever made the suggestion.
-- Database size: `DatabaseInfo.data_size` (13) is the database's size in
+- Database size: `DatabaseInfo.data_size` (12) is the database's size in
   bytes without its change log and free pages, measured by the serving pod
   and up to 30 seconds old; it is unset when the response does not open
-  the database. `DatabaseInfo.soft_size_cap` (14) is the size past which a
+  the database. `DatabaseInfo.soft_size_cap` (13) is the size past which a
   client should warn; it is reported and never enforced.
 - `DatabasesService.DeleteDatabase` is served: it archives the database
   of the document's current generation while the document lives on, logs
@@ -68,7 +68,7 @@ Changes:
   `undeleted`. Its pending imports do not run while it is deleted.
   `CreateDatabase` and `Fork` then give the generation a
   new, empty database, numbered on within the generation in
-  `DatabaseInfo.generation` (15), with an id of its own: a generation's
+  `DatabaseInfo.generation` (14), with an id of its own: a generation's
   first database has the nonce as its id, a later one an id derived from
   the nonce and the number. A `Fork` is refused with `aborted`, for a
   retry, when another database of the generation was created or deleted
@@ -78,7 +78,7 @@ Changes:
   The `Namespace` message (name, the advisory `schema_editable` flag, and
   `schema_version` (3) and `schema_digest` (4)) and
   `SchemaService.UpdateNamespace`, which sets the flag as a change batch.
-  `Table.namespace` (7), `DatabaseInfo.namespaces` (9) and
+  `Table.namespace` (6), `DatabaseInfo.namespaces` (8) and
   `DescribeResponse.namespace` (4). A required `namespace` on
   `DescribeRequest` (2), `CreateTableRequest` (4), `UpdateTableRequest`
   (5), `DeleteTableRequest` (3), `AddColumnRequest` (4),
@@ -92,11 +92,11 @@ Changes:
   `Change.namespace_state` (16), `ImportJob.namespace` (10) and
   `Event.namespace` (8). `ChangesResponse.cursor` (3) is how far a read
   reached, past the other namespaces' changes. `RestoreResponse.batches`
-  (9, `NamespaceBatch`) lists the batches of a restore, one per namespace
+  (8, `NamespaceBatch`) lists the batches of a restore, one per namespace
   it changes. A table's view for `Query` is named
   `<namespace>__<key>`.
-- Stable keys: `Table.key` (8), unique within the namespace, and
-  `Column.key` (9), unique within the table, given at creation or made by
+- Stable keys: `Table.key` (7), unique within the namespace, and
+  `Column.key` (8), unique within the table, given at creation or made by
   the service from the name, and never changed. `CreateTableRequest.key`
   (5) and `ImportCandidate.table_key` (13) give a new table's key, and a
   new column's comes from its `Column.key`. Requests that take a namespace
@@ -112,8 +112,8 @@ Changes:
   are quoted in SQL. The display name of a table or column is free
   text.
   `UpdateColumnRequest.column` is matched on its key when its id is empty.
-- Constraints: `Column.required` (10), and unique constraints and indexes
-  as the `Index` message in `Table.indexes` (9), at most 16 per table and
+- Constraints: `Column.required` (9), and unique constraints and indexes
+  as the `Index` message in `Table.indexes` (8), at most 16 per table and
   8 columns each, set with `SchemaService.SetRequired`, `AddIndex` and
   `DeleteIndex`, each a change batch; the first two take a `dry_run`. A
   write that would leave a required column empty or duplicate a unique

@@ -1289,31 +1289,31 @@ type Column struct {
 	// statement names.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Type of the column.
-	Type ColumnType `protobuf:"varint,4,opt,name=type,proto3,enum=elephant.tables.v1.ColumnType" json:"type,omitempty"`
+	Type ColumnType `protobuf:"varint,3,opt,name=type,proto3,enum=elephant.tables.v1.ColumnType" json:"type,omitempty"`
 	// Display hint, such as "0.0 %". Not interpreted by the service.
-	Format string `protobuf:"bytes,5,opt,name=format,proto3" json:"format,omitempty"`
+	Format string `protobuf:"bytes,4,opt,name=format,proto3" json:"format,omitempty"`
 	// The allowed values of a COLUMN_TYPE_CHOICE or
 	// COLUMN_TYPE_MULTI_CHOICE column. Empty for other types. Commas are
 	// reserved, since they separate options when a set is written as text:
 	// an option that contains one is refused as invalid when a column is
 	// created or updated.
-	Options []string `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
+	Options []string `protobuf:"bytes,5,rep,name=options,proto3" json:"options,omitempty"`
 	// Position of the column in the table, from 0.
-	Position int32 `protobuf:"varint,7,opt,name=position,proto3" json:"position,omitempty"`
+	Position int32 `protobuf:"varint,6,opt,name=position,proto3" json:"position,omitempty"`
 	// True when the column is hidden from the default view. It is still
 	// read, written and queried like any other.
-	Hidden bool `protobuf:"varint,8,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	Hidden bool `protobuf:"varint,7,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	// The column's key, unique within its table: given when the column is
 	// created, or made by the service from its name, and never changed.
 	// It is the column's name in its table's view for Query. See Keys in
 	// the package comment.
-	Key string `protobuf:"bytes,9,opt,name=key,proto3" json:"key,omitempty"`
+	Key string `protobuf:"bytes,8,opt,name=key,proto3" json:"key,omitempty"`
 	// True when the column refuses empty cells. Honoured when a column is
 	// created (CreateTable, AddColumn, a new column of an import), where
 	// existing rows that would be empty refuse it; changed with
 	// SchemaService.SetRequired, and ignored by UpdateColumn. See
 	// Constraints in the package comment.
-	Required      bool `protobuf:"varint,10,opt,name=required,proto3" json:"required,omitempty"`
+	Required      bool `protobuf:"varint,9,opt,name=required,proto3" json:"required,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1652,29 +1652,29 @@ type Table struct {
 	// statement names.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The table's columns, in position order.
-	Columns []*Column `protobuf:"bytes,4,rep,name=columns,proto3" json:"columns,omitempty"`
+	Columns []*Column `protobuf:"bytes,3,rep,name=columns,proto3" json:"columns,omitempty"`
 	// Number of rows in the table.
-	RowCount int64 `protobuf:"varint,5,opt,name=row_count,json=rowCount,proto3" json:"row_count,omitempty"`
+	RowCount int64 `protobuf:"varint,4,opt,name=row_count,json=rowCount,proto3" json:"row_count,omitempty"`
 	// Id of the column DataService.Summarize summarises when it is not
 	// given one: what a table widget shows at card size. Empty for none. A
 	// new table gets its first COLUMN_TYPE_CHOICE column, else its first
 	// COLUMN_TYPE_BOOLEAN column, else none. Changed with
 	// SchemaService.UpdateTable. A board can override it for its own
 	// widget, in the board document.
-	SummaryColumn string `protobuf:"bytes,6,opt,name=summary_column,json=summaryColumn,proto3" json:"summary_column,omitempty"`
+	SummaryColumn string `protobuf:"bytes,5,opt,name=summary_column,json=summaryColumn,proto3" json:"summary_column,omitempty"`
 	// The namespace the table belongs to, set when it is created and never
 	// changed.
-	Namespace string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Namespace string `protobuf:"bytes,6,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// The table's key, unique within its namespace: given when the table is
 	// created, or made by the service from its name, and never changed.
 	// The table's view for Query is named by it: the namespace, two
 	// underscores and the key, such as "widget__people", which no two
 	// tables of a database share, or the key alone for a Query scoped to
 	// the namespace. See Keys in the package comment.
-	Key string `protobuf:"bytes,8,opt,name=key,proto3" json:"key,omitempty"`
+	Key string `protobuf:"bytes,7,opt,name=key,proto3" json:"key,omitempty"`
 	// The table's unique constraints and indexes, in the order they were
 	// added.
-	Indexes       []*Index `protobuf:"bytes,9,rep,name=indexes,proto3" json:"indexes,omitempty"`
+	Indexes       []*Index `protobuf:"bytes,8,rep,name=indexes,proto3" json:"indexes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2263,10 +2263,10 @@ type DatabaseInfo struct {
 	// of the owning pod.
 	Durable *Cursor `protobuf:"bytes,6,opt,name=durable,proto3" json:"durable,omitempty"`
 	// When the database was created.
-	Created *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created,proto3" json:"created,omitempty"`
+	Created *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created,proto3" json:"created,omitempty"`
 	// The database's namespaces, by name. Their tables are read with
 	// SchemaService.Describe.
-	Namespaces []*Namespace `protobuf:"bytes,9,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
+	Namespaces []*Namespace `protobuf:"bytes,8,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
 	// The database's own id, never reused. It names the database in the
 	// service's storage and logs, and tells two databases of one document
 	// apart; no request takes it. For the first database of a generation
@@ -2274,13 +2274,13 @@ type DatabaseInfo struct {
 	// later one, created after a DeleteDatabase, derives its id from that
 	// nonce and its generation number. It stays when a document restore
 	// binds the database to a later generation.
-	Id string `protobuf:"bytes,10,opt,name=id,proto3" json:"id,omitempty"`
+	Id string `protobuf:"bytes,9,opt,name=id,proto3" json:"id,omitempty"`
 	// The nonce of the document generation the database belongs to, as the
 	// repository reports it for the document.
-	DocumentNonce string `protobuf:"bytes,11,opt,name=document_nonce,json=documentNonce,proto3" json:"document_nonce,omitempty"`
+	DocumentNonce string `protobuf:"bytes,10,opt,name=document_nonce,json=documentNonce,proto3" json:"document_nonce,omitempty"`
 	// The id of the database this one was forked from. Empty unless it is a
 	// fork.
-	ParentId string `protobuf:"bytes,12,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	ParentId string `protobuf:"bytes,11,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
 	// The database's size in bytes, without its change log: the pages in
 	// use by its tables, indexes, catalog and suggestions. The change log
 	// and its indexes are left out, since pruning shrinks them and nothing
@@ -2295,17 +2295,17 @@ type DatabaseInfo struct {
 	// Unset when the response does not open the database: in
 	// CreateDatabaseResponse and UndeleteDatabaseResponse, and with a
 	// recovery in GetDatabaseResponse.
-	DataSize *int64 `protobuf:"varint,13,opt,name=data_size,json=dataSize,proto3,oneof" json:"data_size,omitempty"`
+	DataSize *int64 `protobuf:"varint,12,opt,name=data_size,json=dataSize,proto3,oneof" json:"data_size,omitempty"`
 	// The soft size cap in bytes: the data_size past which a client should
 	// warn that the database is large. It is reported, never enforced;
 	// nothing is refused past it.
-	SoftSizeCap int64 `protobuf:"varint,14,opt,name=soft_size_cap,json=softSizeCap,proto3" json:"soft_size_cap,omitempty"`
+	SoftSizeCap int64 `protobuf:"varint,13,opt,name=soft_size_cap,json=softSizeCap,proto3" json:"soft_size_cap,omitempty"`
 	// The database's number among the databases of its document
 	// generation, from 1: one past the generation's earlier databases,
 	// which callers deleted with DeleteDatabase. A database a document
 	// restore binds to the restored generation takes that generation's
 	// next number, 1 unless it had databases of its own.
-	Generation    int32 `protobuf:"varint,15,opt,name=generation,proto3" json:"generation,omitempty"`
+	Generation    int32 `protobuf:"varint,14,opt,name=generation,proto3" json:"generation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2983,23 +2983,23 @@ func (x *RestoreRequest) GetNamespace() string {
 type RestoreResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Position of the last restore batch. Unset on a dry run.
-	Cursor *Cursor `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	Cursor *Cursor `protobuf:"bytes,1,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	// Cells the restore changes.
-	CellsChanged int64 `protobuf:"varint,3,opt,name=cells_changed,json=cellsChanged,proto3" json:"cells_changed,omitempty"`
+	CellsChanged int64 `protobuf:"varint,2,opt,name=cells_changed,json=cellsChanged,proto3" json:"cells_changed,omitempty"`
 	// Rows the restore brings back.
-	RowsInserted int64 `protobuf:"varint,4,opt,name=rows_inserted,json=rowsInserted,proto3" json:"rows_inserted,omitempty"`
+	RowsInserted int64 `protobuf:"varint,3,opt,name=rows_inserted,json=rowsInserted,proto3" json:"rows_inserted,omitempty"`
 	// Rows the restore removes.
-	RowsDeleted int64 `protobuf:"varint,5,opt,name=rows_deleted,json=rowsDeleted,proto3" json:"rows_deleted,omitempty"`
+	RowsDeleted int64 `protobuf:"varint,4,opt,name=rows_deleted,json=rowsDeleted,proto3" json:"rows_deleted,omitempty"`
 	// Changes after the point that the restore discards.
-	ChangesDiscarded int64 `protobuf:"varint,6,opt,name=changes_discarded,json=changesDiscarded,proto3" json:"changes_discarded,omitempty"`
+	ChangesDiscarded int64 `protobuf:"varint,5,opt,name=changes_discarded,json=changesDiscarded,proto3" json:"changes_discarded,omitempty"`
 	// Subjects whose changes the restore discards.
-	DiscardedActors []string `protobuf:"bytes,7,rep,name=discarded_actors,json=discardedActors,proto3" json:"discarded_actors,omitempty"`
+	DiscardedActors []string `protobuf:"bytes,6,rep,name=discarded_actors,json=discardedActors,proto3" json:"discarded_actors,omitempty"`
 	// Id of the snapshot of the pre-restore state. Restore to it to go
 	// back. Empty on a dry run.
-	RestorePoint string `protobuf:"bytes,8,opt,name=restore_point,json=restorePoint,proto3" json:"restore_point,omitempty"`
+	RestorePoint string `protobuf:"bytes,7,opt,name=restore_point,json=restorePoint,proto3" json:"restore_point,omitempty"`
 	// The restore batches, one per namespace the restore changes, by
 	// namespace. Empty on a dry run.
-	Batches       []*NamespaceBatch `protobuf:"bytes,9,rep,name=batches,proto3" json:"batches,omitempty"`
+	Batches       []*NamespaceBatch `protobuf:"bytes,8,rep,name=batches,proto3" json:"batches,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -12187,18 +12187,17 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
 	"\x0fschema_editable\x18\x02 \x01(\bR\x0eschemaEditable\x12%\n" +
 	"\x0eschema_version\x18\x03 \x01(\x03R\rschemaVersion\x12#\n" +
-	"\rschema_digest\x18\x04 \x01(\tR\fschemaDigest\"\x84\x02\n" +
+	"\rschema_digest\x18\x04 \x01(\tR\fschemaDigest\"\xf4\x01\n" +
 	"\x06Column\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x122\n" +
-	"\x04type\x18\x04 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\x12\x16\n" +
-	"\x06format\x18\x05 \x01(\tR\x06format\x12\x18\n" +
-	"\aoptions\x18\x06 \x03(\tR\aoptions\x12\x1a\n" +
-	"\bposition\x18\a \x01(\x05R\bposition\x12\x16\n" +
-	"\x06hidden\x18\b \x01(\bR\x06hidden\x12\x10\n" +
-	"\x03key\x18\t \x01(\tR\x03key\x12\x1a\n" +
-	"\brequired\x18\n" +
-	" \x01(\bR\brequiredJ\x04\b\x03\x10\x04R\bsql_name\"[\n" +
+	"\x04type\x18\x03 \x01(\x0e2\x1e.elephant.tables.v1.ColumnTypeR\x04type\x12\x16\n" +
+	"\x06format\x18\x04 \x01(\tR\x06format\x12\x18\n" +
+	"\aoptions\x18\x05 \x03(\tR\aoptions\x12\x1a\n" +
+	"\bposition\x18\x06 \x01(\x05R\bposition\x12\x16\n" +
+	"\x06hidden\x18\a \x01(\bR\x06hidden\x12\x10\n" +
+	"\x03key\x18\b \x01(\tR\x03key\x12\x1a\n" +
+	"\brequired\x18\t \x01(\bR\brequired\"[\n" +
 	"\x05Index\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x18\n" +
@@ -12215,16 +12214,16 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"violations\x18\x01 \x03(\v2'.elephant.tables.v1.ConstraintViolationR\n" +
 	"violations\x12\x14\n" +
-	"\x05count\x18\x02 \x01(\x03R\x05count\"\x9a\x02\n" +
+	"\x05count\x18\x02 \x01(\x03R\x05count\"\x8a\x02\n" +
 	"\x05Table\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
-	"\acolumns\x18\x04 \x03(\v2\x1a.elephant.tables.v1.ColumnR\acolumns\x12\x1b\n" +
-	"\trow_count\x18\x05 \x01(\x03R\browCount\x12%\n" +
-	"\x0esummary_column\x18\x06 \x01(\tR\rsummaryColumn\x12\x1c\n" +
-	"\tnamespace\x18\a \x01(\tR\tnamespace\x12\x10\n" +
-	"\x03key\x18\b \x01(\tR\x03key\x123\n" +
-	"\aindexes\x18\t \x03(\v2\x19.elephant.tables.v1.IndexR\aindexesJ\x04\b\x03\x10\x04R\bsql_name\"\xb6\x01\n" +
+	"\acolumns\x18\x03 \x03(\v2\x1a.elephant.tables.v1.ColumnR\acolumns\x12\x1b\n" +
+	"\trow_count\x18\x04 \x01(\x03R\browCount\x12%\n" +
+	"\x0esummary_column\x18\x05 \x01(\tR\rsummaryColumn\x12\x1c\n" +
+	"\tnamespace\x18\x06 \x01(\tR\tnamespace\x12\x10\n" +
+	"\x03key\x18\a \x01(\tR\x03key\x123\n" +
+	"\aindexes\x18\b \x03(\v2\x19.elephant.tables.v1.IndexR\aindexes\"\xb6\x01\n" +
 	"\x03Row\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x10\n" +
 	"\x03ord\x18\x02 \x01(\tR\x03ord\x128\n" +
@@ -12261,7 +12260,7 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x06column\x18\x01 \x01(\tR\x06column\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xec\x04\n" +
+	"descending\"\xde\x04\n" +
 	"\fDatabaseInfo\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12%\n" +
 	"\x0eowner_document\x18\x02 \x01(\tR\rownerDocument\x12'\n" +
@@ -12269,21 +12268,21 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\rparent_cursor\x18\x04 \x01(\v2\x1a.elephant.tables.v1.CursorR\fparentCursor\x12.\n" +
 	"\x04head\x18\x05 \x01(\v2\x1a.elephant.tables.v1.CursorR\x04head\x124\n" +
 	"\adurable\x18\x06 \x01(\v2\x1a.elephant.tables.v1.CursorR\adurable\x124\n" +
-	"\acreated\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12=\n" +
+	"\acreated\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12=\n" +
 	"\n" +
-	"namespaces\x18\t \x03(\v2\x1d.elephant.tables.v1.NamespaceR\n" +
+	"namespaces\x18\b \x03(\v2\x1d.elephant.tables.v1.NamespaceR\n" +
 	"namespaces\x12\x0e\n" +
-	"\x02id\x18\n" +
-	" \x01(\tR\x02id\x12%\n" +
-	"\x0edocument_nonce\x18\v \x01(\tR\rdocumentNonce\x12\x1b\n" +
-	"\tparent_id\x18\f \x01(\tR\bparentId\x12 \n" +
-	"\tdata_size\x18\r \x01(\x03H\x00R\bdataSize\x88\x01\x01\x12\"\n" +
-	"\rsoft_size_cap\x18\x0e \x01(\x03R\vsoftSizeCap\x12\x1e\n" +
+	"\x02id\x18\t \x01(\tR\x02id\x12%\n" +
+	"\x0edocument_nonce\x18\n" +
+	" \x01(\tR\rdocumentNonce\x12\x1b\n" +
+	"\tparent_id\x18\v \x01(\tR\bparentId\x12 \n" +
+	"\tdata_size\x18\f \x01(\x03H\x00R\bdataSize\x88\x01\x01\x12\"\n" +
+	"\rsoft_size_cap\x18\r \x01(\x03R\vsoftSizeCap\x12\x1e\n" +
 	"\n" +
-	"generation\x18\x0f \x01(\x05R\n" +
+	"generation\x18\x0e \x01(\x05R\n" +
 	"generationB\f\n" +
 	"\n" +
-	"_data_sizeJ\x04\b\a\x10\bR\x06tables\">\n" +
+	"_data_size\">\n" +
 	"\x15CreateDatabaseRequest\x12%\n" +
 	"\x0eowner_document\x18\x01 \x01(\tR\rownerDocument\"N\n" +
 	"\x16CreateDatabaseResponse\x124\n" +
@@ -12318,16 +12317,16 @@ const file_elephant_tables_v1_service_proto_rawDesc = "" +
 	"\x02at\x18\x02 \x01(\v2\x1f.elephant.tables.v1.PointInTimeR\x02at\x12\x16\n" +
 	"\x06tables\x18\x03 \x03(\tR\x06tables\x12\x17\n" +
 	"\adry_run\x18\x04 \x01(\bR\x06dryRun\x12\x1c\n" +
-	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"\xfa\x02\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\"\xed\x02\n" +
 	"\x0fRestoreResponse\x122\n" +
-	"\x06cursor\x18\x02 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12#\n" +
-	"\rcells_changed\x18\x03 \x01(\x03R\fcellsChanged\x12#\n" +
-	"\rrows_inserted\x18\x04 \x01(\x03R\frowsInserted\x12!\n" +
-	"\frows_deleted\x18\x05 \x01(\x03R\vrowsDeleted\x12+\n" +
-	"\x11changes_discarded\x18\x06 \x01(\x03R\x10changesDiscarded\x12)\n" +
-	"\x10discarded_actors\x18\a \x03(\tR\x0fdiscardedActors\x12#\n" +
-	"\rrestore_point\x18\b \x01(\tR\frestorePoint\x12<\n" +
-	"\abatches\x18\t \x03(\v2\".elephant.tables.v1.NamespaceBatchR\abatchesJ\x04\b\x01\x10\x02R\x05batch\"D\n" +
+	"\x06cursor\x18\x01 \x01(\v2\x1a.elephant.tables.v1.CursorR\x06cursor\x12#\n" +
+	"\rcells_changed\x18\x02 \x01(\x03R\fcellsChanged\x12#\n" +
+	"\rrows_inserted\x18\x03 \x01(\x03R\frowsInserted\x12!\n" +
+	"\frows_deleted\x18\x04 \x01(\x03R\vrowsDeleted\x12+\n" +
+	"\x11changes_discarded\x18\x05 \x01(\x03R\x10changesDiscarded\x12)\n" +
+	"\x10discarded_actors\x18\x06 \x03(\tR\x0fdiscardedActors\x12#\n" +
+	"\rrestore_point\x18\a \x01(\tR\frestorePoint\x12<\n" +
+	"\abatches\x18\b \x03(\v2\".elephant.tables.v1.NamespaceBatchR\abatches\"D\n" +
 	"\x0eNamespaceBatch\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
 	"\x05batch\x18\x02 \x01(\tR\x05batch\"\x88\x01\n" +

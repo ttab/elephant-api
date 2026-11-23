@@ -359,34 +359,32 @@ message Column {
   // Display name. Free text: renaming a column changes nothing a
   // statement names.
   string name = 2;
-  reserved 3;
-  reserved "sql_name";
   // Type of the column.
-  ColumnType type = 4;
+  ColumnType type = 3;
   // Display hint, such as "0.0 %". Not interpreted by the service.
-  string format = 5;
+  string format = 4;
   // The allowed values of a COLUMN_TYPE_CHOICE or
   // COLUMN_TYPE_MULTI_CHOICE column. Empty for other types. Commas are
   // reserved, since they separate options when a set is written as text:
   // an option that contains one is refused as invalid when a column is
   // created or updated.
-  repeated string options = 6;
+  repeated string options = 5;
   // Position of the column in the table, from 0.
-  int32 position = 7;
+  int32 position = 6;
   // True when the column is hidden from the default view. It is still
   // read, written and queried like any other.
-  bool hidden = 8;
+  bool hidden = 7;
   // The column's key, unique within its table: given when the column is
   // created, or made by the service from its name, and never changed.
   // It is the column's name in its table's view for Query. See Keys in
   // the package comment.
-  string key = 9;
+  string key = 8;
   // True when the column refuses empty cells. Honoured when a column is
   // created (CreateTable, AddColumn, a new column of an import), where
   // existing rows that would be empty refuse it; changed with
   // SchemaService.SetRequired, and ignored by UpdateColumn. See
   // Constraints in the package comment.
-  bool required = 10;
+  bool required = 9;
 }
 
 // Index is a unique constraint or an index over columns of a table. See
@@ -445,32 +443,30 @@ message Table {
   // Display name. Free text: renaming a table changes nothing a
   // statement names.
   string name = 2;
-  reserved 3;
-  reserved "sql_name";
   // The table's columns, in position order.
-  repeated Column columns = 4;
+  repeated Column columns = 3;
   // Number of rows in the table.
-  int64 row_count = 5;
+  int64 row_count = 4;
   // Id of the column DataService.Summarize summarises when it is not
   // given one: what a table widget shows at card size. Empty for none. A
   // new table gets its first COLUMN_TYPE_CHOICE column, else its first
   // COLUMN_TYPE_BOOLEAN column, else none. Changed with
   // SchemaService.UpdateTable. A board can override it for its own
   // widget, in the board document.
-  string summary_column = 6;
+  string summary_column = 5;
   // The namespace the table belongs to, set when it is created and never
   // changed.
-  string namespace = 7;
+  string namespace = 6;
   // The table's key, unique within its namespace: given when the table is
   // created, or made by the service from its name, and never changed.
   // The table's view for Query is named by it: the namespace, two
   // underscores and the key, such as "widget__people", which no two
   // tables of a database share, or the key alone for a Query scoped to
   // the namespace. See Keys in the package comment.
-  string key = 8;
+  string key = 7;
   // The table's unique constraints and indexes, in the order they were
   // added.
-  repeated Index indexes = 9;
+  repeated Index indexes = 8;
 }
 
 // Row is one row of a table.
@@ -795,13 +791,11 @@ message DatabaseInfo {
   // The latest change that is replicated to S3, and so survives a crash
   // of the owning pod.
   Cursor durable = 6;
-  reserved 7;
-  reserved "tables";
   // When the database was created.
-  google.protobuf.Timestamp created = 8;
+  google.protobuf.Timestamp created = 7;
   // The database's namespaces, by name. Their tables are read with
   // SchemaService.Describe.
-  repeated Namespace namespaces = 9;
+  repeated Namespace namespaces = 8;
   // The database's own id, never reused. It names the database in the
   // service's storage and logs, and tells two databases of one document
   // apart; no request takes it. For the first database of a generation
@@ -809,13 +803,13 @@ message DatabaseInfo {
   // later one, created after a DeleteDatabase, derives its id from that
   // nonce and its generation number. It stays when a document restore
   // binds the database to a later generation.
-  string id = 10;
+  string id = 9;
   // The nonce of the document generation the database belongs to, as the
   // repository reports it for the document.
-  string document_nonce = 11;
+  string document_nonce = 10;
   // The id of the database this one was forked from. Empty unless it is a
   // fork.
-  string parent_id = 12;
+  string parent_id = 11;
   // The database's size in bytes, without its change log: the pages in
   // use by its tables, indexes, catalog and suggestions. The change log
   // and its indexes are left out, since pruning shrinks them and nothing
@@ -830,17 +824,17 @@ message DatabaseInfo {
   // Unset when the response does not open the database: in
   // CreateDatabaseResponse and UndeleteDatabaseResponse, and with a
   // recovery in GetDatabaseResponse.
-  optional int64 data_size = 13;
+  optional int64 data_size = 12;
   // The soft size cap in bytes: the data_size past which a client should
   // warn that the database is large. It is reported, never enforced;
   // nothing is refused past it.
-  int64 soft_size_cap = 14;
+  int64 soft_size_cap = 13;
   // The database's number among the databases of its document
   // generation, from 1: one past the generation's earlier databases,
   // which callers deleted with DeleteDatabase. A database a document
   // restore binds to the restored generation takes that generation's
   // next number, 1 unless it had databases of its own.
-  int32 generation = 15;
+  int32 generation = 14;
 }
 
 message CreateDatabaseRequest {
@@ -946,26 +940,24 @@ message RestoreRequest {
 }
 
 message RestoreResponse {
-  reserved 1;
-  reserved "batch";
   // Position of the last restore batch. Unset on a dry run.
-  Cursor cursor = 2;
+  Cursor cursor = 1;
   // Cells the restore changes.
-  int64 cells_changed = 3;
+  int64 cells_changed = 2;
   // Rows the restore brings back.
-  int64 rows_inserted = 4;
+  int64 rows_inserted = 3;
   // Rows the restore removes.
-  int64 rows_deleted = 5;
+  int64 rows_deleted = 4;
   // Changes after the point that the restore discards.
-  int64 changes_discarded = 6;
+  int64 changes_discarded = 5;
   // Subjects whose changes the restore discards.
-  repeated string discarded_actors = 7;
+  repeated string discarded_actors = 6;
   // Id of the snapshot of the pre-restore state. Restore to it to go
   // back. Empty on a dry run.
-  string restore_point = 8;
+  string restore_point = 7;
   // The restore batches, one per namespace the restore changes, by
   // namespace. Empty on a dry run.
-  repeated NamespaceBatch batches = 9;
+  repeated NamespaceBatch batches = 8;
 }
 
 // NamespaceBatch is a change batch and the namespace it is in.
