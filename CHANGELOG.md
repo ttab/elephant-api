@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.31.0] - Unreleased
+## [v0.31.0] - 2026-11-23
 
 **New service (tables):** `elephant.tables.v1` is the declaration for
 elephant-tables, which gives a document its own tabular data in a SQLite
