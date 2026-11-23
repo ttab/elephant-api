@@ -269,6 +269,15 @@ func (h *documentsServiceHandler) BulkGetDeliverableInfo(ctx context.Context, re
 	return connect.NewResponse(res), nil
 }
 
+func (h *documentsServiceHandler) BulkGetAssignmentInfo(ctx context.Context, req *connect.Request[repository.BulkGetAssignmentInfoRequest]) (*connect.Response[repository.BulkGetAssignmentInfoResponse], error) {
+	res, err := h.svc.BulkGetAssignmentInfo(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(res), nil
+}
+
 func (h *documentsServiceHandler) CreateUpload(ctx context.Context, req *connect.Request[repository.CreateUploadRequest]) (*connect.Response[repository.CreateUploadResponse], error) {
 	res, err := h.svc.CreateUpload(ctx, req.Msg)
 	if err != nil {
@@ -568,6 +577,15 @@ func (c *documentsServiceClient) GetDeliverableInfo(ctx context.Context, req *re
 
 func (c *documentsServiceClient) BulkGetDeliverableInfo(ctx context.Context, req *repository.BulkGetDeliverableInfoRequest) (*repository.BulkGetDeliverableInfoResponse, error) {
 	res, err := c.client.BulkGetDeliverableInfo(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Msg, nil
+}
+
+func (c *documentsServiceClient) BulkGetAssignmentInfo(ctx context.Context, req *repository.BulkGetAssignmentInfoRequest) (*repository.BulkGetAssignmentInfoResponse, error) {
+	res, err := c.client.BulkGetAssignmentInfo(ctx, connect.NewRequest(req))
 	if err != nil {
 		return nil, err
 	}

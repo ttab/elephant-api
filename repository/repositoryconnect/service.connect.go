@@ -101,6 +101,9 @@ const (
 	// DocumentsBulkGetDeliverableInfoProcedure is the fully-qualified name of the Documents's
 	// BulkGetDeliverableInfo RPC.
 	DocumentsBulkGetDeliverableInfoProcedure = "/elephant.repository.Documents/BulkGetDeliverableInfo"
+	// DocumentsBulkGetAssignmentInfoProcedure is the fully-qualified name of the Documents's
+	// BulkGetAssignmentInfo RPC.
+	DocumentsBulkGetAssignmentInfoProcedure = "/elephant.repository.Documents/BulkGetAssignmentInfo"
 	// DocumentsCreateUploadProcedure is the fully-qualified name of the Documents's CreateUpload RPC.
 	DocumentsCreateUploadProcedure = "/elephant.repository.Documents/CreateUpload"
 	// DocumentsGetAttachmentsProcedure is the fully-qualified name of the Documents's GetAttachments
@@ -256,6 +259,10 @@ type DocumentsClient interface {
 	// BulkGetDeliverableInfo returns deliverable information for multiple
 	// documents in a single request.
 	BulkGetDeliverableInfo(context.Context, *connect.Request[repository.BulkGetDeliverableInfoRequest]) (*connect.Response[repository.BulkGetDeliverableInfoResponse], error)
+	// BulkGetAssignmentInfo returns the planning item, and its event, that
+	// each of the requested assignments currently belongs to, and the
+	// assignment's deliverables. It is limited to 200 assignments.
+	BulkGetAssignmentInfo(context.Context, *connect.Request[repository.BulkGetAssignmentInfoRequest]) (*connect.Response[repository.BulkGetAssignmentInfoResponse], error)
 	// CreateUpload is used to start the process of uploading objects that then
 	// can be attached to a document.
 	CreateUpload(context.Context, *connect.Request[repository.CreateUploadRequest]) (*connect.Response[repository.CreateUploadResponse], error)
@@ -446,6 +453,12 @@ func NewDocumentsClient(httpClient connect.HTTPClient, baseURL string, opts ...c
 			connect.WithSchema(documentsMethods.ByName("BulkGetDeliverableInfo")),
 			connect.WithClientOptions(opts...),
 		),
+		bulkGetAssignmentInfo: connect.NewClient[repository.BulkGetAssignmentInfoRequest, repository.BulkGetAssignmentInfoResponse](
+			httpClient,
+			baseURL+DocumentsBulkGetAssignmentInfoProcedure,
+			connect.WithSchema(documentsMethods.ByName("BulkGetAssignmentInfo")),
+			connect.WithClientOptions(opts...),
+		),
 		createUpload: connect.NewClient[repository.CreateUploadRequest, repository.CreateUploadResponse](
 			httpClient,
 			baseURL+DocumentsCreateUploadProcedure,
@@ -508,6 +521,7 @@ type documentsClient struct {
 	getWithheld            *connect.Client[repository.GetWithheldRequest, repository.GetWithheldResponse]
 	getDeliverableInfo     *connect.Client[repository.GetDeliverableInfoRequest, repository.GetDeliverableInfoResponse]
 	bulkGetDeliverableInfo *connect.Client[repository.BulkGetDeliverableInfoRequest, repository.BulkGetDeliverableInfoResponse]
+	bulkGetAssignmentInfo  *connect.Client[repository.BulkGetAssignmentInfoRequest, repository.BulkGetAssignmentInfoResponse]
 	createUpload           *connect.Client[repository.CreateUploadRequest, repository.CreateUploadResponse]
 	getAttachments         *connect.Client[repository.GetAttachmentsRequest, repository.GetAttachmentsResponse]
 	getMatching            *connect.Client[repository.GetMatchingRequest, repository.GetMatchingResponse]
@@ -650,6 +664,11 @@ func (c *documentsClient) BulkGetDeliverableInfo(ctx context.Context, req *conne
 	return c.bulkGetDeliverableInfo.CallUnary(ctx, req)
 }
 
+// BulkGetAssignmentInfo calls elephant.repository.Documents.BulkGetAssignmentInfo.
+func (c *documentsClient) BulkGetAssignmentInfo(ctx context.Context, req *connect.Request[repository.BulkGetAssignmentInfoRequest]) (*connect.Response[repository.BulkGetAssignmentInfoResponse], error) {
+	return c.bulkGetAssignmentInfo.CallUnary(ctx, req)
+}
+
 // CreateUpload calls elephant.repository.Documents.CreateUpload.
 func (c *documentsClient) CreateUpload(ctx context.Context, req *connect.Request[repository.CreateUploadRequest]) (*connect.Response[repository.CreateUploadResponse], error) {
 	return c.createUpload.CallUnary(ctx, req)
@@ -750,6 +769,10 @@ type DocumentsHandler interface {
 	// BulkGetDeliverableInfo returns deliverable information for multiple
 	// documents in a single request.
 	BulkGetDeliverableInfo(context.Context, *connect.Request[repository.BulkGetDeliverableInfoRequest]) (*connect.Response[repository.BulkGetDeliverableInfoResponse], error)
+	// BulkGetAssignmentInfo returns the planning item, and its event, that
+	// each of the requested assignments currently belongs to, and the
+	// assignment's deliverables. It is limited to 200 assignments.
+	BulkGetAssignmentInfo(context.Context, *connect.Request[repository.BulkGetAssignmentInfoRequest]) (*connect.Response[repository.BulkGetAssignmentInfoResponse], error)
 	// CreateUpload is used to start the process of uploading objects that then
 	// can be attached to a document.
 	CreateUpload(context.Context, *connect.Request[repository.CreateUploadRequest]) (*connect.Response[repository.CreateUploadResponse], error)
@@ -936,6 +959,12 @@ func NewDocumentsHandler(svc DocumentsHandler, opts ...connect.HandlerOption) (s
 		connect.WithSchema(documentsMethods.ByName("BulkGetDeliverableInfo")),
 		connect.WithHandlerOptions(opts...),
 	)
+	documentsBulkGetAssignmentInfoHandler := connect.NewUnaryHandler(
+		DocumentsBulkGetAssignmentInfoProcedure,
+		svc.BulkGetAssignmentInfo,
+		connect.WithSchema(documentsMethods.ByName("BulkGetAssignmentInfo")),
+		connect.WithHandlerOptions(opts...),
+	)
 	documentsCreateUploadHandler := connect.NewUnaryHandler(
 		DocumentsCreateUploadProcedure,
 		svc.CreateUpload,
@@ -1022,6 +1051,8 @@ func NewDocumentsHandler(svc DocumentsHandler, opts ...connect.HandlerOption) (s
 			documentsGetDeliverableInfoHandler.ServeHTTP(w, r)
 		case DocumentsBulkGetDeliverableInfoProcedure:
 			documentsBulkGetDeliverableInfoHandler.ServeHTTP(w, r)
+		case DocumentsBulkGetAssignmentInfoProcedure:
+			documentsBulkGetAssignmentInfoHandler.ServeHTTP(w, r)
 		case DocumentsCreateUploadProcedure:
 			documentsCreateUploadHandler.ServeHTTP(w, r)
 		case DocumentsGetAttachmentsProcedure:
@@ -1147,6 +1178,10 @@ func (UnimplementedDocumentsHandler) GetDeliverableInfo(context.Context, *connec
 
 func (UnimplementedDocumentsHandler) BulkGetDeliverableInfo(context.Context, *connect.Request[repository.BulkGetDeliverableInfoRequest]) (*connect.Response[repository.BulkGetDeliverableInfoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.repository.Documents.BulkGetDeliverableInfo is not implemented"))
+}
+
+func (UnimplementedDocumentsHandler) BulkGetAssignmentInfo(context.Context, *connect.Request[repository.BulkGetAssignmentInfoRequest]) (*connect.Response[repository.BulkGetAssignmentInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("elephant.repository.Documents.BulkGetAssignmentInfo is not implemented"))
 }
 
 func (UnimplementedDocumentsHandler) CreateUpload(context.Context, *connect.Request[repository.CreateUploadRequest]) (*connect.Response[repository.CreateUploadResponse], error) {

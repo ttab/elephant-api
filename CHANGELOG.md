@@ -286,6 +286,16 @@ Changes:
   restore point is `invalid_argument`. Access, views, namespace scoping,
   caps and the rate limit are a live query's, and the response's `cursor`
   is the snapshot's.
+- New RPC `Documents.BulkGetAssignmentInfo`, which takes up to 200
+  assignment UUIDs and returns, for each one found, the planning item it
+  currently belongs to, that planning item's event and the assignment's
+  deliverables. It answers what `BulkGetDeliverableInfo` answers for a
+  deliverable, from the assignment's own UUID, so a client following an
+  assignment that is moved between planning items needn't carry the
+  planning item along. An assignment the
+  client may not read through its planning item is left out like one that
+  does not exist. New messages `BulkGetAssignmentInfoRequest`,
+  `BulkGetAssignmentInfoResponse` and `AssignmentInfo`.
 
 ## [v0.30.0] - 2026-11-18
 

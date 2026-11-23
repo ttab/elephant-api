@@ -8652,6 +8652,173 @@ func (x *DeliverableInfo) GetEventUuid() string {
 	return ""
 }
 
+type BulkGetAssignmentInfoRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUIDs of the assignments to look up, at most 200. An assignment's UUID
+	// is the id of its core/assignment meta block in the planning item.
+	Uuids         []string `protobuf:"bytes,1,rep,name=uuids,proto3" json:"uuids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BulkGetAssignmentInfoRequest) Reset() {
+	*x = BulkGetAssignmentInfoRequest{}
+	mi := &file_repository_service_proto_msgTypes[143]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BulkGetAssignmentInfoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkGetAssignmentInfoRequest) ProtoMessage() {}
+
+func (x *BulkGetAssignmentInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_service_proto_msgTypes[143]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkGetAssignmentInfoRequest.ProtoReflect.Descriptor instead.
+func (*BulkGetAssignmentInfoRequest) Descriptor() ([]byte, []int) {
+	return file_repository_service_proto_rawDescGZIP(), []int{143}
+}
+
+func (x *BulkGetAssignmentInfoRequest) GetUuids() []string {
+	if x != nil {
+		return x.Uuids
+	}
+	return nil
+}
+
+type BulkGetAssignmentInfoResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Items contains one entry per assignment that was found and whose
+	// planning item the client may read. An assignment that does not exist
+	// and one in a planning item the client may not read are both left out,
+	// so the two cannot be told apart.
+	Items         []*AssignmentInfo `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BulkGetAssignmentInfoResponse) Reset() {
+	*x = BulkGetAssignmentInfoResponse{}
+	mi := &file_repository_service_proto_msgTypes[144]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BulkGetAssignmentInfoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkGetAssignmentInfoResponse) ProtoMessage() {}
+
+func (x *BulkGetAssignmentInfoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_service_proto_msgTypes[144]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkGetAssignmentInfoResponse.ProtoReflect.Descriptor instead.
+func (*BulkGetAssignmentInfoResponse) Descriptor() ([]byte, []int) {
+	return file_repository_service_proto_rawDescGZIP(), []int{144}
+}
+
+func (x *BulkGetAssignmentInfoResponse) GetItems() []*AssignmentInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type AssignmentInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the assignment.
+	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	// UUID of the planning item the assignment currently belongs to.
+	PlanningUuid string `protobuf:"bytes,2,opt,name=planning_uuid,json=planningUuid,proto3" json:"planning_uuid,omitempty"`
+	// UUID of the planning item's event, empty when it has none.
+	EventUuid string `protobuf:"bytes,3,opt,name=event_uuid,json=eventUuid,proto3" json:"event_uuid,omitempty"`
+	// UUIDs of the assignment's deliverables, the documents it links to as
+	// deliverables. Empty when it has none.
+	DeliverableUuids []string `protobuf:"bytes,4,rep,name=deliverable_uuids,json=deliverableUuids,proto3" json:"deliverable_uuids,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *AssignmentInfo) Reset() {
+	*x = AssignmentInfo{}
+	mi := &file_repository_service_proto_msgTypes[145]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignmentInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignmentInfo) ProtoMessage() {}
+
+func (x *AssignmentInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_service_proto_msgTypes[145]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignmentInfo.ProtoReflect.Descriptor instead.
+func (*AssignmentInfo) Descriptor() ([]byte, []int) {
+	return file_repository_service_proto_rawDescGZIP(), []int{145}
+}
+
+func (x *AssignmentInfo) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *AssignmentInfo) GetPlanningUuid() string {
+	if x != nil {
+		return x.PlanningUuid
+	}
+	return ""
+}
+
+func (x *AssignmentInfo) GetEventUuid() string {
+	if x != nil {
+		return x.EventUuid
+	}
+	return ""
+}
+
+func (x *AssignmentInfo) GetDeliverableUuids() []string {
+	if x != nil {
+		return x.DeliverableUuids
+	}
+	return nil
+}
+
 type CreateUploadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name of the uploaded file, this should be the basename of the file.
@@ -8666,7 +8833,7 @@ type CreateUploadRequest struct {
 
 func (x *CreateUploadRequest) Reset() {
 	*x = CreateUploadRequest{}
-	mi := &file_repository_service_proto_msgTypes[143]
+	mi := &file_repository_service_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8678,7 +8845,7 @@ func (x *CreateUploadRequest) String() string {
 func (*CreateUploadRequest) ProtoMessage() {}
 
 func (x *CreateUploadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[143]
+	mi := &file_repository_service_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8691,7 +8858,7 @@ func (x *CreateUploadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUploadRequest.ProtoReflect.Descriptor instead.
 func (*CreateUploadRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{143}
+	return file_repository_service_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *CreateUploadRequest) GetName() string {
@@ -8727,7 +8894,7 @@ type CreateUploadResponse struct {
 
 func (x *CreateUploadResponse) Reset() {
 	*x = CreateUploadResponse{}
-	mi := &file_repository_service_proto_msgTypes[144]
+	mi := &file_repository_service_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8739,7 +8906,7 @@ func (x *CreateUploadResponse) String() string {
 func (*CreateUploadResponse) ProtoMessage() {}
 
 func (x *CreateUploadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[144]
+	mi := &file_repository_service_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8752,7 +8919,7 @@ func (x *CreateUploadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUploadResponse.ProtoReflect.Descriptor instead.
 func (*CreateUploadResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{144}
+	return file_repository_service_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *CreateUploadResponse) GetId() string {
@@ -8783,7 +8950,7 @@ type GetAttachmentsRequest struct {
 
 func (x *GetAttachmentsRequest) Reset() {
 	*x = GetAttachmentsRequest{}
-	mi := &file_repository_service_proto_msgTypes[145]
+	mi := &file_repository_service_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8795,7 +8962,7 @@ func (x *GetAttachmentsRequest) String() string {
 func (*GetAttachmentsRequest) ProtoMessage() {}
 
 func (x *GetAttachmentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[145]
+	mi := &file_repository_service_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8808,7 +8975,7 @@ func (x *GetAttachmentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAttachmentsRequest.ProtoReflect.Descriptor instead.
 func (*GetAttachmentsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{145}
+	return file_repository_service_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *GetAttachmentsRequest) GetDocuments() []string {
@@ -8841,7 +9008,7 @@ type GetAttachmentsResponse struct {
 
 func (x *GetAttachmentsResponse) Reset() {
 	*x = GetAttachmentsResponse{}
-	mi := &file_repository_service_proto_msgTypes[146]
+	mi := &file_repository_service_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8853,7 +9020,7 @@ func (x *GetAttachmentsResponse) String() string {
 func (*GetAttachmentsResponse) ProtoMessage() {}
 
 func (x *GetAttachmentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[146]
+	mi := &file_repository_service_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8866,7 +9033,7 @@ func (x *GetAttachmentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAttachmentsResponse.ProtoReflect.Descriptor instead.
 func (*GetAttachmentsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{146}
+	return file_repository_service_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *GetAttachmentsResponse) GetAttachments() []*AttachmentDetails {
@@ -8896,7 +9063,7 @@ type AttachmentDetails struct {
 
 func (x *AttachmentDetails) Reset() {
 	*x = AttachmentDetails{}
-	mi := &file_repository_service_proto_msgTypes[147]
+	mi := &file_repository_service_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8908,7 +9075,7 @@ func (x *AttachmentDetails) String() string {
 func (*AttachmentDetails) ProtoMessage() {}
 
 func (x *AttachmentDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[147]
+	mi := &file_repository_service_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8921,7 +9088,7 @@ func (x *AttachmentDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttachmentDetails.ProtoReflect.Descriptor instead.
 func (*AttachmentDetails) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{147}
+	return file_repository_service_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *AttachmentDetails) GetDocument() string {
@@ -8978,7 +9145,7 @@ type ConfigureTypeRequest struct {
 
 func (x *ConfigureTypeRequest) Reset() {
 	*x = ConfigureTypeRequest{}
-	mi := &file_repository_service_proto_msgTypes[148]
+	mi := &file_repository_service_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8990,7 +9157,7 @@ func (x *ConfigureTypeRequest) String() string {
 func (*ConfigureTypeRequest) ProtoMessage() {}
 
 func (x *ConfigureTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[148]
+	mi := &file_repository_service_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9003,7 +9170,7 @@ func (x *ConfigureTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureTypeRequest.ProtoReflect.Descriptor instead.
 func (*ConfigureTypeRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{148}
+	return file_repository_service_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *ConfigureTypeRequest) GetType() string {
@@ -9042,7 +9209,7 @@ type TypeConfiguration struct {
 
 func (x *TypeConfiguration) Reset() {
 	*x = TypeConfiguration{}
-	mi := &file_repository_service_proto_msgTypes[149]
+	mi := &file_repository_service_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9054,7 +9221,7 @@ func (x *TypeConfiguration) String() string {
 func (*TypeConfiguration) ProtoMessage() {}
 
 func (x *TypeConfiguration) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[149]
+	mi := &file_repository_service_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9067,7 +9234,7 @@ func (x *TypeConfiguration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TypeConfiguration.ProtoReflect.Descriptor instead.
 func (*TypeConfiguration) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{149}
+	return file_repository_service_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *TypeConfiguration) GetBoundedCollection() bool {
@@ -9123,7 +9290,7 @@ type TypeTimeExpression struct {
 
 func (x *TypeTimeExpression) Reset() {
 	*x = TypeTimeExpression{}
-	mi := &file_repository_service_proto_msgTypes[150]
+	mi := &file_repository_service_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9135,7 +9302,7 @@ func (x *TypeTimeExpression) String() string {
 func (*TypeTimeExpression) ProtoMessage() {}
 
 func (x *TypeTimeExpression) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[150]
+	mi := &file_repository_service_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9148,7 +9315,7 @@ func (x *TypeTimeExpression) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TypeTimeExpression.ProtoReflect.Descriptor instead.
 func (*TypeTimeExpression) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{150}
+	return file_repository_service_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *TypeTimeExpression) GetExpression() string {
@@ -9184,7 +9351,7 @@ type LabelExpression struct {
 
 func (x *LabelExpression) Reset() {
 	*x = LabelExpression{}
-	mi := &file_repository_service_proto_msgTypes[151]
+	mi := &file_repository_service_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9196,7 +9363,7 @@ func (x *LabelExpression) String() string {
 func (*LabelExpression) ProtoMessage() {}
 
 func (x *LabelExpression) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[151]
+	mi := &file_repository_service_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9209,7 +9376,7 @@ func (x *LabelExpression) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelExpression.ProtoReflect.Descriptor instead.
 func (*LabelExpression) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{151}
+	return file_repository_service_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *LabelExpression) GetExpression() string {
@@ -9234,7 +9401,7 @@ type ConfigureTypeResponse struct {
 
 func (x *ConfigureTypeResponse) Reset() {
 	*x = ConfigureTypeResponse{}
-	mi := &file_repository_service_proto_msgTypes[152]
+	mi := &file_repository_service_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9246,7 +9413,7 @@ func (x *ConfigureTypeResponse) String() string {
 func (*ConfigureTypeResponse) ProtoMessage() {}
 
 func (x *ConfigureTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[152]
+	mi := &file_repository_service_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9259,7 +9426,7 @@ func (x *ConfigureTypeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigureTypeResponse.ProtoReflect.Descriptor instead.
 func (*ConfigureTypeResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{152}
+	return file_repository_service_proto_rawDescGZIP(), []int{155}
 }
 
 type GetTypeConfigurationRequest struct {
@@ -9272,7 +9439,7 @@ type GetTypeConfigurationRequest struct {
 
 func (x *GetTypeConfigurationRequest) Reset() {
 	*x = GetTypeConfigurationRequest{}
-	mi := &file_repository_service_proto_msgTypes[153]
+	mi := &file_repository_service_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9284,7 +9451,7 @@ func (x *GetTypeConfigurationRequest) String() string {
 func (*GetTypeConfigurationRequest) ProtoMessage() {}
 
 func (x *GetTypeConfigurationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[153]
+	mi := &file_repository_service_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9297,7 +9464,7 @@ func (x *GetTypeConfigurationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTypeConfigurationRequest.ProtoReflect.Descriptor instead.
 func (*GetTypeConfigurationRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{153}
+	return file_repository_service_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *GetTypeConfigurationRequest) GetType() string {
@@ -9317,7 +9484,7 @@ type GetTypeConfigurationResponse struct {
 
 func (x *GetTypeConfigurationResponse) Reset() {
 	*x = GetTypeConfigurationResponse{}
-	mi := &file_repository_service_proto_msgTypes[154]
+	mi := &file_repository_service_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9329,7 +9496,7 @@ func (x *GetTypeConfigurationResponse) String() string {
 func (*GetTypeConfigurationResponse) ProtoMessage() {}
 
 func (x *GetTypeConfigurationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[154]
+	mi := &file_repository_service_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9342,7 +9509,7 @@ func (x *GetTypeConfigurationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTypeConfigurationResponse.ProtoReflect.Descriptor instead.
 func (*GetTypeConfigurationResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{154}
+	return file_repository_service_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *GetTypeConfigurationResponse) GetConfiguration() *TypeConfiguration {
@@ -9378,7 +9545,7 @@ type GetMatchingRequest struct {
 
 func (x *GetMatchingRequest) Reset() {
 	*x = GetMatchingRequest{}
-	mi := &file_repository_service_proto_msgTypes[155]
+	mi := &file_repository_service_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9390,7 +9557,7 @@ func (x *GetMatchingRequest) String() string {
 func (*GetMatchingRequest) ProtoMessage() {}
 
 func (x *GetMatchingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[155]
+	mi := &file_repository_service_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9403,7 +9570,7 @@ func (x *GetMatchingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMatchingRequest.ProtoReflect.Descriptor instead.
 func (*GetMatchingRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{155}
+	return file_repository_service_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *GetMatchingRequest) GetType() string {
@@ -9464,7 +9631,7 @@ type GetMatchingResponse struct {
 
 func (x *GetMatchingResponse) Reset() {
 	*x = GetMatchingResponse{}
-	mi := &file_repository_service_proto_msgTypes[156]
+	mi := &file_repository_service_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9476,7 +9643,7 @@ func (x *GetMatchingResponse) String() string {
 func (*GetMatchingResponse) ProtoMessage() {}
 
 func (x *GetMatchingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[156]
+	mi := &file_repository_service_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9489,7 +9656,7 @@ func (x *GetMatchingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMatchingResponse.ProtoReflect.Descriptor instead.
 func (*GetMatchingResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{156}
+	return file_repository_service_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *GetMatchingResponse) GetMatches() []*DocumentMatch {
@@ -9515,7 +9682,7 @@ type DocumentMatch struct {
 
 func (x *DocumentMatch) Reset() {
 	*x = DocumentMatch{}
-	mi := &file_repository_service_proto_msgTypes[157]
+	mi := &file_repository_service_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9527,7 +9694,7 @@ func (x *DocumentMatch) String() string {
 func (*DocumentMatch) ProtoMessage() {}
 
 func (x *DocumentMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[157]
+	mi := &file_repository_service_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9540,7 +9707,7 @@ func (x *DocumentMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentMatch.ProtoReflect.Descriptor instead.
 func (*DocumentMatch) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{157}
+	return file_repository_service_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *DocumentMatch) GetUuid() string {
@@ -9589,7 +9756,7 @@ type DocumentFilter struct {
 
 func (x *DocumentFilter) Reset() {
 	*x = DocumentFilter{}
-	mi := &file_repository_service_proto_msgTypes[158]
+	mi := &file_repository_service_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9601,7 +9768,7 @@ func (x *DocumentFilter) String() string {
 func (*DocumentFilter) ProtoMessage() {}
 
 func (x *DocumentFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[158]
+	mi := &file_repository_service_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9614,7 +9781,7 @@ func (x *DocumentFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentFilter.ProtoReflect.Descriptor instead.
 func (*DocumentFilter) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{158}
+	return file_repository_service_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *DocumentFilter) GetExpression() string {
@@ -9661,7 +9828,7 @@ type FilterValues struct {
 
 func (x *FilterValues) Reset() {
 	*x = FilterValues{}
-	mi := &file_repository_service_proto_msgTypes[159]
+	mi := &file_repository_service_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9673,7 +9840,7 @@ func (x *FilterValues) String() string {
 func (*FilterValues) ProtoMessage() {}
 
 func (x *FilterValues) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[159]
+	mi := &file_repository_service_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9686,7 +9853,7 @@ func (x *FilterValues) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilterValues.ProtoReflect.Descriptor instead.
 func (*FilterValues) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{159}
+	return file_repository_service_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *FilterValues) GetValues() map[string]string {
@@ -9704,7 +9871,7 @@ type GetSocketTokenRequest struct {
 
 func (x *GetSocketTokenRequest) Reset() {
 	*x = GetSocketTokenRequest{}
-	mi := &file_repository_service_proto_msgTypes[160]
+	mi := &file_repository_service_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9716,7 +9883,7 @@ func (x *GetSocketTokenRequest) String() string {
 func (*GetSocketTokenRequest) ProtoMessage() {}
 
 func (x *GetSocketTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[160]
+	mi := &file_repository_service_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9729,7 +9896,7 @@ func (x *GetSocketTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSocketTokenRequest.ProtoReflect.Descriptor instead.
 func (*GetSocketTokenRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{160}
+	return file_repository_service_proto_rawDescGZIP(), []int{163}
 }
 
 type GetSocketTokenResponse struct {
@@ -9745,7 +9912,7 @@ type GetSocketTokenResponse struct {
 
 func (x *GetSocketTokenResponse) Reset() {
 	*x = GetSocketTokenResponse{}
-	mi := &file_repository_service_proto_msgTypes[161]
+	mi := &file_repository_service_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9757,7 +9924,7 @@ func (x *GetSocketTokenResponse) String() string {
 func (*GetSocketTokenResponse) ProtoMessage() {}
 
 func (x *GetSocketTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[161]
+	mi := &file_repository_service_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9770,7 +9937,7 @@ func (x *GetSocketTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSocketTokenResponse.ProtoReflect.Descriptor instead.
 func (*GetSocketTokenResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{161}
+	return file_repository_service_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *GetSocketTokenResponse) GetToken() string {
@@ -9818,7 +9985,7 @@ type ListDocumentsRequest struct {
 
 func (x *ListDocumentsRequest) Reset() {
 	*x = ListDocumentsRequest{}
-	mi := &file_repository_service_proto_msgTypes[162]
+	mi := &file_repository_service_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9830,7 +9997,7 @@ func (x *ListDocumentsRequest) String() string {
 func (*ListDocumentsRequest) ProtoMessage() {}
 
 func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[162]
+	mi := &file_repository_service_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9843,7 +10010,7 @@ func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsRequest.ProtoReflect.Descriptor instead.
 func (*ListDocumentsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{162}
+	return file_repository_service_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *ListDocumentsRequest) GetSelectors() []*ListDocumentsSelector {
@@ -9908,7 +10075,7 @@ type ListDocumentsSelector struct {
 
 func (x *ListDocumentsSelector) Reset() {
 	*x = ListDocumentsSelector{}
-	mi := &file_repository_service_proto_msgTypes[163]
+	mi := &file_repository_service_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9920,7 +10087,7 @@ func (x *ListDocumentsSelector) String() string {
 func (*ListDocumentsSelector) ProtoMessage() {}
 
 func (x *ListDocumentsSelector) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[163]
+	mi := &file_repository_service_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9933,7 +10100,7 @@ func (x *ListDocumentsSelector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsSelector.ProtoReflect.Descriptor instead.
 func (*ListDocumentsSelector) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{163}
+	return file_repository_service_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *ListDocumentsSelector) GetType() string {
@@ -9970,7 +10137,7 @@ type ListDocumentsResponse struct {
 
 func (x *ListDocumentsResponse) Reset() {
 	*x = ListDocumentsResponse{}
-	mi := &file_repository_service_proto_msgTypes[164]
+	mi := &file_repository_service_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9982,7 +10149,7 @@ func (x *ListDocumentsResponse) String() string {
 func (*ListDocumentsResponse) ProtoMessage() {}
 
 func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[164]
+	mi := &file_repository_service_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9995,7 +10162,7 @@ func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{164}
+	return file_repository_service_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *ListDocumentsResponse) GetItems() []*ListDocumentsItem {
@@ -10039,7 +10206,7 @@ type ListDocumentsItem struct {
 
 func (x *ListDocumentsItem) Reset() {
 	*x = ListDocumentsItem{}
-	mi := &file_repository_service_proto_msgTypes[165]
+	mi := &file_repository_service_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10051,7 +10218,7 @@ func (x *ListDocumentsItem) String() string {
 func (*ListDocumentsItem) ProtoMessage() {}
 
 func (x *ListDocumentsItem) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_service_proto_msgTypes[165]
+	mi := &file_repository_service_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10064,7 +10231,7 @@ func (x *ListDocumentsItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsItem.ProtoReflect.Descriptor instead.
 func (*ListDocumentsItem) Descriptor() ([]byte, []int) {
-	return file_repository_service_proto_rawDescGZIP(), []int{165}
+	return file_repository_service_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *ListDocumentsItem) GetUuid() string {
@@ -10697,7 +10864,17 @@ const file_repository_service_proto_rawDesc = "" +
 	"\rplanning_uuid\x18\x02 \x01(\tR\fplanningUuid\x12'\n" +
 	"\x0fassignment_uuid\x18\x03 \x01(\tR\x0eassignmentUuid\x12\x1d\n" +
 	"\n" +
-	"event_uuid\x18\x04 \x01(\tR\teventUuid\"\xcd\x01\n" +
+	"event_uuid\x18\x04 \x01(\tR\teventUuid\"4\n" +
+	"\x1cBulkGetAssignmentInfoRequest\x12\x14\n" +
+	"\x05uuids\x18\x01 \x03(\tR\x05uuids\"Z\n" +
+	"\x1dBulkGetAssignmentInfoResponse\x129\n" +
+	"\x05items\x18\x01 \x03(\v2#.elephant.repository.AssignmentInfoR\x05items\"\x95\x01\n" +
+	"\x0eAssignmentInfo\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12#\n" +
+	"\rplanning_uuid\x18\x02 \x01(\tR\fplanningUuid\x12\x1d\n" +
+	"\n" +
+	"event_uuid\x18\x03 \x01(\tR\teventUuid\x12+\n" +
+	"\x11deliverable_uuids\x18\x04 \x03(\tR\x10deliverableUuids\"\xcd\x01\n" +
 	"\x13CreateUploadRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12F\n" +
@@ -10826,7 +11003,7 @@ const file_repository_service_proto_rawDesc = "" +
 	"\x0eFILTER_OP_NONE\x10\x03*B\n" +
 	"\vListVersion\x12\x19\n" +
 	"\x15LIST_VERSION_SELECTED\x10\x00\x12\x18\n" +
-	"\x14LIST_VERSION_CURRENT\x10\x012\xcd\x18\n" +
+	"\x14LIST_VERSION_CURRENT\x10\x012\xcd\x19\n" +
 	"\tDocuments\x12X\n" +
 	"\x03Get\x12'.elephant.repository.GetDocumentRequest\x1a(.elephant.repository.GetDocumentResponse\x12T\n" +
 	"\aBulkGet\x12#.elephant.repository.BulkGetRequest\x1a$.elephant.repository.BulkGetResponse\x12]\n" +
@@ -10857,7 +11034,8 @@ const file_repository_service_proto_rawDesc = "" +
 	"\x06Unlock\x12\".elephant.repository.UnlockRequest\x1a#.elephant.repository.UnlockResponse\x12`\n" +
 	"\vGetWithheld\x12'.elephant.repository.GetWithheldRequest\x1a(.elephant.repository.GetWithheldResponse\x12u\n" +
 	"\x12GetDeliverableInfo\x12..elephant.repository.GetDeliverableInfoRequest\x1a/.elephant.repository.GetDeliverableInfoResponse\x12\x81\x01\n" +
-	"\x16BulkGetDeliverableInfo\x122.elephant.repository.BulkGetDeliverableInfoRequest\x1a3.elephant.repository.BulkGetDeliverableInfoResponse\x12c\n" +
+	"\x16BulkGetDeliverableInfo\x122.elephant.repository.BulkGetDeliverableInfoRequest\x1a3.elephant.repository.BulkGetDeliverableInfoResponse\x12~\n" +
+	"\x15BulkGetAssignmentInfo\x121.elephant.repository.BulkGetAssignmentInfoRequest\x1a2.elephant.repository.BulkGetAssignmentInfoResponse\x12c\n" +
 	"\fCreateUpload\x12(.elephant.repository.CreateUploadRequest\x1a).elephant.repository.CreateUploadResponse\x12i\n" +
 	"\x0eGetAttachments\x12*.elephant.repository.GetAttachmentsRequest\x1a+.elephant.repository.GetAttachmentsResponse\x12`\n" +
 	"\vGetMatching\x12'.elephant.repository.GetMatchingRequest\x1a(.elephant.repository.GetMatchingResponse\x12i\n" +
@@ -10911,7 +11089,7 @@ func file_repository_service_proto_rawDescGZIP() []byte {
 }
 
 var file_repository_service_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_repository_service_proto_msgTypes = make([]protoimpl.MessageInfo, 185)
+var file_repository_service_proto_msgTypes = make([]protoimpl.MessageInfo, 188)
 var file_repository_service_proto_goTypes = []any{
 	(GetMetaDoc)(0),                        // 0: elephant.repository.GetMetaDoc
 	(LockExclusivity)(0),                   // 1: elephant.repository.LockExclusivity
@@ -11062,58 +11240,61 @@ var file_repository_service_proto_goTypes = []any{
 	(*BulkGetDeliverableInfoRequest)(nil),  // 146: elephant.repository.BulkGetDeliverableInfoRequest
 	(*BulkGetDeliverableInfoResponse)(nil), // 147: elephant.repository.BulkGetDeliverableInfoResponse
 	(*DeliverableInfo)(nil),                // 148: elephant.repository.DeliverableInfo
-	(*CreateUploadRequest)(nil),            // 149: elephant.repository.CreateUploadRequest
-	(*CreateUploadResponse)(nil),           // 150: elephant.repository.CreateUploadResponse
-	(*GetAttachmentsRequest)(nil),          // 151: elephant.repository.GetAttachmentsRequest
-	(*GetAttachmentsResponse)(nil),         // 152: elephant.repository.GetAttachmentsResponse
-	(*AttachmentDetails)(nil),              // 153: elephant.repository.AttachmentDetails
-	(*ConfigureTypeRequest)(nil),           // 154: elephant.repository.ConfigureTypeRequest
-	(*TypeConfiguration)(nil),              // 155: elephant.repository.TypeConfiguration
-	(*TypeTimeExpression)(nil),             // 156: elephant.repository.TypeTimeExpression
-	(*LabelExpression)(nil),                // 157: elephant.repository.LabelExpression
-	(*ConfigureTypeResponse)(nil),          // 158: elephant.repository.ConfigureTypeResponse
-	(*GetTypeConfigurationRequest)(nil),    // 159: elephant.repository.GetTypeConfigurationRequest
-	(*GetTypeConfigurationResponse)(nil),   // 160: elephant.repository.GetTypeConfigurationResponse
-	(*GetMatchingRequest)(nil),             // 161: elephant.repository.GetMatchingRequest
-	(*GetMatchingResponse)(nil),            // 162: elephant.repository.GetMatchingResponse
-	(*DocumentMatch)(nil),                  // 163: elephant.repository.DocumentMatch
-	(*DocumentFilter)(nil),                 // 164: elephant.repository.DocumentFilter
-	(*FilterValues)(nil),                   // 165: elephant.repository.FilterValues
-	(*GetSocketTokenRequest)(nil),          // 166: elephant.repository.GetSocketTokenRequest
-	(*GetSocketTokenResponse)(nil),         // 167: elephant.repository.GetSocketTokenResponse
-	(*ListDocumentsRequest)(nil),           // 168: elephant.repository.ListDocumentsRequest
-	(*ListDocumentsSelector)(nil),          // 169: elephant.repository.ListDocumentsSelector
-	(*ListDocumentsResponse)(nil),          // 170: elephant.repository.ListDocumentsResponse
-	(*ListDocumentsItem)(nil),              // 171: elephant.repository.ListDocumentsItem
-	nil,                                    // 172: elephant.repository.GetNilStatusesResponse.StatusesEntry
-	nil,                                    // 173: elephant.repository.StatusOverviewItem.HeadsEntry
-	nil,                                    // 174: elephant.repository.GetPermissionsResponse.PermissionsEntry
-	nil,                                    // 175: elephant.repository.ExtractedValues.ValuesEntry
-	nil,                                    // 176: elephant.repository.DocumentVersion.MetaEntry
-	nil,                                    // 177: elephant.repository.DocumentVersion.StatusesEntry
-	nil,                                    // 178: elephant.repository.UpdateRequest.MetaEntry
-	nil,                                    // 179: elephant.repository.UpdateRequest.IfStatusHeadsEntry
-	nil,                                    // 180: elephant.repository.UpdateRequest.AttachObjectsEntry
-	nil,                                    // 181: elephant.repository.StatusUpdate.MetaEntry
-	nil,                                    // 182: elephant.repository.DeleteDocumentRequest.MetaEntry
-	nil,                                    // 183: elephant.repository.DeleteRecord.MetaEntry
-	nil,                                    // 184: elephant.repository.DocumentMeta.HeadsEntry
-	nil,                                    // 185: elephant.repository.Status.MetaEntry
-	nil,                                    // 186: elephant.repository.GetExemplarsRequest.KnownEntry
-	nil,                                    // 187: elephant.repository.GetAllActiveSchemasRequest.KnownEntry
-	nil,                                    // 188: elephant.repository.GetMetricsResponse.DocumentsEntry
-	nil,                                    // 189: elephant.repository.CreateUploadRequest.MetaEntry
-	nil,                                    // 190: elephant.repository.FilterValues.ValuesEntry
-	(*newsdoc.Document)(nil),               // 191: newsdoc.Document
-	(*newsdoc.Block)(nil),                  // 192: newsdoc.Block
+	(*BulkGetAssignmentInfoRequest)(nil),   // 149: elephant.repository.BulkGetAssignmentInfoRequest
+	(*BulkGetAssignmentInfoResponse)(nil),  // 150: elephant.repository.BulkGetAssignmentInfoResponse
+	(*AssignmentInfo)(nil),                 // 151: elephant.repository.AssignmentInfo
+	(*CreateUploadRequest)(nil),            // 152: elephant.repository.CreateUploadRequest
+	(*CreateUploadResponse)(nil),           // 153: elephant.repository.CreateUploadResponse
+	(*GetAttachmentsRequest)(nil),          // 154: elephant.repository.GetAttachmentsRequest
+	(*GetAttachmentsResponse)(nil),         // 155: elephant.repository.GetAttachmentsResponse
+	(*AttachmentDetails)(nil),              // 156: elephant.repository.AttachmentDetails
+	(*ConfigureTypeRequest)(nil),           // 157: elephant.repository.ConfigureTypeRequest
+	(*TypeConfiguration)(nil),              // 158: elephant.repository.TypeConfiguration
+	(*TypeTimeExpression)(nil),             // 159: elephant.repository.TypeTimeExpression
+	(*LabelExpression)(nil),                // 160: elephant.repository.LabelExpression
+	(*ConfigureTypeResponse)(nil),          // 161: elephant.repository.ConfigureTypeResponse
+	(*GetTypeConfigurationRequest)(nil),    // 162: elephant.repository.GetTypeConfigurationRequest
+	(*GetTypeConfigurationResponse)(nil),   // 163: elephant.repository.GetTypeConfigurationResponse
+	(*GetMatchingRequest)(nil),             // 164: elephant.repository.GetMatchingRequest
+	(*GetMatchingResponse)(nil),            // 165: elephant.repository.GetMatchingResponse
+	(*DocumentMatch)(nil),                  // 166: elephant.repository.DocumentMatch
+	(*DocumentFilter)(nil),                 // 167: elephant.repository.DocumentFilter
+	(*FilterValues)(nil),                   // 168: elephant.repository.FilterValues
+	(*GetSocketTokenRequest)(nil),          // 169: elephant.repository.GetSocketTokenRequest
+	(*GetSocketTokenResponse)(nil),         // 170: elephant.repository.GetSocketTokenResponse
+	(*ListDocumentsRequest)(nil),           // 171: elephant.repository.ListDocumentsRequest
+	(*ListDocumentsSelector)(nil),          // 172: elephant.repository.ListDocumentsSelector
+	(*ListDocumentsResponse)(nil),          // 173: elephant.repository.ListDocumentsResponse
+	(*ListDocumentsItem)(nil),              // 174: elephant.repository.ListDocumentsItem
+	nil,                                    // 175: elephant.repository.GetNilStatusesResponse.StatusesEntry
+	nil,                                    // 176: elephant.repository.StatusOverviewItem.HeadsEntry
+	nil,                                    // 177: elephant.repository.GetPermissionsResponse.PermissionsEntry
+	nil,                                    // 178: elephant.repository.ExtractedValues.ValuesEntry
+	nil,                                    // 179: elephant.repository.DocumentVersion.MetaEntry
+	nil,                                    // 180: elephant.repository.DocumentVersion.StatusesEntry
+	nil,                                    // 181: elephant.repository.UpdateRequest.MetaEntry
+	nil,                                    // 182: elephant.repository.UpdateRequest.IfStatusHeadsEntry
+	nil,                                    // 183: elephant.repository.UpdateRequest.AttachObjectsEntry
+	nil,                                    // 184: elephant.repository.StatusUpdate.MetaEntry
+	nil,                                    // 185: elephant.repository.DeleteDocumentRequest.MetaEntry
+	nil,                                    // 186: elephant.repository.DeleteRecord.MetaEntry
+	nil,                                    // 187: elephant.repository.DocumentMeta.HeadsEntry
+	nil,                                    // 188: elephant.repository.Status.MetaEntry
+	nil,                                    // 189: elephant.repository.GetExemplarsRequest.KnownEntry
+	nil,                                    // 190: elephant.repository.GetAllActiveSchemasRequest.KnownEntry
+	nil,                                    // 191: elephant.repository.GetMetricsResponse.DocumentsEntry
+	nil,                                    // 192: elephant.repository.CreateUploadRequest.MetaEntry
+	nil,                                    // 193: elephant.repository.FilterValues.ValuesEntry
+	(*newsdoc.Document)(nil),               // 194: newsdoc.Document
+	(*newsdoc.Block)(nil),                  // 195: newsdoc.Block
 }
 var file_repository_service_proto_depIdxs = []int32{
 	86,  // 0: elephant.repository.GetStatusResponse.status:type_name -> elephant.repository.Status
 	86,  // 1: elephant.repository.GetStatusHistoryReponse.statuses:type_name -> elephant.repository.Status
-	172, // 2: elephant.repository.GetNilStatusesResponse.statuses:type_name -> elephant.repository.GetNilStatusesResponse.StatusesEntry
+	175, // 2: elephant.repository.GetNilStatusesResponse.statuses:type_name -> elephant.repository.GetNilStatusesResponse.StatusesEntry
 	16,  // 3: elephant.repository.GetStatusOverviewResponse.items:type_name -> elephant.repository.StatusOverviewItem
-	173, // 4: elephant.repository.StatusOverviewItem.heads:type_name -> elephant.repository.StatusOverviewItem.HeadsEntry
-	174, // 5: elephant.repository.GetPermissionsResponse.permissions:type_name -> elephant.repository.GetPermissionsResponse.PermissionsEntry
+	176, // 4: elephant.repository.StatusOverviewItem.heads:type_name -> elephant.repository.StatusOverviewItem.HeadsEntry
+	177, // 5: elephant.repository.GetPermissionsResponse.permissions:type_name -> elephant.repository.GetPermissionsResponse.PermissionsEntry
 	25,  // 6: elephant.repository.GetEventlogResponse.items:type_name -> elephant.repository.EventlogItem
 	25,  // 7: elephant.repository.GetCompactedEventlogResponse.items:type_name -> elephant.repository.EventlogItem
 	87,  // 8: elephant.repository.EventlogItem.acl:type_name -> elephant.repository.ACLEntry
@@ -11125,62 +11306,62 @@ var file_repository_service_proto_depIdxs = []int32{
 	42,  // 14: elephant.repository.CreateStatusRuleRequest.rule:type_name -> elephant.repository.StatusRule
 	136, // 15: elephant.repository.GetDocumentRequest.lock:type_name -> elephant.repository.AcquireLock
 	0,   // 16: elephant.repository.GetDocumentRequest.meta_document:type_name -> elephant.repository.GetMetaDoc
-	191, // 17: elephant.repository.GetDocumentResponse.document:type_name -> newsdoc.Document
+	194, // 17: elephant.repository.GetDocumentResponse.document:type_name -> newsdoc.Document
 	86,  // 18: elephant.repository.GetDocumentResponse.status:type_name -> elephant.repository.Status
 	54,  // 19: elephant.repository.GetDocumentResponse.meta:type_name -> elephant.repository.MetaDocument
 	48,  // 20: elephant.repository.GetDocumentResponse.subset:type_name -> elephant.repository.ExtractedValues
 	137, // 21: elephant.repository.GetDocumentResponse.lock:type_name -> elephant.repository.LockGrant
-	175, // 22: elephant.repository.ExtractedValues.values:type_name -> elephant.repository.ExtractedValues.ValuesEntry
-	192, // 23: elephant.repository.ExtractedValue.block:type_name -> newsdoc.Block
+	178, // 22: elephant.repository.ExtractedValues.values:type_name -> elephant.repository.ExtractedValues.ValuesEntry
+	195, // 23: elephant.repository.ExtractedValue.block:type_name -> newsdoc.Block
 	51,  // 24: elephant.repository.BulkGetRequest.documents:type_name -> elephant.repository.BulkGetReference
 	53,  // 25: elephant.repository.BulkGetResponse.items:type_name -> elephant.repository.BulkGetItem
-	191, // 26: elephant.repository.BulkGetItem.document:type_name -> newsdoc.Document
+	194, // 26: elephant.repository.BulkGetItem.document:type_name -> newsdoc.Document
 	48,  // 27: elephant.repository.BulkGetItem.subset:type_name -> elephant.repository.ExtractedValues
-	191, // 28: elephant.repository.MetaDocument.document:type_name -> newsdoc.Document
+	194, // 28: elephant.repository.MetaDocument.document:type_name -> newsdoc.Document
 	57,  // 29: elephant.repository.GetHistoryResponse.versions:type_name -> elephant.repository.DocumentVersion
-	176, // 30: elephant.repository.DocumentVersion.meta:type_name -> elephant.repository.DocumentVersion.MetaEntry
-	177, // 31: elephant.repository.DocumentVersion.statuses:type_name -> elephant.repository.DocumentVersion.StatusesEntry
+	179, // 30: elephant.repository.DocumentVersion.meta:type_name -> elephant.repository.DocumentVersion.MetaEntry
+	180, // 31: elephant.repository.DocumentVersion.statuses:type_name -> elephant.repository.DocumentVersion.StatusesEntry
 	86,  // 32: elephant.repository.DocumentStatuses.items:type_name -> elephant.repository.Status
-	191, // 33: elephant.repository.UpdateRequest.document:type_name -> newsdoc.Document
-	178, // 34: elephant.repository.UpdateRequest.meta:type_name -> elephant.repository.UpdateRequest.MetaEntry
+	194, // 33: elephant.repository.UpdateRequest.document:type_name -> newsdoc.Document
+	181, // 34: elephant.repository.UpdateRequest.meta:type_name -> elephant.repository.UpdateRequest.MetaEntry
 	70,  // 35: elephant.repository.UpdateRequest.status:type_name -> elephant.repository.StatusUpdate
 	87,  // 36: elephant.repository.UpdateRequest.acl:type_name -> elephant.repository.ACLEntry
 	60,  // 37: elephant.repository.UpdateRequest.import_directive:type_name -> elephant.repository.ImportDirective
-	179, // 38: elephant.repository.UpdateRequest.if_status_heads:type_name -> elephant.repository.UpdateRequest.IfStatusHeadsEntry
-	180, // 39: elephant.repository.UpdateRequest.attach_objects:type_name -> elephant.repository.UpdateRequest.AttachObjectsEntry
+	182, // 38: elephant.repository.UpdateRequest.if_status_heads:type_name -> elephant.repository.UpdateRequest.IfStatusHeadsEntry
+	183, // 39: elephant.repository.UpdateRequest.attach_objects:type_name -> elephant.repository.UpdateRequest.AttachObjectsEntry
 	59,  // 40: elephant.repository.BulkUpdateRequest.updates:type_name -> elephant.repository.UpdateRequest
 	61,  // 41: elephant.repository.BulkUpdateResponse.updates:type_name -> elephant.repository.UpdateResponse
-	191, // 42: elephant.repository.ValidateRequest.document:type_name -> newsdoc.Document
+	194, // 42: elephant.repository.ValidateRequest.document:type_name -> newsdoc.Document
 	68,  // 43: elephant.repository.ValidateResponse.errors:type_name -> elephant.repository.ValidationResult
-	191, // 44: elephant.repository.PruneRequest.document:type_name -> newsdoc.Document
-	191, // 45: elephant.repository.PruneResponse.document:type_name -> newsdoc.Document
+	194, // 44: elephant.repository.PruneRequest.document:type_name -> newsdoc.Document
+	194, // 45: elephant.repository.PruneResponse.document:type_name -> newsdoc.Document
 	68,  // 46: elephant.repository.PruneResponse.errors:type_name -> elephant.repository.ValidationResult
 	69,  // 47: elephant.repository.ValidationResult.entity:type_name -> elephant.repository.EntityRef
-	181, // 48: elephant.repository.StatusUpdate.meta:type_name -> elephant.repository.StatusUpdate.MetaEntry
+	184, // 48: elephant.repository.StatusUpdate.meta:type_name -> elephant.repository.StatusUpdate.MetaEntry
 	87,  // 49: elephant.repository.UpdatePermissionsRequest.list:type_name -> elephant.repository.ACLEntry
-	182, // 50: elephant.repository.DeleteDocumentRequest.meta:type_name -> elephant.repository.DeleteDocumentRequest.MetaEntry
+	185, // 50: elephant.repository.DeleteDocumentRequest.meta:type_name -> elephant.repository.DeleteDocumentRequest.MetaEntry
 	87,  // 51: elephant.repository.RestoreRequest.acl:type_name -> elephant.repository.ACLEntry
 	81,  // 52: elephant.repository.ListDeletedResponse.deletes:type_name -> elephant.repository.DeleteRecord
-	183, // 53: elephant.repository.DeleteRecord.meta:type_name -> elephant.repository.DeleteRecord.MetaEntry
+	186, // 53: elephant.repository.DeleteRecord.meta:type_name -> elephant.repository.DeleteRecord.MetaEntry
 	84,  // 54: elephant.repository.GetMetaResponse.meta:type_name -> elephant.repository.DocumentMeta
-	184, // 55: elephant.repository.DocumentMeta.heads:type_name -> elephant.repository.DocumentMeta.HeadsEntry
+	187, // 55: elephant.repository.DocumentMeta.heads:type_name -> elephant.repository.DocumentMeta.HeadsEntry
 	87,  // 56: elephant.repository.DocumentMeta.acl:type_name -> elephant.repository.ACLEntry
 	88,  // 57: elephant.repository.DocumentMeta.lock:type_name -> elephant.repository.Lock
 	85,  // 58: elephant.repository.DocumentMeta.attachments:type_name -> elephant.repository.AttachmentRef
-	185, // 59: elephant.repository.Status.meta:type_name -> elephant.repository.Status.MetaEntry
+	188, // 59: elephant.repository.Status.meta:type_name -> elephant.repository.Status.MetaEntry
 	1,   // 60: elephant.repository.Lock.exclusivity:type_name -> elephant.repository.LockExclusivity
 	97,  // 61: elephant.repository.GetMetaTypesResponse.types:type_name -> elephant.repository.MetaTypeInfo
 	115, // 62: elephant.repository.RegisterGenerationRequest.schemas:type_name -> elephant.repository.Schema
 	2,   // 63: elephant.repository.RegisterGenerationRequest.activation:type_name -> elephant.repository.SchemaActivation
-	191, // 64: elephant.repository.RegisterGenerationRequest.exemplars:type_name -> newsdoc.Document
+	194, // 64: elephant.repository.RegisterGenerationRequest.exemplars:type_name -> newsdoc.Document
 	2,   // 65: elephant.repository.SetActiveSchemasRequest.activation:type_name -> elephant.repository.SchemaActivation
 	104, // 66: elephant.repository.ListSchemaGenerationsResponse.items:type_name -> elephant.repository.SchemaGeneration
 	2,   // 67: elephant.repository.SchemaGeneration.status:type_name -> elephant.repository.SchemaActivation
 	114, // 68: elephant.repository.SchemaGeneration.schemas:type_name -> elephant.repository.SchemaReference
-	186, // 69: elephant.repository.GetExemplarsRequest.known:type_name -> elephant.repository.GetExemplarsRequest.KnownEntry
+	189, // 69: elephant.repository.GetExemplarsRequest.known:type_name -> elephant.repository.GetExemplarsRequest.KnownEntry
 	107, // 70: elephant.repository.GetExemplarsResponse.exemplars:type_name -> elephant.repository.Exemplar
-	191, // 71: elephant.repository.Exemplar.document:type_name -> newsdoc.Document
-	187, // 72: elephant.repository.GetAllActiveSchemasRequest.known:type_name -> elephant.repository.GetAllActiveSchemasRequest.KnownEntry
+	194, // 71: elephant.repository.Exemplar.document:type_name -> newsdoc.Document
+	190, // 72: elephant.repository.GetAllActiveSchemasRequest.known:type_name -> elephant.repository.GetAllActiveSchemasRequest.KnownEntry
 	115, // 73: elephant.repository.GetAllActiveSchemasResponse.schemas:type_name -> elephant.repository.Schema
 	115, // 74: elephant.repository.ListActiveSchemasResponse.schemas:type_name -> elephant.repository.Schema
 	117, // 75: elephant.repository.GetDeprecationsResponse.deprecations:type_name -> elephant.repository.Deprecation
@@ -11188,165 +11369,168 @@ var file_repository_service_proto_depIdxs = []int32{
 	3,   // 77: elephant.repository.RegisterMetricKindRequest.aggregation:type_name -> elephant.repository.MetricAggregation
 	127, // 78: elephant.repository.GetMetricKindsResponse.kinds:type_name -> elephant.repository.MetricKind
 	3,   // 79: elephant.repository.MetricKind.aggregation:type_name -> elephant.repository.MetricAggregation
-	188, // 80: elephant.repository.GetMetricsResponse.documents:type_name -> elephant.repository.GetMetricsResponse.DocumentsEntry
+	191, // 80: elephant.repository.GetMetricsResponse.documents:type_name -> elephant.repository.GetMetricsResponse.DocumentsEntry
 	133, // 81: elephant.repository.DocumentMetrics.metrics:type_name -> elephant.repository.Metric
 	1,   // 82: elephant.repository.LockRequest.exclusivity:type_name -> elephant.repository.LockExclusivity
 	1,   // 83: elephant.repository.AcquireLock.exclusivity:type_name -> elephant.repository.LockExclusivity
 	143, // 84: elephant.repository.GetWithheldResponse.items:type_name -> elephant.repository.ScheduledDocument
 	148, // 85: elephant.repository.BulkGetDeliverableInfoResponse.items:type_name -> elephant.repository.DeliverableInfo
-	189, // 86: elephant.repository.CreateUploadRequest.meta:type_name -> elephant.repository.CreateUploadRequest.MetaEntry
-	153, // 87: elephant.repository.GetAttachmentsResponse.attachments:type_name -> elephant.repository.AttachmentDetails
-	155, // 88: elephant.repository.ConfigureTypeRequest.configuration:type_name -> elephant.repository.TypeConfiguration
-	156, // 89: elephant.repository.TypeConfiguration.time_expressions:type_name -> elephant.repository.TypeTimeExpression
-	157, // 90: elephant.repository.TypeConfiguration.label_expressions:type_name -> elephant.repository.LabelExpression
-	155, // 91: elephant.repository.GetTypeConfigurationResponse.configuration:type_name -> elephant.repository.TypeConfiguration
-	26,  // 92: elephant.repository.GetMatchingRequest.timespan:type_name -> elephant.repository.Timespan
-	164, // 93: elephant.repository.GetMatchingRequest.filter:type_name -> elephant.repository.DocumentFilter
-	163, // 94: elephant.repository.GetMatchingResponse.matches:type_name -> elephant.repository.DocumentMatch
-	191, // 95: elephant.repository.DocumentMatch.document:type_name -> newsdoc.Document
-	84,  // 96: elephant.repository.DocumentMatch.meta:type_name -> elephant.repository.DocumentMeta
-	4,   // 97: elephant.repository.DocumentFilter.operator:type_name -> elephant.repository.FilterOperator
-	165, // 98: elephant.repository.DocumentFilter.values:type_name -> elephant.repository.FilterValues
-	164, // 99: elephant.repository.DocumentFilter.and:type_name -> elephant.repository.DocumentFilter
-	164, // 100: elephant.repository.DocumentFilter.or:type_name -> elephant.repository.DocumentFilter
-	190, // 101: elephant.repository.FilterValues.values:type_name -> elephant.repository.FilterValues.ValuesEntry
-	169, // 102: elephant.repository.ListDocumentsRequest.selectors:type_name -> elephant.repository.ListDocumentsSelector
-	5,   // 103: elephant.repository.ListDocumentsRequest.version:type_name -> elephant.repository.ListVersion
-	171, // 104: elephant.repository.ListDocumentsResponse.items:type_name -> elephant.repository.ListDocumentsItem
-	191, // 105: elephant.repository.ListDocumentsItem.document:type_name -> newsdoc.Document
-	48,  // 106: elephant.repository.ListDocumentsItem.subset:type_name -> elephant.repository.ExtractedValues
-	84,  // 107: elephant.repository.ListDocumentsItem.meta:type_name -> elephant.repository.DocumentMeta
-	58,  // 108: elephant.repository.GetNilStatusesResponse.StatusesEntry.value:type_name -> elephant.repository.DocumentStatuses
-	86,  // 109: elephant.repository.StatusOverviewItem.HeadsEntry.value:type_name -> elephant.repository.Status
-	49,  // 110: elephant.repository.ExtractedValues.ValuesEntry.value:type_name -> elephant.repository.ExtractedValue
-	58,  // 111: elephant.repository.DocumentVersion.StatusesEntry.value:type_name -> elephant.repository.DocumentStatuses
-	86,  // 112: elephant.repository.DocumentMeta.HeadsEntry.value:type_name -> elephant.repository.Status
-	132, // 113: elephant.repository.GetMetricsResponse.DocumentsEntry.value:type_name -> elephant.repository.DocumentMetrics
-	46,  // 114: elephant.repository.Documents.Get:input_type -> elephant.repository.GetDocumentRequest
-	50,  // 115: elephant.repository.Documents.BulkGet:input_type -> elephant.repository.BulkGetRequest
-	55,  // 116: elephant.repository.Documents.GetHistory:input_type -> elephant.repository.GetHistoryRequest
-	59,  // 117: elephant.repository.Documents.Update:input_type -> elephant.repository.UpdateRequest
-	62,  // 118: elephant.repository.Documents.BulkUpdate:input_type -> elephant.repository.BulkUpdateRequest
-	64,  // 119: elephant.repository.Documents.Validate:input_type -> elephant.repository.ValidateRequest
-	66,  // 120: elephant.repository.Documents.Prune:input_type -> elephant.repository.PruneRequest
-	6,   // 121: elephant.repository.Documents.Evict:input_type -> elephant.repository.EvictRequest
-	73,  // 122: elephant.repository.Documents.Delete:input_type -> elephant.repository.DeleteDocumentRequest
-	79,  // 123: elephant.repository.Documents.ListDeleted:input_type -> elephant.repository.ListDeletedRequest
-	75,  // 124: elephant.repository.Documents.Restore:input_type -> elephant.repository.RestoreRequest
-	77,  // 125: elephant.repository.Documents.Purge:input_type -> elephant.repository.PurgeRequest
-	82,  // 126: elephant.repository.Documents.GetMeta:input_type -> elephant.repository.GetMetaRequest
-	21,  // 127: elephant.repository.Documents.Eventlog:input_type -> elephant.repository.GetEventlogRequest
-	23,  // 128: elephant.repository.Documents.CompactedEventlog:input_type -> elephant.repository.GetCompactedEventlogRequest
-	8,   // 129: elephant.repository.Documents.GetStatus:input_type -> elephant.repository.GetStatusRequest
-	10,  // 130: elephant.repository.Documents.GetStatusHistory:input_type -> elephant.repository.GetStatusHistoryRequest
-	12,  // 131: elephant.repository.Documents.GetNilStatuses:input_type -> elephant.repository.GetNilStatusesRequest
-	14,  // 132: elephant.repository.Documents.GetStatusOverview:input_type -> elephant.repository.GetStatusOverviewRequest
-	17,  // 133: elephant.repository.Documents.GetPermissions:input_type -> elephant.repository.GetPermissionsRequest
-	19,  // 134: elephant.repository.Documents.BulkCheckPermissions:input_type -> elephant.repository.BulkCheckPermissionsRequest
-	134, // 135: elephant.repository.Documents.Lock:input_type -> elephant.repository.LockRequest
-	138, // 136: elephant.repository.Documents.ExtendLock:input_type -> elephant.repository.ExtendLockRequest
-	139, // 137: elephant.repository.Documents.Unlock:input_type -> elephant.repository.UnlockRequest
-	141, // 138: elephant.repository.Documents.GetWithheld:input_type -> elephant.repository.GetWithheldRequest
-	144, // 139: elephant.repository.Documents.GetDeliverableInfo:input_type -> elephant.repository.GetDeliverableInfoRequest
-	146, // 140: elephant.repository.Documents.BulkGetDeliverableInfo:input_type -> elephant.repository.BulkGetDeliverableInfoRequest
-	149, // 141: elephant.repository.Documents.CreateUpload:input_type -> elephant.repository.CreateUploadRequest
-	151, // 142: elephant.repository.Documents.GetAttachments:input_type -> elephant.repository.GetAttachmentsRequest
-	161, // 143: elephant.repository.Documents.GetMatching:input_type -> elephant.repository.GetMatchingRequest
-	166, // 144: elephant.repository.Documents.GetSocketToken:input_type -> elephant.repository.GetSocketTokenRequest
-	168, // 145: elephant.repository.Documents.ListDocuments:input_type -> elephant.repository.ListDocumentsRequest
-	98,  // 146: elephant.repository.Schemas.RegisterGeneration:input_type -> elephant.repository.RegisterGenerationRequest
-	100, // 147: elephant.repository.Schemas.SetActive:input_type -> elephant.repository.SetActiveSchemasRequest
-	102, // 148: elephant.repository.Schemas.ListGenerations:input_type -> elephant.repository.ListSchemaGenerationsRequest
-	105, // 149: elephant.repository.Schemas.GetExemplars:input_type -> elephant.repository.GetExemplarsRequest
-	108, // 150: elephant.repository.Schemas.Get:input_type -> elephant.repository.GetSchemaRequest
-	110, // 151: elephant.repository.Schemas.GetAllActive:input_type -> elephant.repository.GetAllActiveSchemasRequest
-	112, // 152: elephant.repository.Schemas.ListActive:input_type -> elephant.repository.ListActiveSchemasRequest
-	89,  // 153: elephant.repository.Schemas.RegisterMetaType:input_type -> elephant.repository.RegisterMetaTypeRequest
-	91,  // 154: elephant.repository.Schemas.RegisterMetaTypeUse:input_type -> elephant.repository.RegisterMetaTypeUseRequest
-	93,  // 155: elephant.repository.Schemas.GetMetaTypes:input_type -> elephant.repository.GetMetaTypesRequest
-	116, // 156: elephant.repository.Schemas.GetDeprecations:input_type -> elephant.repository.GetDeprecationsRequest
-	119, // 157: elephant.repository.Schemas.UpdateDeprecation:input_type -> elephant.repository.UpdateDeprecationRequest
-	95,  // 158: elephant.repository.Schemas.GetDocumentTypes:input_type -> elephant.repository.GetDocumentTypesRequest
-	154, // 159: elephant.repository.Schemas.ConfigureType:input_type -> elephant.repository.ConfigureTypeRequest
-	159, // 160: elephant.repository.Schemas.GetTypeConfiguration:input_type -> elephant.repository.GetTypeConfigurationRequest
-	39,  // 161: elephant.repository.Workflows.UpdateStatus:input_type -> elephant.repository.UpdateStatusRequest
-	29,  // 162: elephant.repository.Workflows.GetStatuses:input_type -> elephant.repository.GetStatusesRequest
-	41,  // 163: elephant.repository.Workflows.CreateStatusRule:input_type -> elephant.repository.CreateStatusRuleRequest
-	44,  // 164: elephant.repository.Workflows.DeleteStatusRule:input_type -> elephant.repository.DeleteStatusRuleRequest
-	27,  // 165: elephant.repository.Workflows.GetStatusRules:input_type -> elephant.repository.GetStatusRulesRequest
-	30,  // 166: elephant.repository.Workflows.SetWorkflow:input_type -> elephant.repository.SetWorkflowRequest
-	33,  // 167: elephant.repository.Workflows.GetWorkflow:input_type -> elephant.repository.GetWorkflowRequest
-	35,  // 168: elephant.repository.Workflows.DeleteWorkflow:input_type -> elephant.repository.DeleteWorkflowRequest
-	121, // 169: elephant.repository.Metrics.RegisterKind:input_type -> elephant.repository.RegisterMetricKindRequest
-	123, // 170: elephant.repository.Metrics.DeleteKind:input_type -> elephant.repository.DeleteMetricKindRequest
-	125, // 171: elephant.repository.Metrics.GetKinds:input_type -> elephant.repository.GetMetricKindsRequest
-	128, // 172: elephant.repository.Metrics.RegisterMetric:input_type -> elephant.repository.RegisterMetricRequest
-	130, // 173: elephant.repository.Metrics.GetMetrics:input_type -> elephant.repository.GetMetricsRequest
-	47,  // 174: elephant.repository.Documents.Get:output_type -> elephant.repository.GetDocumentResponse
-	52,  // 175: elephant.repository.Documents.BulkGet:output_type -> elephant.repository.BulkGetResponse
-	56,  // 176: elephant.repository.Documents.GetHistory:output_type -> elephant.repository.GetHistoryResponse
-	61,  // 177: elephant.repository.Documents.Update:output_type -> elephant.repository.UpdateResponse
-	63,  // 178: elephant.repository.Documents.BulkUpdate:output_type -> elephant.repository.BulkUpdateResponse
-	65,  // 179: elephant.repository.Documents.Validate:output_type -> elephant.repository.ValidateResponse
-	67,  // 180: elephant.repository.Documents.Prune:output_type -> elephant.repository.PruneResponse
-	7,   // 181: elephant.repository.Documents.Evict:output_type -> elephant.repository.EvictResponse
-	74,  // 182: elephant.repository.Documents.Delete:output_type -> elephant.repository.DeleteDocumentResponse
-	80,  // 183: elephant.repository.Documents.ListDeleted:output_type -> elephant.repository.ListDeletedResponse
-	76,  // 184: elephant.repository.Documents.Restore:output_type -> elephant.repository.RestoreResponse
-	78,  // 185: elephant.repository.Documents.Purge:output_type -> elephant.repository.PurgeResponse
-	83,  // 186: elephant.repository.Documents.GetMeta:output_type -> elephant.repository.GetMetaResponse
-	22,  // 187: elephant.repository.Documents.Eventlog:output_type -> elephant.repository.GetEventlogResponse
-	24,  // 188: elephant.repository.Documents.CompactedEventlog:output_type -> elephant.repository.GetCompactedEventlogResponse
-	9,   // 189: elephant.repository.Documents.GetStatus:output_type -> elephant.repository.GetStatusResponse
-	11,  // 190: elephant.repository.Documents.GetStatusHistory:output_type -> elephant.repository.GetStatusHistoryReponse
-	13,  // 191: elephant.repository.Documents.GetNilStatuses:output_type -> elephant.repository.GetNilStatusesResponse
-	15,  // 192: elephant.repository.Documents.GetStatusOverview:output_type -> elephant.repository.GetStatusOverviewResponse
-	18,  // 193: elephant.repository.Documents.GetPermissions:output_type -> elephant.repository.GetPermissionsResponse
-	20,  // 194: elephant.repository.Documents.BulkCheckPermissions:output_type -> elephant.repository.BulkCheckPermissionsResponse
-	135, // 195: elephant.repository.Documents.Lock:output_type -> elephant.repository.LockResponse
-	135, // 196: elephant.repository.Documents.ExtendLock:output_type -> elephant.repository.LockResponse
-	140, // 197: elephant.repository.Documents.Unlock:output_type -> elephant.repository.UnlockResponse
-	142, // 198: elephant.repository.Documents.GetWithheld:output_type -> elephant.repository.GetWithheldResponse
-	145, // 199: elephant.repository.Documents.GetDeliverableInfo:output_type -> elephant.repository.GetDeliverableInfoResponse
-	147, // 200: elephant.repository.Documents.BulkGetDeliverableInfo:output_type -> elephant.repository.BulkGetDeliverableInfoResponse
-	150, // 201: elephant.repository.Documents.CreateUpload:output_type -> elephant.repository.CreateUploadResponse
-	152, // 202: elephant.repository.Documents.GetAttachments:output_type -> elephant.repository.GetAttachmentsResponse
-	162, // 203: elephant.repository.Documents.GetMatching:output_type -> elephant.repository.GetMatchingResponse
-	167, // 204: elephant.repository.Documents.GetSocketToken:output_type -> elephant.repository.GetSocketTokenResponse
-	170, // 205: elephant.repository.Documents.ListDocuments:output_type -> elephant.repository.ListDocumentsResponse
-	99,  // 206: elephant.repository.Schemas.RegisterGeneration:output_type -> elephant.repository.RegisterGenerationResponse
-	101, // 207: elephant.repository.Schemas.SetActive:output_type -> elephant.repository.SetActiveSchemasResponse
-	103, // 208: elephant.repository.Schemas.ListGenerations:output_type -> elephant.repository.ListSchemaGenerationsResponse
-	106, // 209: elephant.repository.Schemas.GetExemplars:output_type -> elephant.repository.GetExemplarsResponse
-	109, // 210: elephant.repository.Schemas.Get:output_type -> elephant.repository.GetSchemaResponse
-	111, // 211: elephant.repository.Schemas.GetAllActive:output_type -> elephant.repository.GetAllActiveSchemasResponse
-	113, // 212: elephant.repository.Schemas.ListActive:output_type -> elephant.repository.ListActiveSchemasResponse
-	90,  // 213: elephant.repository.Schemas.RegisterMetaType:output_type -> elephant.repository.RegisterMetaTypeResponse
-	92,  // 214: elephant.repository.Schemas.RegisterMetaTypeUse:output_type -> elephant.repository.RegisterMetaTypeUseResponse
-	94,  // 215: elephant.repository.Schemas.GetMetaTypes:output_type -> elephant.repository.GetMetaTypesResponse
-	118, // 216: elephant.repository.Schemas.GetDeprecations:output_type -> elephant.repository.GetDeprecationsResponse
-	120, // 217: elephant.repository.Schemas.UpdateDeprecation:output_type -> elephant.repository.UpdateDeprecationResponse
-	96,  // 218: elephant.repository.Schemas.GetDocumentTypes:output_type -> elephant.repository.GetDocumentTypesResponse
-	158, // 219: elephant.repository.Schemas.ConfigureType:output_type -> elephant.repository.ConfigureTypeResponse
-	160, // 220: elephant.repository.Schemas.GetTypeConfiguration:output_type -> elephant.repository.GetTypeConfigurationResponse
-	40,  // 221: elephant.repository.Workflows.UpdateStatus:output_type -> elephant.repository.UpdateStatusResponse
-	38,  // 222: elephant.repository.Workflows.GetStatuses:output_type -> elephant.repository.GetStatusesResponse
-	43,  // 223: elephant.repository.Workflows.CreateStatusRule:output_type -> elephant.repository.CreateStatusRuleResponse
-	45,  // 224: elephant.repository.Workflows.DeleteStatusRule:output_type -> elephant.repository.DeleteStatusRuleResponse
-	28,  // 225: elephant.repository.Workflows.GetStatusRules:output_type -> elephant.repository.GetStatusRulesResponse
-	32,  // 226: elephant.repository.Workflows.SetWorkflow:output_type -> elephant.repository.SetWorkflowResponse
-	34,  // 227: elephant.repository.Workflows.GetWorkflow:output_type -> elephant.repository.GetWorkflowResponse
-	36,  // 228: elephant.repository.Workflows.DeleteWorkflow:output_type -> elephant.repository.DeleteWorkflowResponse
-	122, // 229: elephant.repository.Metrics.RegisterKind:output_type -> elephant.repository.RegisterMetricKindResponse
-	124, // 230: elephant.repository.Metrics.DeleteKind:output_type -> elephant.repository.DeleteMetricKindResponse
-	126, // 231: elephant.repository.Metrics.GetKinds:output_type -> elephant.repository.GetMetricKindsResponse
-	129, // 232: elephant.repository.Metrics.RegisterMetric:output_type -> elephant.repository.RegisterMetricResponse
-	131, // 233: elephant.repository.Metrics.GetMetrics:output_type -> elephant.repository.GetMetricsResponse
-	174, // [174:234] is the sub-list for method output_type
-	114, // [114:174] is the sub-list for method input_type
-	114, // [114:114] is the sub-list for extension type_name
-	114, // [114:114] is the sub-list for extension extendee
-	0,   // [0:114] is the sub-list for field type_name
+	151, // 86: elephant.repository.BulkGetAssignmentInfoResponse.items:type_name -> elephant.repository.AssignmentInfo
+	192, // 87: elephant.repository.CreateUploadRequest.meta:type_name -> elephant.repository.CreateUploadRequest.MetaEntry
+	156, // 88: elephant.repository.GetAttachmentsResponse.attachments:type_name -> elephant.repository.AttachmentDetails
+	158, // 89: elephant.repository.ConfigureTypeRequest.configuration:type_name -> elephant.repository.TypeConfiguration
+	159, // 90: elephant.repository.TypeConfiguration.time_expressions:type_name -> elephant.repository.TypeTimeExpression
+	160, // 91: elephant.repository.TypeConfiguration.label_expressions:type_name -> elephant.repository.LabelExpression
+	158, // 92: elephant.repository.GetTypeConfigurationResponse.configuration:type_name -> elephant.repository.TypeConfiguration
+	26,  // 93: elephant.repository.GetMatchingRequest.timespan:type_name -> elephant.repository.Timespan
+	167, // 94: elephant.repository.GetMatchingRequest.filter:type_name -> elephant.repository.DocumentFilter
+	166, // 95: elephant.repository.GetMatchingResponse.matches:type_name -> elephant.repository.DocumentMatch
+	194, // 96: elephant.repository.DocumentMatch.document:type_name -> newsdoc.Document
+	84,  // 97: elephant.repository.DocumentMatch.meta:type_name -> elephant.repository.DocumentMeta
+	4,   // 98: elephant.repository.DocumentFilter.operator:type_name -> elephant.repository.FilterOperator
+	168, // 99: elephant.repository.DocumentFilter.values:type_name -> elephant.repository.FilterValues
+	167, // 100: elephant.repository.DocumentFilter.and:type_name -> elephant.repository.DocumentFilter
+	167, // 101: elephant.repository.DocumentFilter.or:type_name -> elephant.repository.DocumentFilter
+	193, // 102: elephant.repository.FilterValues.values:type_name -> elephant.repository.FilterValues.ValuesEntry
+	172, // 103: elephant.repository.ListDocumentsRequest.selectors:type_name -> elephant.repository.ListDocumentsSelector
+	5,   // 104: elephant.repository.ListDocumentsRequest.version:type_name -> elephant.repository.ListVersion
+	174, // 105: elephant.repository.ListDocumentsResponse.items:type_name -> elephant.repository.ListDocumentsItem
+	194, // 106: elephant.repository.ListDocumentsItem.document:type_name -> newsdoc.Document
+	48,  // 107: elephant.repository.ListDocumentsItem.subset:type_name -> elephant.repository.ExtractedValues
+	84,  // 108: elephant.repository.ListDocumentsItem.meta:type_name -> elephant.repository.DocumentMeta
+	58,  // 109: elephant.repository.GetNilStatusesResponse.StatusesEntry.value:type_name -> elephant.repository.DocumentStatuses
+	86,  // 110: elephant.repository.StatusOverviewItem.HeadsEntry.value:type_name -> elephant.repository.Status
+	49,  // 111: elephant.repository.ExtractedValues.ValuesEntry.value:type_name -> elephant.repository.ExtractedValue
+	58,  // 112: elephant.repository.DocumentVersion.StatusesEntry.value:type_name -> elephant.repository.DocumentStatuses
+	86,  // 113: elephant.repository.DocumentMeta.HeadsEntry.value:type_name -> elephant.repository.Status
+	132, // 114: elephant.repository.GetMetricsResponse.DocumentsEntry.value:type_name -> elephant.repository.DocumentMetrics
+	46,  // 115: elephant.repository.Documents.Get:input_type -> elephant.repository.GetDocumentRequest
+	50,  // 116: elephant.repository.Documents.BulkGet:input_type -> elephant.repository.BulkGetRequest
+	55,  // 117: elephant.repository.Documents.GetHistory:input_type -> elephant.repository.GetHistoryRequest
+	59,  // 118: elephant.repository.Documents.Update:input_type -> elephant.repository.UpdateRequest
+	62,  // 119: elephant.repository.Documents.BulkUpdate:input_type -> elephant.repository.BulkUpdateRequest
+	64,  // 120: elephant.repository.Documents.Validate:input_type -> elephant.repository.ValidateRequest
+	66,  // 121: elephant.repository.Documents.Prune:input_type -> elephant.repository.PruneRequest
+	6,   // 122: elephant.repository.Documents.Evict:input_type -> elephant.repository.EvictRequest
+	73,  // 123: elephant.repository.Documents.Delete:input_type -> elephant.repository.DeleteDocumentRequest
+	79,  // 124: elephant.repository.Documents.ListDeleted:input_type -> elephant.repository.ListDeletedRequest
+	75,  // 125: elephant.repository.Documents.Restore:input_type -> elephant.repository.RestoreRequest
+	77,  // 126: elephant.repository.Documents.Purge:input_type -> elephant.repository.PurgeRequest
+	82,  // 127: elephant.repository.Documents.GetMeta:input_type -> elephant.repository.GetMetaRequest
+	21,  // 128: elephant.repository.Documents.Eventlog:input_type -> elephant.repository.GetEventlogRequest
+	23,  // 129: elephant.repository.Documents.CompactedEventlog:input_type -> elephant.repository.GetCompactedEventlogRequest
+	8,   // 130: elephant.repository.Documents.GetStatus:input_type -> elephant.repository.GetStatusRequest
+	10,  // 131: elephant.repository.Documents.GetStatusHistory:input_type -> elephant.repository.GetStatusHistoryRequest
+	12,  // 132: elephant.repository.Documents.GetNilStatuses:input_type -> elephant.repository.GetNilStatusesRequest
+	14,  // 133: elephant.repository.Documents.GetStatusOverview:input_type -> elephant.repository.GetStatusOverviewRequest
+	17,  // 134: elephant.repository.Documents.GetPermissions:input_type -> elephant.repository.GetPermissionsRequest
+	19,  // 135: elephant.repository.Documents.BulkCheckPermissions:input_type -> elephant.repository.BulkCheckPermissionsRequest
+	134, // 136: elephant.repository.Documents.Lock:input_type -> elephant.repository.LockRequest
+	138, // 137: elephant.repository.Documents.ExtendLock:input_type -> elephant.repository.ExtendLockRequest
+	139, // 138: elephant.repository.Documents.Unlock:input_type -> elephant.repository.UnlockRequest
+	141, // 139: elephant.repository.Documents.GetWithheld:input_type -> elephant.repository.GetWithheldRequest
+	144, // 140: elephant.repository.Documents.GetDeliverableInfo:input_type -> elephant.repository.GetDeliverableInfoRequest
+	146, // 141: elephant.repository.Documents.BulkGetDeliverableInfo:input_type -> elephant.repository.BulkGetDeliverableInfoRequest
+	149, // 142: elephant.repository.Documents.BulkGetAssignmentInfo:input_type -> elephant.repository.BulkGetAssignmentInfoRequest
+	152, // 143: elephant.repository.Documents.CreateUpload:input_type -> elephant.repository.CreateUploadRequest
+	154, // 144: elephant.repository.Documents.GetAttachments:input_type -> elephant.repository.GetAttachmentsRequest
+	164, // 145: elephant.repository.Documents.GetMatching:input_type -> elephant.repository.GetMatchingRequest
+	169, // 146: elephant.repository.Documents.GetSocketToken:input_type -> elephant.repository.GetSocketTokenRequest
+	171, // 147: elephant.repository.Documents.ListDocuments:input_type -> elephant.repository.ListDocumentsRequest
+	98,  // 148: elephant.repository.Schemas.RegisterGeneration:input_type -> elephant.repository.RegisterGenerationRequest
+	100, // 149: elephant.repository.Schemas.SetActive:input_type -> elephant.repository.SetActiveSchemasRequest
+	102, // 150: elephant.repository.Schemas.ListGenerations:input_type -> elephant.repository.ListSchemaGenerationsRequest
+	105, // 151: elephant.repository.Schemas.GetExemplars:input_type -> elephant.repository.GetExemplarsRequest
+	108, // 152: elephant.repository.Schemas.Get:input_type -> elephant.repository.GetSchemaRequest
+	110, // 153: elephant.repository.Schemas.GetAllActive:input_type -> elephant.repository.GetAllActiveSchemasRequest
+	112, // 154: elephant.repository.Schemas.ListActive:input_type -> elephant.repository.ListActiveSchemasRequest
+	89,  // 155: elephant.repository.Schemas.RegisterMetaType:input_type -> elephant.repository.RegisterMetaTypeRequest
+	91,  // 156: elephant.repository.Schemas.RegisterMetaTypeUse:input_type -> elephant.repository.RegisterMetaTypeUseRequest
+	93,  // 157: elephant.repository.Schemas.GetMetaTypes:input_type -> elephant.repository.GetMetaTypesRequest
+	116, // 158: elephant.repository.Schemas.GetDeprecations:input_type -> elephant.repository.GetDeprecationsRequest
+	119, // 159: elephant.repository.Schemas.UpdateDeprecation:input_type -> elephant.repository.UpdateDeprecationRequest
+	95,  // 160: elephant.repository.Schemas.GetDocumentTypes:input_type -> elephant.repository.GetDocumentTypesRequest
+	157, // 161: elephant.repository.Schemas.ConfigureType:input_type -> elephant.repository.ConfigureTypeRequest
+	162, // 162: elephant.repository.Schemas.GetTypeConfiguration:input_type -> elephant.repository.GetTypeConfigurationRequest
+	39,  // 163: elephant.repository.Workflows.UpdateStatus:input_type -> elephant.repository.UpdateStatusRequest
+	29,  // 164: elephant.repository.Workflows.GetStatuses:input_type -> elephant.repository.GetStatusesRequest
+	41,  // 165: elephant.repository.Workflows.CreateStatusRule:input_type -> elephant.repository.CreateStatusRuleRequest
+	44,  // 166: elephant.repository.Workflows.DeleteStatusRule:input_type -> elephant.repository.DeleteStatusRuleRequest
+	27,  // 167: elephant.repository.Workflows.GetStatusRules:input_type -> elephant.repository.GetStatusRulesRequest
+	30,  // 168: elephant.repository.Workflows.SetWorkflow:input_type -> elephant.repository.SetWorkflowRequest
+	33,  // 169: elephant.repository.Workflows.GetWorkflow:input_type -> elephant.repository.GetWorkflowRequest
+	35,  // 170: elephant.repository.Workflows.DeleteWorkflow:input_type -> elephant.repository.DeleteWorkflowRequest
+	121, // 171: elephant.repository.Metrics.RegisterKind:input_type -> elephant.repository.RegisterMetricKindRequest
+	123, // 172: elephant.repository.Metrics.DeleteKind:input_type -> elephant.repository.DeleteMetricKindRequest
+	125, // 173: elephant.repository.Metrics.GetKinds:input_type -> elephant.repository.GetMetricKindsRequest
+	128, // 174: elephant.repository.Metrics.RegisterMetric:input_type -> elephant.repository.RegisterMetricRequest
+	130, // 175: elephant.repository.Metrics.GetMetrics:input_type -> elephant.repository.GetMetricsRequest
+	47,  // 176: elephant.repository.Documents.Get:output_type -> elephant.repository.GetDocumentResponse
+	52,  // 177: elephant.repository.Documents.BulkGet:output_type -> elephant.repository.BulkGetResponse
+	56,  // 178: elephant.repository.Documents.GetHistory:output_type -> elephant.repository.GetHistoryResponse
+	61,  // 179: elephant.repository.Documents.Update:output_type -> elephant.repository.UpdateResponse
+	63,  // 180: elephant.repository.Documents.BulkUpdate:output_type -> elephant.repository.BulkUpdateResponse
+	65,  // 181: elephant.repository.Documents.Validate:output_type -> elephant.repository.ValidateResponse
+	67,  // 182: elephant.repository.Documents.Prune:output_type -> elephant.repository.PruneResponse
+	7,   // 183: elephant.repository.Documents.Evict:output_type -> elephant.repository.EvictResponse
+	74,  // 184: elephant.repository.Documents.Delete:output_type -> elephant.repository.DeleteDocumentResponse
+	80,  // 185: elephant.repository.Documents.ListDeleted:output_type -> elephant.repository.ListDeletedResponse
+	76,  // 186: elephant.repository.Documents.Restore:output_type -> elephant.repository.RestoreResponse
+	78,  // 187: elephant.repository.Documents.Purge:output_type -> elephant.repository.PurgeResponse
+	83,  // 188: elephant.repository.Documents.GetMeta:output_type -> elephant.repository.GetMetaResponse
+	22,  // 189: elephant.repository.Documents.Eventlog:output_type -> elephant.repository.GetEventlogResponse
+	24,  // 190: elephant.repository.Documents.CompactedEventlog:output_type -> elephant.repository.GetCompactedEventlogResponse
+	9,   // 191: elephant.repository.Documents.GetStatus:output_type -> elephant.repository.GetStatusResponse
+	11,  // 192: elephant.repository.Documents.GetStatusHistory:output_type -> elephant.repository.GetStatusHistoryReponse
+	13,  // 193: elephant.repository.Documents.GetNilStatuses:output_type -> elephant.repository.GetNilStatusesResponse
+	15,  // 194: elephant.repository.Documents.GetStatusOverview:output_type -> elephant.repository.GetStatusOverviewResponse
+	18,  // 195: elephant.repository.Documents.GetPermissions:output_type -> elephant.repository.GetPermissionsResponse
+	20,  // 196: elephant.repository.Documents.BulkCheckPermissions:output_type -> elephant.repository.BulkCheckPermissionsResponse
+	135, // 197: elephant.repository.Documents.Lock:output_type -> elephant.repository.LockResponse
+	135, // 198: elephant.repository.Documents.ExtendLock:output_type -> elephant.repository.LockResponse
+	140, // 199: elephant.repository.Documents.Unlock:output_type -> elephant.repository.UnlockResponse
+	142, // 200: elephant.repository.Documents.GetWithheld:output_type -> elephant.repository.GetWithheldResponse
+	145, // 201: elephant.repository.Documents.GetDeliverableInfo:output_type -> elephant.repository.GetDeliverableInfoResponse
+	147, // 202: elephant.repository.Documents.BulkGetDeliverableInfo:output_type -> elephant.repository.BulkGetDeliverableInfoResponse
+	150, // 203: elephant.repository.Documents.BulkGetAssignmentInfo:output_type -> elephant.repository.BulkGetAssignmentInfoResponse
+	153, // 204: elephant.repository.Documents.CreateUpload:output_type -> elephant.repository.CreateUploadResponse
+	155, // 205: elephant.repository.Documents.GetAttachments:output_type -> elephant.repository.GetAttachmentsResponse
+	165, // 206: elephant.repository.Documents.GetMatching:output_type -> elephant.repository.GetMatchingResponse
+	170, // 207: elephant.repository.Documents.GetSocketToken:output_type -> elephant.repository.GetSocketTokenResponse
+	173, // 208: elephant.repository.Documents.ListDocuments:output_type -> elephant.repository.ListDocumentsResponse
+	99,  // 209: elephant.repository.Schemas.RegisterGeneration:output_type -> elephant.repository.RegisterGenerationResponse
+	101, // 210: elephant.repository.Schemas.SetActive:output_type -> elephant.repository.SetActiveSchemasResponse
+	103, // 211: elephant.repository.Schemas.ListGenerations:output_type -> elephant.repository.ListSchemaGenerationsResponse
+	106, // 212: elephant.repository.Schemas.GetExemplars:output_type -> elephant.repository.GetExemplarsResponse
+	109, // 213: elephant.repository.Schemas.Get:output_type -> elephant.repository.GetSchemaResponse
+	111, // 214: elephant.repository.Schemas.GetAllActive:output_type -> elephant.repository.GetAllActiveSchemasResponse
+	113, // 215: elephant.repository.Schemas.ListActive:output_type -> elephant.repository.ListActiveSchemasResponse
+	90,  // 216: elephant.repository.Schemas.RegisterMetaType:output_type -> elephant.repository.RegisterMetaTypeResponse
+	92,  // 217: elephant.repository.Schemas.RegisterMetaTypeUse:output_type -> elephant.repository.RegisterMetaTypeUseResponse
+	94,  // 218: elephant.repository.Schemas.GetMetaTypes:output_type -> elephant.repository.GetMetaTypesResponse
+	118, // 219: elephant.repository.Schemas.GetDeprecations:output_type -> elephant.repository.GetDeprecationsResponse
+	120, // 220: elephant.repository.Schemas.UpdateDeprecation:output_type -> elephant.repository.UpdateDeprecationResponse
+	96,  // 221: elephant.repository.Schemas.GetDocumentTypes:output_type -> elephant.repository.GetDocumentTypesResponse
+	161, // 222: elephant.repository.Schemas.ConfigureType:output_type -> elephant.repository.ConfigureTypeResponse
+	163, // 223: elephant.repository.Schemas.GetTypeConfiguration:output_type -> elephant.repository.GetTypeConfigurationResponse
+	40,  // 224: elephant.repository.Workflows.UpdateStatus:output_type -> elephant.repository.UpdateStatusResponse
+	38,  // 225: elephant.repository.Workflows.GetStatuses:output_type -> elephant.repository.GetStatusesResponse
+	43,  // 226: elephant.repository.Workflows.CreateStatusRule:output_type -> elephant.repository.CreateStatusRuleResponse
+	45,  // 227: elephant.repository.Workflows.DeleteStatusRule:output_type -> elephant.repository.DeleteStatusRuleResponse
+	28,  // 228: elephant.repository.Workflows.GetStatusRules:output_type -> elephant.repository.GetStatusRulesResponse
+	32,  // 229: elephant.repository.Workflows.SetWorkflow:output_type -> elephant.repository.SetWorkflowResponse
+	34,  // 230: elephant.repository.Workflows.GetWorkflow:output_type -> elephant.repository.GetWorkflowResponse
+	36,  // 231: elephant.repository.Workflows.DeleteWorkflow:output_type -> elephant.repository.DeleteWorkflowResponse
+	122, // 232: elephant.repository.Metrics.RegisterKind:output_type -> elephant.repository.RegisterMetricKindResponse
+	124, // 233: elephant.repository.Metrics.DeleteKind:output_type -> elephant.repository.DeleteMetricKindResponse
+	126, // 234: elephant.repository.Metrics.GetKinds:output_type -> elephant.repository.GetMetricKindsResponse
+	129, // 235: elephant.repository.Metrics.RegisterMetric:output_type -> elephant.repository.RegisterMetricResponse
+	131, // 236: elephant.repository.Metrics.GetMetrics:output_type -> elephant.repository.GetMetricsResponse
+	176, // [176:237] is the sub-list for method output_type
+	115, // [115:176] is the sub-list for method input_type
+	115, // [115:115] is the sub-list for extension type_name
+	115, // [115:115] is the sub-list for extension extendee
+	0,   // [0:115] is the sub-list for field type_name
 }
 
 func init() { file_repository_service_proto_init() }
@@ -11360,7 +11544,7 @@ func file_repository_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_repository_service_proto_rawDesc), len(file_repository_service_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   185,
+			NumMessages:   188,
 			NumExtensions: 0,
 			NumServices:   4,
 		},
