@@ -1,0 +1,558 @@
+syntax = "proto3";
+
+package elephant.environment.v1;
+
+option go_package = "github.com/ttab/elephant-api/elephant/environment/v1;environmentv1";
+
+// EnvironmentsService is for machines: the BFF reads and reports. The
+// caller's token names its organisation (the "org" claim), and an
+// environment is visible only to its own organisation; one of another
+// organisation answers not_found, exactly as a missing one.
+//
+// An environment is one installation of the newsroom client, such as an
+// organisation's stage or production. Everything it holds may reach a
+// browser: it carries no secrets.
+service EnvironmentsService {
+  // GetEnvironment answers the current revision, the pending one if any,
+  // and the allow-list. With after_change set it is a long poll: it answers
+  // once the environment's change counter passes after_change, or with
+  // changed=false when wait runs out. Scope: env_read (env_admin also).
+  rpc GetEnvironment(GetEnvironmentRequest) returns (GetEnvironmentResponse);
+  // GetRevision answers one revision as stored, in any state.
+  // Scope: env_read (env_admin also).
+  rpc GetRevision(GetRevisionRequest) returns (GetRevisionResponse);
+  // Report records what a BFF provides, sees and registered. A
+  // configuration report for the pending revision decides it: accepted
+  // makes it current, refused abandons it. A report whose configuration id
+  // differs from the one stored on the revision is logged, decides nothing
+  // and is refused with failed_precondition, reason configuration_mismatch.
+  // Scope: env_report.
+  rpc Report(ReportRequest) returns (ReportResponse);
+}
+
+// EnvironmentAdminService is for an organisation's administrators, as the
+// user. env_admin authorises every write of revisions; env_validate reaches
+// ValidateEnvironment and Resolve only; the allow-list is written under
+// env_trust alone, and env_admin does not imply it.
+//
+// Refusals carry a reason in the error metadata: revision_mismatch (with
+// "current"), revision_pending (with "pending"), validation_failed,
+// lower_required, no_org and no_hub_client.
+service EnvironmentAdminService {
+  // UpdateEnvironment writes a new revision with the whole content. It is
+  // made over the current revision named by if_revision, and refused while
+  // another revision is pending. On the environment that owns its collab
+  // instance the revision is pending until a BFF reports that the instance
+  // took its configuration; anywhere else it is current at once.
+  // Scope: env_admin.
+  rpc UpdateEnvironment(UpdateEnvironmentRequest) returns (UpdateEnvironmentResponse);
+  // ValidateEnvironment runs every rule over the content without writing
+  // anything, and answers all problems. Scope: env_validate or env_admin.
+  rpc ValidateEnvironment(ValidateEnvironmentRequest) returns (ValidateEnvironmentResponse);
+  // ListRevisions lists revisions newest first, without content, lowered
+  // and abandoned ones included. Scope: env_admin.
+  rpc ListRevisions(ListRevisionsRequest) returns (ListRevisionsResponse);
+  // Resolve applies the base, the user's units and the user's own target
+  // to a revision, as the BFF does for a user. Scope: env_validate or
+  // env_admin.
+  rpc Resolve(ResolveRequest) returns (ResolveResponse);
+  // Restore writes a new revision with the content of an earlier one. It
+  // is a write like UpdateEnvironment, with the same rules. Restore never
+  // touches the allow-list. Scope: env_admin.
+  rpc Restore(RestoreRequest) returns (RestoreResponse);
+  // AbandonRevision gives up on the pending revision, for when no BFF
+  // reports on it. Anything but the pending revision is refused.
+  // Scope: env_admin.
+  rpc AbandonRevision(AbandonRevisionRequest) returns (AbandonRevisionResponse);
+  // ListPublishers answers the allow-list and its log.
+  // Scope: env_trust or env_admin.
+  rpc ListPublishers(ListPublishersRequest) returns (ListPublishersResponse);
+  // AddPublisher puts a signing key on the allow-list. Adding a key that
+  // is already there with the same label does nothing; with a new label it
+  // relabels it. Scope: env_trust.
+  rpc AddPublisher(AddPublisherRequest) returns (AddPublisherResponse);
+  // RemovePublisher takes a signing key off the allow-list at once, and
+  // answers what the current and pending revisions name that it signed.
+  // It refuses nothing. Scope: env_trust.
+  rpc RemovePublisher(RemovePublisherRequest) returns (RemovePublisherResponse);
+}
+
+// EnvironmentContent is what a write supplies and a revision stores. Fields
+// marked output only are set by the service and ignored on input.
+message EnvironmentContent {
+  Identity identity = 1;
+  // Public service name to public address. Names are what a plugin asks
+  // useServiceClient for, such as "repository" or "tables".
+  map<string, string> services = 2;
+  // The base plugin set, one entry per plugin id.
+  repeated PluginEntry plugins = 3;
+  // Plugin id to its settings, a JSON object as text. One value per id,
+  // the same for every target.
+  map<string, string> settings = 4;
+  // The mirror core module. Only on the owning environment.
+  CoreModule core = 5;
+  // The base flags.
+  map<string, bool> flags = 6;
+  repeated Target targets = 7;
+  HostSettings host = 8;
+}
+
+message Identity {
+  // Display name of the organisation, which replaces ORGANISATION_NAME.
+  string name = 1;
+  // BCP 47, e.g. "sv-se". Replaces SYSTEM_LANGUAGE.
+  string language = 2;
+  // "development", "stage" or "production".
+  string label = 3;
+}
+
+message PluginEntry {
+  // Plugin id, which is also the hub artifact name.
+  string id = 1;
+  // Exact semver, never a range. Empty only for a built-in plugin, which
+  // then gives chrome's own copy its settings.
+  string version = 2;
+  // Output only.
+  Pin pin = 3;
+}
+
+message CoreModule {
+  string version = 1;
+  // Output only.
+  Pin pin = 2;
+}
+
+// Pin is what a revision holds for a plugin version or the core, captured
+// from the hub the first time validation sees that version for the
+// organisation.
+message Pin {
+  // Hex SHA-256 of the manifest bytes the hub returned.
+  string manifest_sha256 = 1;
+  // SSH SHA256 fingerprint of the signing key.
+  string signing_identity = 2;
+  // RFC 3339; when validation first saw this version for the org.
+  string captured_at = 3;
+  // Hex SHA-256 of the "mirror" asset, empty when the plugin has no part.
+  string mirror_sha256 = 4;
+  // Core only: the wasm and page build SHA-256s, the declared format
+  // version and page interface version.
+  string core_wasm_sha256 = 5;
+  string core_page_sha256 = 6;
+  int32 format_version = 7;
+  int32 page_interface_version = 8;
+}
+
+// Target adds to the base for a unit's members, or overrides it for one
+// user.
+message Target {
+  TargetKind kind = 1;
+  // A unit URI for a unit target, a user's sub for a user target.
+  string subject = 2;
+  repeated TargetPlugin plugins = 3;
+  // Unit: a present key is on or off, an absent one is unset. User: a
+  // present key sets the flag either way.
+  map<string, bool> flags = 4;
+  repeated PreferredHandler preferred_handlers = 5;
+}
+
+enum TargetKind {
+  TARGET_KIND_UNSPECIFIED = 0;
+  TARGET_KIND_UNIT = 1;
+  TARGET_KIND_USER = 2;
+}
+
+message TargetPlugin {
+  string id = 1;
+  // Empty with off=true. A unit target always names a version.
+  string version = 2;
+  // User targets only: switch the plugin off, a built-in one included.
+  bool off = 3;
+  // Output only.
+  Pin pin = 4;
+}
+
+message PreferredHandler {
+  // The document type two plugins both open, e.g. "core/article".
+  string document_type = 1;
+  string plugin_id = 2;
+}
+
+message HostSettings {
+  // UI configuration, a JSON object as text. Replaces UI_CONFIGURATION.
+  string ui_configuration = 1;
+  // Observability collector address. Replaces FARO_URL.
+  string observability_collector = 2;
+}
+
+// Revision is one numbered, immutable version of an environment's content.
+message Revision {
+  int64 number = 1;
+  RevisionState state = 2;
+  // Unset in a ListRevisions answer.
+  EnvironmentContent content = 3;
+  // RFC 3339.
+  string created_at = 4;
+  Actor created_by = 5;
+  // The current revision this one was written over; 0 for the first.
+  int64 written_over = 6;
+  // Set when the revision was made by Restore.
+  int64 restored_from = 7;
+  // The write said lower=true, and the revision lowers a part or the core.
+  bool lowered = 8;
+  // The revision moved the format floor to itself.
+  bool raises_floor = 9;
+  int64 format_floor = 10;
+  // Empty until pins exist for the core and every part.
+  string configuration_id = 11;
+  // When the revision became current, or was abandoned.
+  string decided_at = 12;
+  // Why it was abandoned: the instance's refusal, or an administrator.
+  string abandon_reason = 13;
+  // Open sessions per application id and block type that the lowering
+  // hit, from the latest session report when the write was made.
+  SessionCounts sessions_hit = 14;
+}
+
+enum RevisionState {
+  REVISION_STATE_UNSPECIFIED = 0;
+  // Written to the owning environment and not yet reported as taken by the
+  // collab instance.
+  REVISION_STATE_PENDING = 1;
+  // The environment's current revision.
+  REVISION_STATE_CURRENT = 2;
+  // Was current, and a later revision has become current since.
+  REVISION_STATE_PREVIOUS = 3;
+  // Refused by the instance, or given up on by an administrator.
+  REVISION_STATE_ABANDONED = 4;
+}
+
+message Actor {
+  string sub = 1;
+  string name = 2;
+}
+
+// Publisher is a signing identity on an environment's allow-list.
+message Publisher {
+  // SSH SHA256 fingerprint of public_key; the publisher's identity.
+  string fingerprint = 1;
+  // Raw 32-byte Ed25519 public key.
+  bytes public_key = 2;
+  string label = 3;
+  // RFC 3339.
+  string added_at = 4;
+  Actor added_by = 5;
+}
+
+message PublisherLogEntry {
+  int64 id = 1;
+  PublisherAction action = 2;
+  string fingerprint = 3;
+  string label = 4;
+  // RFC 3339.
+  string created_at = 5;
+  Actor actor = 6;
+}
+
+enum PublisherAction {
+  PUBLISHER_ACTION_UNSPECIFIED = 0;
+  PUBLISHER_ACTION_ADDED = 1;
+  // An AddPublisher of a key already on the list, with a new label.
+  PUBLISHER_ACTION_RELABELLED = 2;
+  PUBLISHER_ACTION_REMOVED = 3;
+}
+
+// Alert is something that happened outside a write which the current or
+// pending revision is affected by.
+message Alert {
+  // "access_lost", "publisher_removed".
+  string kind = 1;
+  // "plugin" or "core".
+  string subject_kind = 2;
+  string name = 3;
+  string version = 4;
+  string detail = 5;
+  // RFC 3339.
+  string raised_at = 6;
+}
+
+message GetEnvironmentRequest {
+  string id = 1;
+  // The change counter of a previous answer. Zero answers at once.
+  int64 after_change = 2;
+  // How long to hold the call, in milliseconds. Capped by the service; 0
+  // with after_change set waits for the cap.
+  int32 wait_ms = 3;
+}
+
+message GetEnvironmentResponse {
+  // False when the wait ran out with nothing newer than after_change;
+  // the other fields are then still filled, as of now.
+  bool changed = 1;
+  // The environment's change counter, bumped by every revision, state
+  // transition, allow-list write, owner report and alert.
+  int64 change = 2;
+  string org = 3;
+  // Unset until the first revision becomes current.
+  Revision current = 4;
+  Revision pending = 5;
+  repeated Publisher publishers = 6;
+  // Whether the latest owner report says this environment owns its
+  // collab instance, and which environment does.
+  OwnerState owner = 7;
+  repeated Alert alerts = 8;
+}
+
+message OwnerState {
+  bool reported = 1;
+  string owning_environment = 2;
+  bool is_owner = 3;
+  // RFC 3339.
+  string reported_at = 4;
+}
+
+message GetRevisionRequest {
+  string id = 1;
+  int64 revision = 2;
+}
+
+message GetRevisionResponse {
+  Revision revision = 1;
+}
+
+message ReportRequest {
+  string id = 1;
+  // Free-form replica identity for the logs, e.g. the pod name.
+  string reporter = 2;
+  // Each part is optional; a BFF sends what it has.
+  HostManifest host_manifest = 3;
+  OwnerReport owner = 4;
+  ConfigurationReport configuration = 5;
+  SessionCounts sessions = 6;
+}
+
+// HostManifest is what one chrome build provides to plugins. Only the
+// latest report is kept.
+message HostManifest {
+  string chrome_version = 1;
+  int32 host_api_version = 2;
+  int32 host_api_minimum = 3;
+  // Import specifier to exact version.
+  map<string, string> shared_modules = 4;
+  repeated int32 page_interface_versions = 5;
+  // Built-in plugin id to the version chrome ships.
+  map<string, string> builtin_plugins = 6;
+  // Switches the server acts on (HAS_STREAM and the like), by flag name.
+  // A flag the server has off may not be turned on.
+  map<string, bool> server_flags = 7;
+}
+
+message OwnerReport {
+  // The owning environment the collab instance answers.
+  string owning_environment = 1;
+  // The instance's active configuration as it answered.
+  string active_configuration_id = 2;
+  int64 active_revision = 3;
+  int64 active_format_floor = 4;
+}
+
+message ConfigurationReport {
+  int64 revision = 1;
+  string configuration_id = 2;
+  int64 format_floor = 3;
+  bool accepted = 4;
+  // The instance's refusal code and message when accepted is false.
+  string refusal_code = 5;
+  string refusal_message = 6;
+}
+
+message SessionCounts {
+  map<string, int64> application_ids = 1;
+  map<string, int64> block_types = 2;
+  // RFC 3339.
+  string observed_at = 3;
+}
+
+message ReportResponse {
+  // The revision a configuration report decided, and how.
+  RevisionState decided = 1;
+}
+
+message UpdateEnvironmentRequest {
+  string id = 1;
+  // The current revision the write is made over; 0 creates the
+  // environment. Refused if it is not the current revision.
+  int64 if_revision = 2;
+  // The whole new content, not a patch.
+  EnvironmentContent content = 3;
+  // Must be set for a revision that lowers a part or the core.
+  bool lower = 4;
+}
+
+message UpdateEnvironmentResponse {
+  Revision revision = 1;
+  repeated Problem warnings = 2;
+}
+
+message ValidateEnvironmentRequest {
+  string id = 1;
+  EnvironmentContent content = 2;
+  // Stands in for the reported host manifest, for the CI gate.
+  HostManifest host = 3;
+  // Publishers to treat as on the allow-list for this call only, so a
+  // change that adds a publisher and a plugin can be checked at once.
+  repeated Publisher assume_publishers = 4;
+}
+
+message ValidateEnvironmentResponse {
+  repeated Problem problems = 1;
+  bool valid = 2;
+  bool lowers = 3;
+  // What would go: plugin ids or "core" with the version lowered from.
+  repeated Lowering lowerings = 4;
+  SessionCounts sessions_hit = 5;
+  bool raises_floor = 6;
+  int64 format_floor = 7;
+  string configuration_id = 8;
+  // The content as it would be stored, pins filled.
+  EnvironmentContent pinned = 9;
+}
+
+message Problem {
+  Severity severity = 1;
+  // Stable rule code, e.g. "unit_version_not_above_base".
+  string rule = 2;
+  // Where in the content, e.g. "targets[unit:core://unit/x].plugins[se.a]".
+  string path = 3;
+  string message = 4;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_ERROR = 1;
+  SEVERITY_WARNING = 2;
+}
+
+message Lowering {
+  // A plugin id, or "core".
+  string name = 1;
+  string from_version = 2;
+  // Empty when removed.
+  string to_version = 3;
+}
+
+message ListRevisionsRequest {
+  string id = 1;
+  // Revisions below this number; 0 for the newest.
+  int64 before = 2;
+  // Default 50, at most 200.
+  int32 limit = 3;
+}
+
+message ListRevisionsResponse {
+  // Newest first, without content.
+  repeated Revision revisions = 1;
+}
+
+message ResolveRequest {
+  string id = 1;
+  // The effective (impersonated) user's units and sub.
+  repeated string units = 2;
+  string user = 3;
+  // 0 for the current revision.
+  int64 revision = 4;
+}
+
+message ResolveResponse {
+  int64 revision = 1;
+  repeated ResolvedPlugin plugins = 2;
+  map<string, bool> flags = 3;
+  repeated PreferredHandler preferred_handlers = 4;
+  repeated DroppedPlugin dropped = 5;
+}
+
+message ResolvedPlugin {
+  string id = 1;
+  // Empty for chrome's built-in copy.
+  string version = 2;
+  Pin pin = 3;
+  string settings = 4;
+  // "base", "unit:<uri>" or "user".
+  string source = 5;
+}
+
+message DroppedPlugin {
+  string id = 1;
+  string version = 2;
+  // "switched_off", "provider_missing", "provider_out_of_range".
+  string reason = 3;
+  string detail = 4;
+}
+
+message RestoreRequest {
+  string id = 1;
+  // The revision whose content is written again.
+  int64 revision = 2;
+  // As UpdateEnvironment's: the current revision, refused otherwise.
+  int64 if_revision = 3;
+  bool lower = 4;
+}
+
+message RestoreResponse {
+  Revision revision = 1;
+  repeated Problem warnings = 2;
+}
+
+message AbandonRevisionRequest {
+  string id = 1;
+  int64 revision = 2;
+  string reason = 3;
+}
+
+message AbandonRevisionResponse {
+  Revision revision = 1;
+}
+
+message ListPublishersRequest {
+  string id = 1;
+}
+
+message ListPublishersResponse {
+  repeated Publisher publishers = 1;
+  // Newest first.
+  repeated PublisherLogEntry log = 2;
+}
+
+message AddPublisherRequest {
+  string id = 1;
+  // Raw 32-byte Ed25519 public key.
+  bytes public_key = 2;
+  string label = 3;
+  // Optional; checked against the key when given.
+  string fingerprint = 4;
+}
+
+message AddPublisherResponse {
+  Publisher publisher = 1;
+}
+
+message RemovePublisherRequest {
+  string id = 1;
+  string fingerprint = 2;
+}
+
+message RemovePublisherResponse {
+  // What the current and pending revisions name that this publisher
+  // signed: "plugin" or "core" entries with their versions.
+  repeated SignedEntry affected = 1;
+}
+
+message SignedEntry {
+  // "current" or "pending".
+  string revision_state = 1;
+  int64 revision = 2;
+  // A plugin id or "core".
+  string name = 3;
+  string version = 4;
+  // "base", "unit:<uri>", "user:<sub>" or "core".
+  string where = 5;
+}

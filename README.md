@@ -25,6 +25,7 @@ Consuming the Go code needs Go 1.27 or later.
 | **Tables** | `elephant.tables.v1` | Tabular data owned by documents: databases, schemas, rows and read-only SQL, live changes over `Watch`, snapshots and publications, imports, and a coarse event log. | [proto](elephant/tables/v1/service.proto) |
 | **Stream** | `elephant.stream.v1` | Live events and their media, served by elephant-stream. The event lifecycle (`ControlService`), signed playback URLs and downloads (`PlaybackService`), clips (`ClipService`), audio for transcription (`AudioService`), transcripts (`TranscriptService`), chunked uploads (`UploadService`) and the photo outbox (`PhotoService`). | [protos](elephant/stream/v1/) |
 | **Delegate** | `elephant.delegate.v1` | Tokens for the Elephant CMS app's native shell, served by elephant-delegate. Every token is derived from the caller's own and carries no more power than it. | [proto](elephant/delegate/v1/service.proto) |
+| **Environment** | `elephant.environment.v1` | Newsroom client installations, served by elephant-environment. Revisions of an environment's identity, services, plugin set, flags, targets and host settings, the long poll and reports the chrome BFF uses (`EnvironmentsService`), and writes, validation, resolution and the publisher allow-list for administrators (`EnvironmentAdminService`). | [proto](elephant/environment/v1/service.proto) |
 | **Notifications** | `elephant.user.v1` | The notification feed. Stream and list the caller's notifications, subscribe users to documents, and ingest events about documents from producers. | [proto](elephant/user/v1/service.proto) |
 
 The [`newsdoc`](newsdoc/newsdoc.proto) package carries the shared NewsDoc
@@ -52,6 +53,11 @@ per service, rather than a single `service.proto`.
 
 `elephant.user.v1` is Connect-only for the same reason as collab: its
 `NotificationsService` declares the server stream `Stream`.
+
+`elephant.environment.v1` declares no stream, but is in the versioned layout
+and so is Connect-only all the same: `environmentv1connect` holds
+connect-go's `New<Service>Client` and `New<Service>Handler` for
+`EnvironmentsService` and `EnvironmentAdminService`, and nothing else.
 
 ## Using the APIs
 

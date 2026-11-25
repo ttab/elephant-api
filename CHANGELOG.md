@@ -4,6 +4,31 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
+## [v0.32.0] - Unreleased
+
+**New service (environment):** `elephant.environment.v1` is the declaration
+for elephant-environment, which holds what is true of one installation of the
+newsroom client and is safe to reach a browser: identity, public service
+addresses, the plugin set with pinned versions and settings, the mirror core
+module, flags, unit and user targets, host settings, and the publisher
+allow-list. Every change is a numbered, immutable revision; on the environment
+that owns its collab instance a write is pending until the BFF reports that
+the instance took its configuration. It is two services in one package:
+`EnvironmentsService` for the BFF (`GetEnvironment`, a long poll on the
+environment's change counter, `GetRevision` and `Report`, under `env_read`
+and `env_report`) and `EnvironmentAdminService` for administrators
+(`UpdateEnvironment`, `Restore`, `AbandonRevision` and `ListRevisions` under
+`env_admin`, `ValidateEnvironment` and `Resolve` under `env_validate` too, and
+`ListPublishers`, `AddPublisher` and `RemovePublisher` under `env_trust`). It
+is declared at `elephant/environment/v1/service.proto`; Go consumers import
+`github.com/ttab/elephant-api/elephant/environment/v1` and
+`github.com/ttab/elephant-api/elephant/environment/v1/environmentv1connect`.
+
+**Connect only, on connect-go's own interface:** like collab and tables, it is
+in the versioned layout, so `environmentv1connect` holds only connect-go's
+`New<Service>Client` and `New<Service>Handler`. There is no `/twirp/` mount
+and no plain-interface adapter.
+
 ## [v0.31.0] - 2026-11-23
 
 **New service (tables):** `elephant.tables.v1` is the declaration for
