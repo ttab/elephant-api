@@ -2756,8 +2756,11 @@ type ResolveResponse struct {
 	Flags             map[string]bool        `protobuf:"bytes,3,rep,name=flags,proto3" json:"flags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	PreferredHandlers []*PreferredHandler    `protobuf:"bytes,4,rep,name=preferred_handlers,json=preferredHandlers,proto3" json:"preferred_handlers,omitempty"`
 	Dropped           []*DroppedPlugin       `protobuf:"bytes,5,rep,name=dropped,proto3" json:"dropped,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Preferences that were ignored because a unit earlier in subject order
+	// prefers another plugin for the same document type.
+	Conflicts     []*HandlerConflict `protobuf:"bytes,6,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ResolveResponse) Reset() {
@@ -2825,6 +2828,92 @@ func (x *ResolveResponse) GetDropped() []*DroppedPlugin {
 	return nil
 }
 
+func (x *ResolveResponse) GetConflicts() []*HandlerConflict {
+	if x != nil {
+		return x.Conflicts
+	}
+	return nil
+}
+
+type HandlerConflict struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	DocumentType string                 `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
+	// The plugin that is preferred, and the unit that prefers it, as
+	// "unit:<uri>".
+	Kept     string `protobuf:"bytes,2,opt,name=kept,proto3" json:"kept,omitempty"`
+	KeptFrom string `protobuf:"bytes,3,opt,name=kept_from,json=keptFrom,proto3" json:"kept_from,omitempty"`
+	// The plugin whose preference was ignored, and its source.
+	Ignored       string `protobuf:"bytes,4,opt,name=ignored,proto3" json:"ignored,omitempty"`
+	IgnoredFrom   string `protobuf:"bytes,5,opt,name=ignored_from,json=ignoredFrom,proto3" json:"ignored_from,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandlerConflict) Reset() {
+	*x = HandlerConflict{}
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandlerConflict) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandlerConflict) ProtoMessage() {}
+
+func (x *HandlerConflict) ProtoReflect() protoreflect.Message {
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandlerConflict.ProtoReflect.Descriptor instead.
+func (*HandlerConflict) Descriptor() ([]byte, []int) {
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *HandlerConflict) GetDocumentType() string {
+	if x != nil {
+		return x.DocumentType
+	}
+	return ""
+}
+
+func (x *HandlerConflict) GetKept() string {
+	if x != nil {
+		return x.Kept
+	}
+	return ""
+}
+
+func (x *HandlerConflict) GetKeptFrom() string {
+	if x != nil {
+		return x.KeptFrom
+	}
+	return ""
+}
+
+func (x *HandlerConflict) GetIgnored() string {
+	if x != nil {
+		return x.Ignored
+	}
+	return ""
+}
+
+func (x *HandlerConflict) GetIgnoredFrom() string {
+	if x != nil {
+		return x.IgnoredFrom
+	}
+	return ""
+}
+
 type ResolvedPlugin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -2840,7 +2929,7 @@ type ResolvedPlugin struct {
 
 func (x *ResolvedPlugin) Reset() {
 	*x = ResolvedPlugin{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[35]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2852,7 +2941,7 @@ func (x *ResolvedPlugin) String() string {
 func (*ResolvedPlugin) ProtoMessage() {}
 
 func (x *ResolvedPlugin) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[35]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2865,7 +2954,7 @@ func (x *ResolvedPlugin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolvedPlugin.ProtoReflect.Descriptor instead.
 func (*ResolvedPlugin) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{35}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ResolvedPlugin) GetId() string {
@@ -2916,7 +3005,7 @@ type DroppedPlugin struct {
 
 func (x *DroppedPlugin) Reset() {
 	*x = DroppedPlugin{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[36]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2928,7 +3017,7 @@ func (x *DroppedPlugin) String() string {
 func (*DroppedPlugin) ProtoMessage() {}
 
 func (x *DroppedPlugin) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[36]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2941,7 +3030,7 @@ func (x *DroppedPlugin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DroppedPlugin.ProtoReflect.Descriptor instead.
 func (*DroppedPlugin) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{36}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *DroppedPlugin) GetId() string {
@@ -2986,7 +3075,7 @@ type RestoreRequest struct {
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[37]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2998,7 +3087,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[37]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3011,7 +3100,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{37}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *RestoreRequest) GetId() string {
@@ -3052,7 +3141,7 @@ type RestoreResponse struct {
 
 func (x *RestoreResponse) Reset() {
 	*x = RestoreResponse{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[38]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3064,7 +3153,7 @@ func (x *RestoreResponse) String() string {
 func (*RestoreResponse) ProtoMessage() {}
 
 func (x *RestoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[38]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3077,7 +3166,7 @@ func (x *RestoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreResponse.ProtoReflect.Descriptor instead.
 func (*RestoreResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{38}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *RestoreResponse) GetRevision() *Revision {
@@ -3105,7 +3194,7 @@ type AbandonRevisionRequest struct {
 
 func (x *AbandonRevisionRequest) Reset() {
 	*x = AbandonRevisionRequest{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[39]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3117,7 +3206,7 @@ func (x *AbandonRevisionRequest) String() string {
 func (*AbandonRevisionRequest) ProtoMessage() {}
 
 func (x *AbandonRevisionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[39]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3130,7 +3219,7 @@ func (x *AbandonRevisionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AbandonRevisionRequest.ProtoReflect.Descriptor instead.
 func (*AbandonRevisionRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{39}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *AbandonRevisionRequest) GetId() string {
@@ -3163,7 +3252,7 @@ type AbandonRevisionResponse struct {
 
 func (x *AbandonRevisionResponse) Reset() {
 	*x = AbandonRevisionResponse{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[40]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3175,7 +3264,7 @@ func (x *AbandonRevisionResponse) String() string {
 func (*AbandonRevisionResponse) ProtoMessage() {}
 
 func (x *AbandonRevisionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[40]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3188,7 +3277,7 @@ func (x *AbandonRevisionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AbandonRevisionResponse.ProtoReflect.Descriptor instead.
 func (*AbandonRevisionResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{40}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AbandonRevisionResponse) GetRevision() *Revision {
@@ -3207,7 +3296,7 @@ type ListPublishersRequest struct {
 
 func (x *ListPublishersRequest) Reset() {
 	*x = ListPublishersRequest{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[41]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3219,7 +3308,7 @@ func (x *ListPublishersRequest) String() string {
 func (*ListPublishersRequest) ProtoMessage() {}
 
 func (x *ListPublishersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[41]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3232,7 +3321,7 @@ func (x *ListPublishersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPublishersRequest.ProtoReflect.Descriptor instead.
 func (*ListPublishersRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{41}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListPublishersRequest) GetId() string {
@@ -3253,7 +3342,7 @@ type ListPublishersResponse struct {
 
 func (x *ListPublishersResponse) Reset() {
 	*x = ListPublishersResponse{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[42]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3265,7 +3354,7 @@ func (x *ListPublishersResponse) String() string {
 func (*ListPublishersResponse) ProtoMessage() {}
 
 func (x *ListPublishersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[42]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3278,7 +3367,7 @@ func (x *ListPublishersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPublishersResponse.ProtoReflect.Descriptor instead.
 func (*ListPublishersResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{42}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListPublishersResponse) GetPublishers() []*Publisher {
@@ -3309,7 +3398,7 @@ type AddPublisherRequest struct {
 
 func (x *AddPublisherRequest) Reset() {
 	*x = AddPublisherRequest{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[43]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3321,7 +3410,7 @@ func (x *AddPublisherRequest) String() string {
 func (*AddPublisherRequest) ProtoMessage() {}
 
 func (x *AddPublisherRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[43]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3334,7 +3423,7 @@ func (x *AddPublisherRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddPublisherRequest.ProtoReflect.Descriptor instead.
 func (*AddPublisherRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{43}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *AddPublisherRequest) GetId() string {
@@ -3374,7 +3463,7 @@ type AddPublisherResponse struct {
 
 func (x *AddPublisherResponse) Reset() {
 	*x = AddPublisherResponse{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[44]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3386,7 +3475,7 @@ func (x *AddPublisherResponse) String() string {
 func (*AddPublisherResponse) ProtoMessage() {}
 
 func (x *AddPublisherResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[44]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3399,7 +3488,7 @@ func (x *AddPublisherResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddPublisherResponse.ProtoReflect.Descriptor instead.
 func (*AddPublisherResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{44}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *AddPublisherResponse) GetPublisher() *Publisher {
@@ -3419,7 +3508,7 @@ type RemovePublisherRequest struct {
 
 func (x *RemovePublisherRequest) Reset() {
 	*x = RemovePublisherRequest{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[45]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3431,7 +3520,7 @@ func (x *RemovePublisherRequest) String() string {
 func (*RemovePublisherRequest) ProtoMessage() {}
 
 func (x *RemovePublisherRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[45]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3444,7 +3533,7 @@ func (x *RemovePublisherRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemovePublisherRequest.ProtoReflect.Descriptor instead.
 func (*RemovePublisherRequest) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{45}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *RemovePublisherRequest) GetId() string {
@@ -3472,7 +3561,7 @@ type RemovePublisherResponse struct {
 
 func (x *RemovePublisherResponse) Reset() {
 	*x = RemovePublisherResponse{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[46]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3484,7 +3573,7 @@ func (x *RemovePublisherResponse) String() string {
 func (*RemovePublisherResponse) ProtoMessage() {}
 
 func (x *RemovePublisherResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[46]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3497,7 +3586,7 @@ func (x *RemovePublisherResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemovePublisherResponse.ProtoReflect.Descriptor instead.
 func (*RemovePublisherResponse) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{46}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *RemovePublisherResponse) GetAffected() []*SignedEntry {
@@ -3523,7 +3612,7 @@ type SignedEntry struct {
 
 func (x *SignedEntry) Reset() {
 	*x = SignedEntry{}
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[47]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3535,7 +3624,7 @@ func (x *SignedEntry) String() string {
 func (*SignedEntry) ProtoMessage() {}
 
 func (x *SignedEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_elephant_environment_v1_service_proto_msgTypes[47]
+	mi := &file_elephant_environment_v1_service_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3548,7 +3637,7 @@ func (x *SignedEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedEntry.ProtoReflect.Descriptor instead.
 func (*SignedEntry) Descriptor() ([]byte, []int) {
-	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{47}
+	return file_elephant_environment_v1_service_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *SignedEntry) GetRevisionState() string {
@@ -3818,17 +3907,24 @@ const file_elephant_environment_v1_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05units\x18\x02 \x03(\tR\x05units\x12\x12\n" +
 	"\x04user\x18\x03 \x01(\tR\x04user\x12\x1a\n" +
-	"\brevision\x18\x04 \x01(\x03R\brevision\"\x91\x03\n" +
+	"\brevision\x18\x04 \x01(\x03R\brevision\"\xd9\x03\n" +
 	"\x0fResolveResponse\x12\x1a\n" +
 	"\brevision\x18\x01 \x01(\x03R\brevision\x12A\n" +
 	"\aplugins\x18\x02 \x03(\v2'.elephant.environment.v1.ResolvedPluginR\aplugins\x12I\n" +
 	"\x05flags\x18\x03 \x03(\v23.elephant.environment.v1.ResolveResponse.FlagsEntryR\x05flags\x12X\n" +
 	"\x12preferred_handlers\x18\x04 \x03(\v2).elephant.environment.v1.PreferredHandlerR\x11preferredHandlers\x12@\n" +
-	"\adropped\x18\x05 \x03(\v2&.elephant.environment.v1.DroppedPluginR\adropped\x1a8\n" +
+	"\adropped\x18\x05 \x03(\v2&.elephant.environment.v1.DroppedPluginR\adropped\x12F\n" +
+	"\tconflicts\x18\x06 \x03(\v2(.elephant.environment.v1.HandlerConflictR\tconflicts\x1a8\n" +
 	"\n" +
 	"FlagsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01\"\x9e\x01\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01\"\xa4\x01\n" +
+	"\x0fHandlerConflict\x12#\n" +
+	"\rdocument_type\x18\x01 \x01(\tR\fdocumentType\x12\x12\n" +
+	"\x04kept\x18\x02 \x01(\tR\x04kept\x12\x1b\n" +
+	"\tkept_from\x18\x03 \x01(\tR\bkeptFrom\x12\x18\n" +
+	"\aignored\x18\x04 \x01(\tR\aignored\x12!\n" +
+	"\fignored_from\x18\x05 \x01(\tR\vignoredFrom\"\x9e\x01\n" +
 	"\x0eResolvedPlugin\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12.\n" +
@@ -3929,7 +4025,7 @@ func file_elephant_environment_v1_service_proto_rawDescGZIP() []byte {
 }
 
 var file_elephant_environment_v1_service_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_elephant_environment_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
+var file_elephant_environment_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_elephant_environment_v1_service_proto_goTypes = []any{
 	(TargetKind)(0),                     // 0: elephant.environment.v1.TargetKind
 	(RevisionState)(0),                  // 1: elephant.environment.v1.RevisionState
@@ -3970,44 +4066,45 @@ var file_elephant_environment_v1_service_proto_goTypes = []any{
 	(*ListRevisionsResponse)(nil),       // 36: elephant.environment.v1.ListRevisionsResponse
 	(*ResolveRequest)(nil),              // 37: elephant.environment.v1.ResolveRequest
 	(*ResolveResponse)(nil),             // 38: elephant.environment.v1.ResolveResponse
-	(*ResolvedPlugin)(nil),              // 39: elephant.environment.v1.ResolvedPlugin
-	(*DroppedPlugin)(nil),               // 40: elephant.environment.v1.DroppedPlugin
-	(*RestoreRequest)(nil),              // 41: elephant.environment.v1.RestoreRequest
-	(*RestoreResponse)(nil),             // 42: elephant.environment.v1.RestoreResponse
-	(*AbandonRevisionRequest)(nil),      // 43: elephant.environment.v1.AbandonRevisionRequest
-	(*AbandonRevisionResponse)(nil),     // 44: elephant.environment.v1.AbandonRevisionResponse
-	(*ListPublishersRequest)(nil),       // 45: elephant.environment.v1.ListPublishersRequest
-	(*ListPublishersResponse)(nil),      // 46: elephant.environment.v1.ListPublishersResponse
-	(*AddPublisherRequest)(nil),         // 47: elephant.environment.v1.AddPublisherRequest
-	(*AddPublisherResponse)(nil),        // 48: elephant.environment.v1.AddPublisherResponse
-	(*RemovePublisherRequest)(nil),      // 49: elephant.environment.v1.RemovePublisherRequest
-	(*RemovePublisherResponse)(nil),     // 50: elephant.environment.v1.RemovePublisherResponse
-	(*SignedEntry)(nil),                 // 51: elephant.environment.v1.SignedEntry
-	nil,                                 // 52: elephant.environment.v1.EnvironmentContent.ServicesEntry
-	nil,                                 // 53: elephant.environment.v1.EnvironmentContent.SettingsEntry
-	nil,                                 // 54: elephant.environment.v1.EnvironmentContent.FlagsEntry
-	nil,                                 // 55: elephant.environment.v1.Target.FlagsEntry
-	nil,                                 // 56: elephant.environment.v1.HostManifest.SharedModulesEntry
-	nil,                                 // 57: elephant.environment.v1.HostManifest.BuiltinPluginsEntry
-	nil,                                 // 58: elephant.environment.v1.HostManifest.ServerFlagsEntry
-	nil,                                 // 59: elephant.environment.v1.SessionCounts.ApplicationIdsEntry
-	nil,                                 // 60: elephant.environment.v1.SessionCounts.BlockTypesEntry
-	nil,                                 // 61: elephant.environment.v1.ResolveResponse.FlagsEntry
+	(*HandlerConflict)(nil),             // 39: elephant.environment.v1.HandlerConflict
+	(*ResolvedPlugin)(nil),              // 40: elephant.environment.v1.ResolvedPlugin
+	(*DroppedPlugin)(nil),               // 41: elephant.environment.v1.DroppedPlugin
+	(*RestoreRequest)(nil),              // 42: elephant.environment.v1.RestoreRequest
+	(*RestoreResponse)(nil),             // 43: elephant.environment.v1.RestoreResponse
+	(*AbandonRevisionRequest)(nil),      // 44: elephant.environment.v1.AbandonRevisionRequest
+	(*AbandonRevisionResponse)(nil),     // 45: elephant.environment.v1.AbandonRevisionResponse
+	(*ListPublishersRequest)(nil),       // 46: elephant.environment.v1.ListPublishersRequest
+	(*ListPublishersResponse)(nil),      // 47: elephant.environment.v1.ListPublishersResponse
+	(*AddPublisherRequest)(nil),         // 48: elephant.environment.v1.AddPublisherRequest
+	(*AddPublisherResponse)(nil),        // 49: elephant.environment.v1.AddPublisherResponse
+	(*RemovePublisherRequest)(nil),      // 50: elephant.environment.v1.RemovePublisherRequest
+	(*RemovePublisherResponse)(nil),     // 51: elephant.environment.v1.RemovePublisherResponse
+	(*SignedEntry)(nil),                 // 52: elephant.environment.v1.SignedEntry
+	nil,                                 // 53: elephant.environment.v1.EnvironmentContent.ServicesEntry
+	nil,                                 // 54: elephant.environment.v1.EnvironmentContent.SettingsEntry
+	nil,                                 // 55: elephant.environment.v1.EnvironmentContent.FlagsEntry
+	nil,                                 // 56: elephant.environment.v1.Target.FlagsEntry
+	nil,                                 // 57: elephant.environment.v1.HostManifest.SharedModulesEntry
+	nil,                                 // 58: elephant.environment.v1.HostManifest.BuiltinPluginsEntry
+	nil,                                 // 59: elephant.environment.v1.HostManifest.ServerFlagsEntry
+	nil,                                 // 60: elephant.environment.v1.SessionCounts.ApplicationIdsEntry
+	nil,                                 // 61: elephant.environment.v1.SessionCounts.BlockTypesEntry
+	nil,                                 // 62: elephant.environment.v1.ResolveResponse.FlagsEntry
 }
 var file_elephant_environment_v1_service_proto_depIdxs = []int32{
 	5,  // 0: elephant.environment.v1.EnvironmentContent.identity:type_name -> elephant.environment.v1.Identity
-	52, // 1: elephant.environment.v1.EnvironmentContent.services:type_name -> elephant.environment.v1.EnvironmentContent.ServicesEntry
+	53, // 1: elephant.environment.v1.EnvironmentContent.services:type_name -> elephant.environment.v1.EnvironmentContent.ServicesEntry
 	6,  // 2: elephant.environment.v1.EnvironmentContent.plugins:type_name -> elephant.environment.v1.PluginEntry
-	53, // 3: elephant.environment.v1.EnvironmentContent.settings:type_name -> elephant.environment.v1.EnvironmentContent.SettingsEntry
+	54, // 3: elephant.environment.v1.EnvironmentContent.settings:type_name -> elephant.environment.v1.EnvironmentContent.SettingsEntry
 	7,  // 4: elephant.environment.v1.EnvironmentContent.core:type_name -> elephant.environment.v1.CoreModule
-	54, // 5: elephant.environment.v1.EnvironmentContent.flags:type_name -> elephant.environment.v1.EnvironmentContent.FlagsEntry
+	55, // 5: elephant.environment.v1.EnvironmentContent.flags:type_name -> elephant.environment.v1.EnvironmentContent.FlagsEntry
 	9,  // 6: elephant.environment.v1.EnvironmentContent.targets:type_name -> elephant.environment.v1.Target
 	12, // 7: elephant.environment.v1.EnvironmentContent.host:type_name -> elephant.environment.v1.HostSettings
 	8,  // 8: elephant.environment.v1.PluginEntry.pin:type_name -> elephant.environment.v1.Pin
 	8,  // 9: elephant.environment.v1.CoreModule.pin:type_name -> elephant.environment.v1.Pin
 	0,  // 10: elephant.environment.v1.Target.kind:type_name -> elephant.environment.v1.TargetKind
 	10, // 11: elephant.environment.v1.Target.plugins:type_name -> elephant.environment.v1.TargetPlugin
-	55, // 12: elephant.environment.v1.Target.flags:type_name -> elephant.environment.v1.Target.FlagsEntry
+	56, // 12: elephant.environment.v1.Target.flags:type_name -> elephant.environment.v1.Target.FlagsEntry
 	11, // 13: elephant.environment.v1.Target.preferred_handlers:type_name -> elephant.environment.v1.PreferredHandler
 	8,  // 14: elephant.environment.v1.TargetPlugin.pin:type_name -> elephant.environment.v1.Pin
 	1,  // 15: elephant.environment.v1.Revision.state:type_name -> elephant.environment.v1.RevisionState
@@ -4027,11 +4124,11 @@ var file_elephant_environment_v1_service_proto_depIdxs = []int32{
 	25, // 29: elephant.environment.v1.ReportRequest.owner:type_name -> elephant.environment.v1.OwnerReport
 	26, // 30: elephant.environment.v1.ReportRequest.configuration:type_name -> elephant.environment.v1.ConfigurationReport
 	27, // 31: elephant.environment.v1.ReportRequest.sessions:type_name -> elephant.environment.v1.SessionCounts
-	56, // 32: elephant.environment.v1.HostManifest.shared_modules:type_name -> elephant.environment.v1.HostManifest.SharedModulesEntry
-	57, // 33: elephant.environment.v1.HostManifest.builtin_plugins:type_name -> elephant.environment.v1.HostManifest.BuiltinPluginsEntry
-	58, // 34: elephant.environment.v1.HostManifest.server_flags:type_name -> elephant.environment.v1.HostManifest.ServerFlagsEntry
-	59, // 35: elephant.environment.v1.SessionCounts.application_ids:type_name -> elephant.environment.v1.SessionCounts.ApplicationIdsEntry
-	60, // 36: elephant.environment.v1.SessionCounts.block_types:type_name -> elephant.environment.v1.SessionCounts.BlockTypesEntry
+	57, // 32: elephant.environment.v1.HostManifest.shared_modules:type_name -> elephant.environment.v1.HostManifest.SharedModulesEntry
+	58, // 33: elephant.environment.v1.HostManifest.builtin_plugins:type_name -> elephant.environment.v1.HostManifest.BuiltinPluginsEntry
+	59, // 34: elephant.environment.v1.HostManifest.server_flags:type_name -> elephant.environment.v1.HostManifest.ServerFlagsEntry
+	60, // 35: elephant.environment.v1.SessionCounts.application_ids:type_name -> elephant.environment.v1.SessionCounts.ApplicationIdsEntry
+	61, // 36: elephant.environment.v1.SessionCounts.block_types:type_name -> elephant.environment.v1.SessionCounts.BlockTypesEntry
 	1,  // 37: elephant.environment.v1.ReportResponse.decided:type_name -> elephant.environment.v1.RevisionState
 	4,  // 38: elephant.environment.v1.UpdateEnvironmentRequest.content:type_name -> elephant.environment.v1.EnvironmentContent
 	13, // 39: elephant.environment.v1.UpdateEnvironmentResponse.revision:type_name -> elephant.environment.v1.Revision
@@ -4045,47 +4142,48 @@ var file_elephant_environment_v1_service_proto_depIdxs = []int32{
 	4,  // 47: elephant.environment.v1.ValidateEnvironmentResponse.pinned:type_name -> elephant.environment.v1.EnvironmentContent
 	3,  // 48: elephant.environment.v1.Problem.severity:type_name -> elephant.environment.v1.Severity
 	13, // 49: elephant.environment.v1.ListRevisionsResponse.revisions:type_name -> elephant.environment.v1.Revision
-	39, // 50: elephant.environment.v1.ResolveResponse.plugins:type_name -> elephant.environment.v1.ResolvedPlugin
-	61, // 51: elephant.environment.v1.ResolveResponse.flags:type_name -> elephant.environment.v1.ResolveResponse.FlagsEntry
+	40, // 50: elephant.environment.v1.ResolveResponse.plugins:type_name -> elephant.environment.v1.ResolvedPlugin
+	62, // 51: elephant.environment.v1.ResolveResponse.flags:type_name -> elephant.environment.v1.ResolveResponse.FlagsEntry
 	11, // 52: elephant.environment.v1.ResolveResponse.preferred_handlers:type_name -> elephant.environment.v1.PreferredHandler
-	40, // 53: elephant.environment.v1.ResolveResponse.dropped:type_name -> elephant.environment.v1.DroppedPlugin
-	8,  // 54: elephant.environment.v1.ResolvedPlugin.pin:type_name -> elephant.environment.v1.Pin
-	13, // 55: elephant.environment.v1.RestoreResponse.revision:type_name -> elephant.environment.v1.Revision
-	33, // 56: elephant.environment.v1.RestoreResponse.warnings:type_name -> elephant.environment.v1.Problem
-	13, // 57: elephant.environment.v1.AbandonRevisionResponse.revision:type_name -> elephant.environment.v1.Revision
-	15, // 58: elephant.environment.v1.ListPublishersResponse.publishers:type_name -> elephant.environment.v1.Publisher
-	16, // 59: elephant.environment.v1.ListPublishersResponse.log:type_name -> elephant.environment.v1.PublisherLogEntry
-	15, // 60: elephant.environment.v1.AddPublisherResponse.publisher:type_name -> elephant.environment.v1.Publisher
-	51, // 61: elephant.environment.v1.RemovePublisherResponse.affected:type_name -> elephant.environment.v1.SignedEntry
-	18, // 62: elephant.environment.v1.EnvironmentsService.GetEnvironment:input_type -> elephant.environment.v1.GetEnvironmentRequest
-	21, // 63: elephant.environment.v1.EnvironmentsService.GetRevision:input_type -> elephant.environment.v1.GetRevisionRequest
-	23, // 64: elephant.environment.v1.EnvironmentsService.Report:input_type -> elephant.environment.v1.ReportRequest
-	29, // 65: elephant.environment.v1.EnvironmentAdminService.UpdateEnvironment:input_type -> elephant.environment.v1.UpdateEnvironmentRequest
-	31, // 66: elephant.environment.v1.EnvironmentAdminService.ValidateEnvironment:input_type -> elephant.environment.v1.ValidateEnvironmentRequest
-	35, // 67: elephant.environment.v1.EnvironmentAdminService.ListRevisions:input_type -> elephant.environment.v1.ListRevisionsRequest
-	37, // 68: elephant.environment.v1.EnvironmentAdminService.Resolve:input_type -> elephant.environment.v1.ResolveRequest
-	41, // 69: elephant.environment.v1.EnvironmentAdminService.Restore:input_type -> elephant.environment.v1.RestoreRequest
-	43, // 70: elephant.environment.v1.EnvironmentAdminService.AbandonRevision:input_type -> elephant.environment.v1.AbandonRevisionRequest
-	45, // 71: elephant.environment.v1.EnvironmentAdminService.ListPublishers:input_type -> elephant.environment.v1.ListPublishersRequest
-	47, // 72: elephant.environment.v1.EnvironmentAdminService.AddPublisher:input_type -> elephant.environment.v1.AddPublisherRequest
-	49, // 73: elephant.environment.v1.EnvironmentAdminService.RemovePublisher:input_type -> elephant.environment.v1.RemovePublisherRequest
-	19, // 74: elephant.environment.v1.EnvironmentsService.GetEnvironment:output_type -> elephant.environment.v1.GetEnvironmentResponse
-	22, // 75: elephant.environment.v1.EnvironmentsService.GetRevision:output_type -> elephant.environment.v1.GetRevisionResponse
-	28, // 76: elephant.environment.v1.EnvironmentsService.Report:output_type -> elephant.environment.v1.ReportResponse
-	30, // 77: elephant.environment.v1.EnvironmentAdminService.UpdateEnvironment:output_type -> elephant.environment.v1.UpdateEnvironmentResponse
-	32, // 78: elephant.environment.v1.EnvironmentAdminService.ValidateEnvironment:output_type -> elephant.environment.v1.ValidateEnvironmentResponse
-	36, // 79: elephant.environment.v1.EnvironmentAdminService.ListRevisions:output_type -> elephant.environment.v1.ListRevisionsResponse
-	38, // 80: elephant.environment.v1.EnvironmentAdminService.Resolve:output_type -> elephant.environment.v1.ResolveResponse
-	42, // 81: elephant.environment.v1.EnvironmentAdminService.Restore:output_type -> elephant.environment.v1.RestoreResponse
-	44, // 82: elephant.environment.v1.EnvironmentAdminService.AbandonRevision:output_type -> elephant.environment.v1.AbandonRevisionResponse
-	46, // 83: elephant.environment.v1.EnvironmentAdminService.ListPublishers:output_type -> elephant.environment.v1.ListPublishersResponse
-	48, // 84: elephant.environment.v1.EnvironmentAdminService.AddPublisher:output_type -> elephant.environment.v1.AddPublisherResponse
-	50, // 85: elephant.environment.v1.EnvironmentAdminService.RemovePublisher:output_type -> elephant.environment.v1.RemovePublisherResponse
-	74, // [74:86] is the sub-list for method output_type
-	62, // [62:74] is the sub-list for method input_type
-	62, // [62:62] is the sub-list for extension type_name
-	62, // [62:62] is the sub-list for extension extendee
-	0,  // [0:62] is the sub-list for field type_name
+	41, // 53: elephant.environment.v1.ResolveResponse.dropped:type_name -> elephant.environment.v1.DroppedPlugin
+	39, // 54: elephant.environment.v1.ResolveResponse.conflicts:type_name -> elephant.environment.v1.HandlerConflict
+	8,  // 55: elephant.environment.v1.ResolvedPlugin.pin:type_name -> elephant.environment.v1.Pin
+	13, // 56: elephant.environment.v1.RestoreResponse.revision:type_name -> elephant.environment.v1.Revision
+	33, // 57: elephant.environment.v1.RestoreResponse.warnings:type_name -> elephant.environment.v1.Problem
+	13, // 58: elephant.environment.v1.AbandonRevisionResponse.revision:type_name -> elephant.environment.v1.Revision
+	15, // 59: elephant.environment.v1.ListPublishersResponse.publishers:type_name -> elephant.environment.v1.Publisher
+	16, // 60: elephant.environment.v1.ListPublishersResponse.log:type_name -> elephant.environment.v1.PublisherLogEntry
+	15, // 61: elephant.environment.v1.AddPublisherResponse.publisher:type_name -> elephant.environment.v1.Publisher
+	52, // 62: elephant.environment.v1.RemovePublisherResponse.affected:type_name -> elephant.environment.v1.SignedEntry
+	18, // 63: elephant.environment.v1.EnvironmentsService.GetEnvironment:input_type -> elephant.environment.v1.GetEnvironmentRequest
+	21, // 64: elephant.environment.v1.EnvironmentsService.GetRevision:input_type -> elephant.environment.v1.GetRevisionRequest
+	23, // 65: elephant.environment.v1.EnvironmentsService.Report:input_type -> elephant.environment.v1.ReportRequest
+	29, // 66: elephant.environment.v1.EnvironmentAdminService.UpdateEnvironment:input_type -> elephant.environment.v1.UpdateEnvironmentRequest
+	31, // 67: elephant.environment.v1.EnvironmentAdminService.ValidateEnvironment:input_type -> elephant.environment.v1.ValidateEnvironmentRequest
+	35, // 68: elephant.environment.v1.EnvironmentAdminService.ListRevisions:input_type -> elephant.environment.v1.ListRevisionsRequest
+	37, // 69: elephant.environment.v1.EnvironmentAdminService.Resolve:input_type -> elephant.environment.v1.ResolveRequest
+	42, // 70: elephant.environment.v1.EnvironmentAdminService.Restore:input_type -> elephant.environment.v1.RestoreRequest
+	44, // 71: elephant.environment.v1.EnvironmentAdminService.AbandonRevision:input_type -> elephant.environment.v1.AbandonRevisionRequest
+	46, // 72: elephant.environment.v1.EnvironmentAdminService.ListPublishers:input_type -> elephant.environment.v1.ListPublishersRequest
+	48, // 73: elephant.environment.v1.EnvironmentAdminService.AddPublisher:input_type -> elephant.environment.v1.AddPublisherRequest
+	50, // 74: elephant.environment.v1.EnvironmentAdminService.RemovePublisher:input_type -> elephant.environment.v1.RemovePublisherRequest
+	19, // 75: elephant.environment.v1.EnvironmentsService.GetEnvironment:output_type -> elephant.environment.v1.GetEnvironmentResponse
+	22, // 76: elephant.environment.v1.EnvironmentsService.GetRevision:output_type -> elephant.environment.v1.GetRevisionResponse
+	28, // 77: elephant.environment.v1.EnvironmentsService.Report:output_type -> elephant.environment.v1.ReportResponse
+	30, // 78: elephant.environment.v1.EnvironmentAdminService.UpdateEnvironment:output_type -> elephant.environment.v1.UpdateEnvironmentResponse
+	32, // 79: elephant.environment.v1.EnvironmentAdminService.ValidateEnvironment:output_type -> elephant.environment.v1.ValidateEnvironmentResponse
+	36, // 80: elephant.environment.v1.EnvironmentAdminService.ListRevisions:output_type -> elephant.environment.v1.ListRevisionsResponse
+	38, // 81: elephant.environment.v1.EnvironmentAdminService.Resolve:output_type -> elephant.environment.v1.ResolveResponse
+	43, // 82: elephant.environment.v1.EnvironmentAdminService.Restore:output_type -> elephant.environment.v1.RestoreResponse
+	45, // 83: elephant.environment.v1.EnvironmentAdminService.AbandonRevision:output_type -> elephant.environment.v1.AbandonRevisionResponse
+	47, // 84: elephant.environment.v1.EnvironmentAdminService.ListPublishers:output_type -> elephant.environment.v1.ListPublishersResponse
+	49, // 85: elephant.environment.v1.EnvironmentAdminService.AddPublisher:output_type -> elephant.environment.v1.AddPublisherResponse
+	51, // 86: elephant.environment.v1.EnvironmentAdminService.RemovePublisher:output_type -> elephant.environment.v1.RemovePublisherResponse
+	75, // [75:87] is the sub-list for method output_type
+	63, // [63:75] is the sub-list for method input_type
+	63, // [63:63] is the sub-list for extension type_name
+	63, // [63:63] is the sub-list for extension extendee
+	0,  // [0:63] is the sub-list for field type_name
 }
 
 func init() { file_elephant_environment_v1_service_proto_init() }
@@ -4099,7 +4197,7 @@ func file_elephant_environment_v1_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_elephant_environment_v1_service_proto_rawDesc), len(file_elephant_environment_v1_service_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   58,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

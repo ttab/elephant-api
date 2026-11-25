@@ -468,6 +468,20 @@ message ResolveResponse {
   map<string, bool> flags = 3;
   repeated PreferredHandler preferred_handlers = 4;
   repeated DroppedPlugin dropped = 5;
+  // Preferences that were ignored because a unit earlier in subject order
+  // prefers another plugin for the same document type.
+  repeated HandlerConflict conflicts = 6;
+}
+
+message HandlerConflict {
+  string document_type = 1;
+  // The plugin that is preferred, and the unit that prefers it, as
+  // "unit:<uri>".
+  string kept = 2;
+  string kept_from = 3;
+  // The plugin whose preference was ignored, and its source.
+  string ignored = 4;
+  string ignored_from = 5;
 }
 
 message ResolvedPlugin {

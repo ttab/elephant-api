@@ -19,7 +19,8 @@ environment's change counter, `GetRevision` and `Report`, under `env_read`
 and `env_report`) and `EnvironmentAdminService` for administrators
 (`UpdateEnvironment`, `Restore`, `AbandonRevision` and `ListRevisions` under
 `env_admin`, `ValidateEnvironment` and `Resolve` under `env_validate` too, and
-`ListPublishers`, `AddPublisher` and `RemovePublisher` under `env_trust`). It
+`AddPublisher` and `RemovePublisher` under `env_trust`, and `ListPublishers`
+under `env_trust` or `env_admin`). It
 is declared at `elephant/environment/v1/service.proto`; Go consumers import
 `github.com/ttab/elephant-api/elephant/environment/v1` and
 `github.com/ttab/elephant-api/elephant/environment/v1/environmentv1connect`.
