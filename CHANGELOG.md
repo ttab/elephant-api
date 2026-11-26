@@ -4,7 +4,7 @@ Everything from v0.25.0 onwards is documented here; earlier releases are not
 reconstructed. The entries are derived from the release tags, and the linked
 pull requests hold the detail.
 
-## [v0.32.0] - Unreleased
+## [v0.32.0] - 2026-11-26
 
 **New service (environment):** `elephant.environment.v1` is the declaration
 for elephant-environment, which holds what is true of one installation of the
